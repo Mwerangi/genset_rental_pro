@@ -34,9 +34,10 @@ class Booking extends Model
 
     protected $casts = [
         'rental_start_date' => 'date',
-        'rental_end_date' => 'date',
-        'approved_at' => 'datetime',
-        'total_amount' => 'decimal:2',
+        'rental_end_date'   => 'date',
+        'approved_at'       => 'datetime',
+        'cancelled_at'      => 'datetime',
+        'total_amount'      => 'decimal:2',
     ];
 
     protected static function boot()

@@ -440,7 +440,8 @@ class QuotationController extends Controller
         $quotation->load(['quoteRequest', 'client', 'createdBy', 'items']);
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.quotations.pdf', compact('quotation'));
-        
+        $pdf->setPaper('A4', 'portrait');
+
         return $pdf->download($quotation->quotation_number . '.pdf');
     }
 }

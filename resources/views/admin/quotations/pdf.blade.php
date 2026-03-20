@@ -1,425 +1,302 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Quotation {{ $quotation->quotation_number }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 12px;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .container {
-            padding: 40px;
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1a1a1a; background: #ffffff; }
+        .page { padding: 36px 42px; min-height: 100vh; }
 
         /* Header */
-        .header {
-            margin-bottom: 40px;
-            border-bottom: 3px solid #DC2626;
-            padding-bottom: 20px;
-        }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .company-name { font-size: 22pt; font-weight: bold; color: #c00000; }
+        .company-sub { font-size: 9pt; color: #555; margin-top: 4px; }
+        .company-contact { font-size: 8.5pt; color: #666; margin-top: 6px; line-height: 1.6; }
+        .doc-label { font-size: 26pt; font-weight: bold; color: #c00000; text-align: right; }
+        .doc-meta td { font-size: 9pt; padding: 2px 0; }
+        .doc-meta .label { color: #888; width: 90px; }
+        .doc-meta .value { font-weight: bold; color: #1a1a1a; }
 
-        .company-name {
-            font-size: 32px;
-            font-weight: bold;
-            color: #DC2626;
-            margin-bottom: 5px;
-        }
+        /* Divider */
+        .divider { border: none; border-top: 2px solid #c00000; margin: 18px 0; }
 
-        .company-tagline {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .company-info {
-            font-size: 11px;
-            color: #666;
-            line-height: 1.8;
-        }
-
-        /* Document Title */
-        .document-title {
-            text-align: center;
-            margin: 30px 0;
-        }
-
-        .quotation-title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #1E293B;
-            margin-bottom: 5px;
-        }
-
-        .quotation-number {
-            font-size: 16px;
-            color: #DC2626;
-            font-weight: bold;
-        }
-
-        /* Two Column Layout */
-        .two-columns {
-            display: table;
-            width: 100%;
-            margin-bottom: 30px;
-        }
-
-        .column {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
-        }
-
-        .info-box {
-            background: #F8FAFC;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-
-        .info-box h3 {
-            font-size: 14px;
-            font-weight: bold;
-            color: #1E293B;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .info-box p {
-            font-size: 12px;
-            margin-bottom: 5px;
-            color: #475569;
-        }
-
-        .info-box .label {
-            font-weight: bold;
-            color: #1E293B;
-        }
-
-        /* Items Table */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-
-        table thead {
-            background: #1E293B;
-            color: white;
-        }
-
-        table th {
-            padding: 12px;
-            text-align: left;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        table tbody tr {
-            border-bottom: 1px solid #E2E8F0;
-        }
-
-        table tbody tr:hover {
-            background: #F8FAFC;
-        }
-
-        table td {
-            padding: 12px;
-            font-size: 11px;
-        }
-
-        table td:last-child,
-        table th:last-child {
-            text-align: right;
-        }
-
-        .item-description {
-            font-weight: bold;
-            color: #1E293B;
-            margin-bottom: 3px;
-        }
-
-        .item-type {
-            color: #64748B;
-            font-size: 10px;
-        }
-
-        /* Totals */
-        .totals-section {
-            width: 50%;
-            margin-left: auto;
-            margin-bottom: 30px;
-        }
-
-        .total-row {
-            display: table;
-            width: 100%;
-            padding: 8px 0;
-            border-bottom: 1px solid #E2E8F0;
-        }
-
-        .total-row .label {
-            display: table-cell;
-            text-align: left;
-            font-weight: 600;
-            color: #475569;
-        }
-
-        .total-row .value {
-            display: table-cell;
-            text-align: right;
-            font-weight: bold;
-            color: #1E293B;
-        }
-
-        .grand-total {
-            background: #FEF2F2;
-            border: 2px solid #DC2626;
-            border-radius: 5px;
-            padding: 15px;
-            margin-top: 10px;
-        }
-
-        .grand-total .label {
-            font-size: 16px;
-            font-weight: bold;
-            color: #1E293B;
-        }
-
-        .grand-total .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #DC2626;
-        }
-
-        /* Terms Section */
-        .terms-section {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #E2E8F0;
-        }
-
-        .terms-section h3 {
-            font-size: 14px;
-            font-weight: bold;
-            color: #1E293B;
-            margin-bottom: 10px;
-            text-transform: uppercase;
-        }
-
-        .terms-section p {
-            font-size: 11px;
-            color: #475569;
-            margin-bottom: 15px;
-            line-height: 1.8;
-            white-space: pre-line;
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 50px;
-            padding-top: 20px;
-            border-top: 2px solid #DC2626;
-            text-align: center;
-            font-size: 10px;
-            color: #64748B;
-        }
-
-        .footer p {
-            margin-bottom: 5px;
-        }
+        /* Billing */
+        .billing-row { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+        .billing-box { background: #f8f8f8; border-left: 3px solid #c00000; padding: 12px 14px; width: 48%; vertical-align: top; }
+        .billing-box .section-title { font-size: 7.5pt; font-weight: bold; color: #c00000; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+        .billing-box .client-name { font-weight: bold; font-size: 11pt; color: #1a1a1a; }
+        .billing-box .client-detail { font-size: 9pt; color: #555; line-height: 1.7; margin-top: 3px; }
+        .info-box { vertical-align: top; width: 48%; padding-left: 24px; }
+        .info-row { border-collapse: collapse; width: 100%; }
+        .info-row td { font-size: 9pt; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
+        .info-row .lbl { color: #888; }
+        .info-row .val { font-weight: bold; text-align: right; }
+        .spacer-col { width: 4%; }
 
         /* Status Badge */
-        .status-badge {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
+        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 8.5pt; font-weight: bold; }
 
-        .status-draft { background: #F1F5F9; color: #475569; }
-        .status-sent { background: #DBEAFE; color: #1E40AF; }
-        .status-accepted { background: #D1FAE5; color: #065F46; }
-        .status-rejected { background: #FEE2E2; color: #991B1B; }
-        .status-expired { background: #FEF3C7; color: #92400E; }
+        /* Items Table */
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .items-table thead tr { background: #c00000; }
+        .items-table thead th { color: #ffffff; font-size: 8.5pt; font-weight: bold; padding: 8px 10px; text-align: left; }
+        .items-table thead th.right { text-align: right; }
+        .items-table tbody tr { border-bottom: 1px solid #f0f0f0; }
+        .items-table tbody tr:nth-child(even) { background: #fafafa; }
+        .items-table tbody td { padding: 8px 10px; font-size: 9pt; vertical-align: top; }
+        .items-table tbody td.right { text-align: right; }
+        .item-desc { font-weight: bold; color: #1a1a1a; }
+        .item-type { font-size: 8pt; color: #888; margin-top: 2px; }
+
+        /* Totals Summary */
+        .summary-table { width: 280px; float: right; margin-top: -4px; border-collapse: collapse; }
+        .summary-table td { padding: 5px 8px; font-size: 9pt; }
+        .summary-table .lbl { color: #555; }
+        .summary-table .val { text-align: right; font-weight: bold; }
+        .grand-total td { background: #c00000; color: #fff; font-weight: bold; font-size: 10.5pt; }
+        .clearfix::after { content: ''; display: table; clear: both; }
 
         /* Validity Notice */
-        .validity-notice {
-            background: #FEF3C7;
-            border-left: 4px solid #F59E0B;
-            padding: 12px;
-            margin: 20px 0;
-            font-size: 11px;
-            color: #92400E;
-        }
+        .validity-notice { border-radius: 4px; padding: 10px 16px; text-align: center; margin: 16px 0; }
+        .validity-valid { background: #fef9c3; border: 1px solid #fbbf24; }
+        .validity-valid-text { font-weight: bold; font-size: 10pt; color: #854d0e; }
+        .validity-expired { background: #fef2f2; border: 1px solid #fca5a5; }
+        .validity-expired-text { font-weight: bold; font-size: 10pt; color: #c00000; }
 
-        .validity-notice strong {
-            font-size: 12px;
-        }
+        /* Notes */
+        .notes-section { margin-top: 16px; font-size: 9pt; }
+        .notes-section .notes-title { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 4px; }
+        .notes-section .notes-body { color: #555; line-height: 1.6; }
+
+        /* Footer */
+        .footer { margin-top: 36px; border-top: 1px solid #e5e7eb; padding-top: 14px; text-align: center; font-size: 8pt; color: #aaa; }
+        .footer strong { color: #888; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="company-name">Milele Power</div>
-            <div class="company-tagline">Reliable Generator Rental Solutions</div>
-            <div class="company-info">
-                Email: info@milelepower.co.tz | Phone: +255 123 456 789<br>
-                Address: Dar es Salaam, Tanzania | Website: www.milelepower.co.tz
-            </div>
-        </div>
+<div class="page">
 
-        <!-- Document Title -->
-        <div class="document-title">
-            <div class="quotation-title">QUOTATION</div>
-            <div class="quotation-number">{{ $quotation->quotation_number }}</div>
-        </div>
-
-        <!-- Customer & Quotation Info -->
-        <div class="two-columns">
-            <div class="column" style="padding-right: 15px;">
-                <div class="info-box">
-                    <h3>Bill To</h3>
-                    @if($quotation->quoteRequest)
-                        <p><span class="label">Name:</span> {{ $quotation->quoteRequest->full_name }}</p>
-                        <p><span class="label">Email:</span> {{ $quotation->quoteRequest->email }}</p>
-                        <p><span class="label">Phone:</span> {{ $quotation->quoteRequest->phone }}</p>
-                        @if($quotation->quoteRequest->company_name)
-                            <p><span class="label">Company:</span> {{ $quotation->quoteRequest->company_name }}</p>
-                        @endif
-                    @else
-                        <p>Direct Quotation</p>
-                    @endif
+    <!-- Header -->
+    <table class="header-table">
+        <tr>
+            <td style="vertical-align:top; width:55%;">
+                <div class="company-name">&#9889; Milele Power</div>
+                <div class="company-sub">Generator Rental &amp; Power Solutions</div>
+                <div class="company-contact">
+                    Dar es Salaam, Tanzania<br>
+                    Tel: +255 XXX XXX XXX &bull; info@milelepower.co.tz<br>
+                    www.milelepower.co.tz
                 </div>
-            </div>
-            <div class="column" style="padding-left: 15px;">
-                <div class="info-box">
-                    <h3>Quotation Details</h3>
-                    <p><span class="label">Date Issued:</span> {{ $quotation->created_at->format('F d, Y') }}</p>
-                    <p><span class="label">Valid Until:</span> {{ $quotation->valid_until->format('F d, Y') }}</p>
-                    <p><span class="label">Status:</span> <span class="status-badge status-{{ $quotation->status }}">{{ ucfirst($quotation->status) }}</span></p>
-                    @if($quotation->quoteRequest)
-                        <p><span class="label">Reference:</span> {{ $quotation->quoteRequest->request_number }}</p>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <!-- Validity Notice -->
-        @if(!$quotation->isExpired())
-            <div class="validity-notice">
-                <strong>⏰ This quotation is valid until {{ $quotation->valid_until->format('F d, Y') }}</strong><br>
-                Please review and respond before the expiration date. Prices and availability are subject to change after this date.
-            </div>
-        @else
-            <div class="validity-notice" style="background: #FEE2E2; border-color: #DC2626; color: #991B1B;">
-                <strong>⚠️ This quotation has expired</strong><br>
-                This quotation expired on {{ $quotation->valid_until->format('F d, Y') }}. Please contact us for an updated quotation.
-            </div>
-        @endif
-
-        <!-- Line Items -->
-        <table>
-            <thead>
-                <tr>
-                    <th>Description</th>
-                    <th style="text-align: center;">Qty</th>
-                    <th style="text-align: right;">Unit Price</th>
-                    <th style="text-align: center;">Duration</th>
-                    <th style="text-align: right;">Subtotal</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($quotation->items as $item)
+            </td>
+            <td style="vertical-align:top; text-align:right; width:45%;">
+                <div class="doc-label">QUOTATION</div>
+                <table class="doc-meta" style="float:right; margin-top:8px;">
                     <tr>
-                        <td>
-                            <div class="item-description">{{ $item->description }}</div>
-                            <div class="item-type">{{ $item->item_type_formatted }}</div>
-                        </td>
-                        <td style="text-align: center;">{{ $item->quantity }}</td>
-                        <td style="text-align: right;">TZS {{ number_format($item->unit_price, 2) }}</td>
-                        <td style="text-align: center;">
-                            @if($item->item_type === 'genset_rental' && $item->duration_days)
-                                {{ $item->duration_days }} days
-                            @else
-                                -
-                            @endif
-                        </td>
-                        <td style="text-align: right;">TZS {{ number_format($item->subtotal, 2) }}</td>
+                        <td class="label">Quote #:</td>
+                        <td class="value">{{ $quotation->quotation_number }}</td>
                     </tr>
-                @endforeach
-            </tbody>
+                    <tr>
+                        <td class="label">Date Issued:</td>
+                        <td class="value">{{ $quotation->created_at->format('d M Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Valid Until:</td>
+                        <td class="value">{{ $quotation->valid_until->format('d M Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Status:</td>
+                        <td class="value">
+                            @php
+                                $colors = [
+                                    'draft'    => ['bg'=>'#f3f4f6','fg'=>'#374151'],
+                                    'sent'     => ['bg'=>'#dbeafe','fg'=>'#1e40af'],
+                                    'accepted' => ['bg'=>'#dcfce7','fg'=>'#166534'],
+                                    'rejected' => ['bg'=>'#fee2e2','fg'=>'#991b1b'],
+                                    'expired'  => ['bg'=>'#fef9c3','fg'=>'#854d0e'],
+                                ];
+                                $c = $colors[$quotation->status] ?? ['bg'=>'#f3f4f6','fg'=>'#374151'];
+                            @endphp
+                            <span class="status-badge" style="background:{{ $c['bg'] }};color:{{ $c['fg'] }};">{{ ucfirst($quotation->status) }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <hr class="divider">
+
+    <!-- Prepared For + Details -->
+    <table class="billing-row">
+        <tr>
+            <td class="billing-box">
+                <div class="section-title">Prepared For</div>
+                @if($quotation->client)
+                    <div class="client-name">{{ $quotation->client->company_name ?? $quotation->client->name }}</div>
+                    @if($quotation->client->company_name && $quotation->client->contact_person)
+                        <div class="client-detail">Attn: {{ $quotation->client->contact_person }}</div>
+                    @endif
+                    @if($quotation->client->phone)
+                        <div class="client-detail">{{ $quotation->client->phone }}</div>
+                    @endif
+                    @if($quotation->client->email)
+                        <div class="client-detail">{{ $quotation->client->email }}</div>
+                    @endif
+                    @if($quotation->client->address)
+                        <div class="client-detail">{{ $quotation->client->address }}</div>
+                    @endif
+                @elseif($quotation->quoteRequest)
+                    <div class="client-name">{{ $quotation->quoteRequest->full_name }}</div>
+                    @if($quotation->quoteRequest->company_name)
+                        <div class="client-detail">{{ $quotation->quoteRequest->company_name }}</div>
+                    @endif
+                    @if($quotation->quoteRequest->phone)
+                        <div class="client-detail">{{ $quotation->quoteRequest->phone }}</div>
+                    @endif
+                    @if($quotation->quoteRequest->email)
+                        <div class="client-detail">{{ $quotation->quoteRequest->email }}</div>
+                    @endif
+                @else
+                    <div class="client-name">Direct Quotation</div>
+                @endif
+            </td>
+            <td class="spacer-col"></td>
+            <td class="info-box">
+                <table class="info-row">
+                    @if($quotation->quoteRequest)
+                    <tr>
+                        <td class="lbl">Request Ref:</td>
+                        <td class="val">{{ $quotation->quoteRequest->request_number }}</td>
+                    </tr>
+                    @endif
+                    @if($quotation->createdBy)
+                    <tr>
+                        <td class="lbl">Prepared By:</td>
+                        <td class="val">{{ $quotation->createdBy->name }}</td>
+                    </tr>
+                    @endif
+                    @if($quotation->payment_terms)
+                    <tr>
+                        <td class="lbl">Pay. Terms:</td>
+                        <td class="val">{{ $quotation->payment_terms }}</td>
+                    </tr>
+                    @endif
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:45%;">Description</th>
+                <th class="right" style="width:8%;">Qty</th>
+                <th class="right" style="width:13%;">Unit Price</th>
+                <th class="right" style="width:10%;">Days</th>
+                <th class="right" style="width:14%;">Amount (TZS)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($quotation->items as $item)
+            <tr>
+                <td>
+                    <div class="item-desc">{{ $item->description }}</div>
+                    <div class="item-type">{{ $item->item_type_formatted }}</div>
+                </td>
+                <td class="right">{{ $item->quantity }}</td>
+                <td class="right">{{ number_format($item->unit_price, 0) }}</td>
+                <td class="right">{{ $item->duration_days ?? '—' }}</td>
+                <td class="right">{{ number_format($item->subtotal, 0) }}</td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="5" style="text-align:center; color:#aaa; padding:16px;">No items</td>
+            </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <!-- Totals -->
+    <div class="clearfix">
+        <table class="summary-table">
+            <tr>
+                <td class="lbl">Subtotal:</td>
+                <td class="val">TZS {{ number_format($quotation->subtotal, 0) }}</td>
+            </tr>
+            <tr>
+                <td class="lbl">VAT ({{ $quotation->vat_rate }}%):</td>
+                <td class="val">TZS {{ number_format($quotation->vat_amount, 0) }}</td>
+            </tr>
+            <tr class="grand-total">
+                <td style="padding:8px 8px; font-weight:bold;">TOTAL:</td>
+                <td style="text-align:right; padding:8px 8px; font-size:11pt;">TZS {{ number_format($quotation->total_amount, 0) }}</td>
+            </tr>
         </table>
+    </div>
 
-        <!-- Totals -->
-        <div class="totals-section">
-            <div class="total-row">
-                <div class="label">Subtotal</div>
-                <div class="value">TZS {{ number_format($quotation->subtotal, 2) }}</div>
-            </div>
-            <div class="total-row">
-                <div class="label">VAT ({{ $quotation->vat_rate }}%)</div>
-                <div class="value">TZS {{ number_format($quotation->vat_amount, 2) }}</div>
-            </div>
-            <div class="grand-total">
-                <div class="total-row" style="border: none;">
-                    <div class="label">TOTAL AMOUNT</div>
-                    <div class="value">TZS {{ number_format($quotation->total_amount, 2) }}</div>
-                </div>
-            </div>
+    <!-- Validity Notice -->
+    @if(!$quotation->isExpired())
+    <div class="validity-notice validity-valid" style="margin-top:16px;">
+        <div class="validity-valid-text">&#8987; Valid until {{ $quotation->valid_until->format('d M Y') }} &mdash; Please respond before this date. Prices and availability are subject to change.</div>
+    </div>
+    @else
+    <div class="validity-notice validity-expired" style="margin-top:16px;">
+        <div class="validity-expired-text">&#9888; This quotation expired on {{ $quotation->valid_until->format('d M Y') }} &mdash; Please contact us for an updated quotation.</div>
+    </div>
+    @endif
+
+    <!-- Notes & Terms -->
+    @if($quotation->payment_terms || $quotation->terms_conditions || $quotation->notes)
+    <div style="margin-top:20px; border-top: 1px solid #e5e7eb; padding-top:12px;">
+        @if($quotation->payment_terms)
+        <div class="notes-section">
+            <div class="notes-title">Payment Terms</div>
+            <div class="notes-body">{{ $quotation->payment_terms }}</div>
         </div>
-
-        <!-- Terms & Conditions -->
-        <div class="terms-section">
-            @if($quotation->payment_terms)
-                <h3>Payment Terms</h3>
-                <p>{{ $quotation->payment_terms }}</p>
-            @endif
-
-            @if($quotation->terms_conditions)
-                <h3>Terms & Conditions</h3>
-                <p>{{ $quotation->terms_conditions }}</p>
-            @endif
-
-            @if(!$quotation->payment_terms && !$quotation->terms_conditions)
-                <h3>Payment Terms</h3>
-                <p>Payment due within 30 days of acceptance. All prices are in Tanzanian Shillings (TZS).</p>
-                
-                <h3>Terms & Conditions</h3>
-                <p>
-                    1. This quotation is valid for the period specified above.<br>
-                    2. Prices are subject to change without notice after the validity period.<br>
-                    3. Generator rental includes basic maintenance during the rental period.<br>
-                    4. Delivery and pickup charges may apply based on location.<br>
-                    5. Full payment is required before equipment delivery.<br>
-                    6. Security deposit may be required for rental equipment.
-                </p>
-            @endif
+        @endif
+        @if($quotation->terms_conditions)
+        <div class="notes-section" style="margin-top:8px;">
+            <div class="notes-title">Terms &amp; Conditions</div>
+            <div class="notes-body">{{ $quotation->terms_conditions }}</div>
         </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p><strong>Thank you for your business!</strong></p>
-            <p>For questions about this quotation, please contact us at info@milelepower.co.tz or +255 123 456 789</p>
-            <p>© {{ date('Y') }} Milele Power. All rights reserved.</p>
+        @endif
+        @if($quotation->notes)
+        <div class="notes-section" style="margin-top:8px;">
+            <div class="notes-title">Notes</div>
+            <div class="notes-body">{{ $quotation->notes }}</div>
+        </div>
+        @endif
+    </div>
+    @else
+    <div style="margin-top:20px; border-top: 1px solid #e5e7eb; padding-top:12px;">
+        <div class="notes-section">
+            <div class="notes-title">Payment Terms</div>
+            <div class="notes-body">Payment due within 30 days of acceptance. All prices are in Tanzanian Shillings (TZS).</div>
+        </div>
+        <div class="notes-section" style="margin-top:8px;">
+            <div class="notes-title">Terms &amp; Conditions</div>
+            <div class="notes-body">
+                1. This quotation is valid for the period specified above.<br>
+                2. Prices are subject to change without notice after the validity period.<br>
+                3. Generator rental includes basic maintenance during the rental period.<br>
+                4. Delivery and pickup charges may apply based on location.<br>
+                5. Full payment is required before equipment delivery.<br>
+                6. Security deposit may be required for rental equipment.
+            </div>
         </div>
     </div>
+    @endif
+
+    <!-- Footer -->
+    <div class="footer">
+        <strong>Milele Power &bull; Generator Rental &amp; Power Solutions</strong><br>
+        Dar es Salaam, Tanzania &bull; Tel: +255 XXX XXX XXX &bull; info@milelepower.co.tz<br>
+        Thank you for choosing Milele Power.
+    </div>
+
+</div>
 </body>
 </html>

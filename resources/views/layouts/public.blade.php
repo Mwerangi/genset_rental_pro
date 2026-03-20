@@ -22,7 +22,7 @@
 <body class="font-sans antialiased bg-gray-50">
     <!-- Navigation -->
     <nav class="bg-black text-white fixed w-full top-0 z-50 shadow-lg">
-        <div class="container-page">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Logo -->
                 <div class="flex items-center">
@@ -93,8 +93,8 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-black-900 text-white">
-        <div class="container-page py-12">
+    <footer class="bg-gray-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <!-- Company Info -->
                 <div class="col-span-1 md:col-span-2">
