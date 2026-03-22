@@ -7,28 +7,29 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1a1a1a; background: #ffffff; }
-        .page { padding: 36px 42px; min-height: 100vh; }
+        .page { padding: 22px 32px; min-height: 100vh; }
 
         /* Header */
-        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-        .company-name { font-size: 22pt; font-weight: bold; color: #c00000; }
-        .company-sub { font-size: 9pt; color: #555; margin-top: 4px; }
-        .company-contact { font-size: 8.5pt; color: #666; margin-top: 6px; line-height: 1.6; }
-        .invoice-label { font-size: 26pt; font-weight: bold; color: #c00000; text-align: right; }
-        .invoice-meta td { font-size: 9pt; padding: 2px 0; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+        .company-name { font-size: 15pt; font-weight: bold; color: #c00000; }
+        .company-sub { font-size: 8.5pt; color: #555; margin-top: 4px; }
+        .company-contact { font-size: 8pt; color: #666; margin-top: 6px; line-height: 1.6; }
+        .invoice-label { font-size: 18pt; font-weight: bold; color: #c00000; text-align: right; }
+        .invoice-meta td { font-size: 8.5pt; padding: 2px 0; }
         .invoice-meta .label { color: #888; width: 90px; }
         .invoice-meta .value { font-weight: bold; color: #1a1a1a; }
 
         /* Divider */
-        .divider { border: none; border-top: 2px solid #c00000; margin: 18px 0; }
+        .divider { border: none; border-top: 2px solid #c00000; margin: 10px 0; }
         .divider-thin { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
 
         /* Bill To */
-        .billing-row { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-        .billing-box { background: #f8f8f8; border-left: 3px solid #c00000; padding: 12px 14px; width: 48%; vertical-align: top; }
+        .billing-row { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .billing-box { background: #f8f8f8; border-left: 3px solid #c00000; padding: 8px 12px; width: 48%; vertical-align: top; }
         .billing-box .section-title { font-size: 7.5pt; font-weight: bold; color: #c00000; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-        .billing-box .client-name { font-weight: bold; font-size: 11pt; color: #1a1a1a; }
-        .billing-box .client-detail { font-size: 9pt; color: #555; line-height: 1.7; margin-top: 3px; }
+        .billing-box .client-name { font-weight: bold; font-size: 9.5pt; color: #1a1a1a; }
+        .billing-box .client-detail { font-size: 8.5pt; color: #555; line-height: 1.7; margin-top: 3px; }
+        .billing-box .client-tax { font-size: 8.5pt; color: #1a1a1a; font-weight: bold; line-height: 1.7; margin-top: 3px; }
         .info-box { vertical-align: top; width: 48%; padding-left: 24px; }
         .info-row { border-collapse: collapse; width: 100%; }
         .info-row td { font-size: 9pt; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
@@ -43,13 +44,13 @@
         .zero-rated { color: #166534; background: #f0fdf4; padding: 2px 8px; border-radius: 4px; font-size: 8pt; }
 
         /* Items Table */
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .items-table thead tr { background: #c00000; }
-        .items-table thead th { color: #ffffff; font-size: 8.5pt; font-weight: bold; padding: 8px 10px; text-align: left; }
+        .items-table thead th { color: #ffffff; font-size: 8.5pt; font-weight: bold; padding: 6px 10px; text-align: left; }
         .items-table thead th.right { text-align: right; }
         .items-table tbody tr { border-bottom: 1px solid #f0f0f0; }
         .items-table tbody tr:nth-child(even) { background: #fafafa; }
-        .items-table tbody td { padding: 8px 10px; font-size: 9pt; vertical-align: top; }
+        .items-table tbody td { padding: 6px 10px; font-size: 9pt; vertical-align: top; }
         .items-table tbody td.right { text-align: right; }
         .item-desc { font-weight: bold; color: #1a1a1a; }
         .item-type { font-size: 8pt; color: #888; margin-top: 2px; }
@@ -61,11 +62,11 @@
 
         /* Amounts Summary (right side) */
         .summary-table { width: 280px; float: right; margin-top: -4px; border-collapse: collapse; }
-        .summary-table td { padding: 5px 8px; font-size: 9pt; }
+        .summary-table td { padding: 3px 8px; font-size: 9pt; }
         .summary-table .lbl { color: #555; }
         .summary-table .val { text-align: right; font-weight: bold; }
         .summary-divider { border-top: 1px solid #e5e7eb; }
-        .grand-total td { background: #c00000; color: #fff; font-weight: bold; font-size: 10.5pt; }
+        .grand-total td { background: #c00000; color: #fff; font-weight: bold; font-size: 9.5pt; }
         .balance-due td { background: #fff7f7; }
         .balance-due .val { color: #c00000; font-size: 11pt; }
         .paid-amount td { background: #f0fdf4; }
@@ -73,22 +74,22 @@
         .clearfix::after { content: ''; display: table; clear: both; }
 
         /* Payment Status Banner */
-        .paid-banner { background: #f0fdf4; border: 1px solid #86efac; border-radius: 4px; padding: 10px 16px; text-align: center; margin: 16px 0; }
-        .paid-banner-text { font-weight: bold; font-size: 13pt; color: #166534; }
-        .overdue-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 4px; padding: 10px 16px; text-align: center; margin: 16px 0; }
-        .overdue-banner-text { font-weight: bold; font-size: 11pt; color: #c00000; }
+        .paid-banner { background: #f0fdf4; border: 1px solid #86efac; border-radius: 4px; padding: 7px 12px; text-align: center; margin: 10px 0; }
+        .paid-banner-text { font-weight: bold; font-size: 10pt; color: #166534; }
+        .overdue-banner { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 4px; padding: 7px 12px; text-align: center; margin: 10px 0; }
+        .overdue-banner-text { font-weight: bold; font-size: 9pt; color: #c00000; }
 
         /* Booking / Reference */
         .reference-section { margin-top: 20px; font-size: 8.5pt; color: #666; border-top: 1px solid #e5e7eb; padding-top: 12px; }
         .reference-section strong { color: #1a1a1a; }
 
         /* Notes */
-        .notes-section { margin-top: 16px; font-size: 9pt; }
+        .notes-section { margin-top: 8px; font-size: 9pt; }
         .notes-section .notes-title { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 4px; }
         .notes-section .notes-body { color: #555; line-height: 1.6; }
 
         /* Footer */
-        .footer { margin-top: 36px; border-top: 1px solid #e5e7eb; padding-top: 14px; text-align: center; font-size: 8pt; color: #aaa; }
+        .footer { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; text-align: center; font-size: 8pt; color: #aaa; }
         .footer strong { color: #888; }
     </style>
 </head>
@@ -151,18 +152,43 @@
         <tr>
             <td class="billing-box">
                 <div class="section-title">Bill To</div>
-                <div class="client-name">{{ $invoice->client?->company_name ?? $invoice->client?->name ?? 'N/A' }}</div>
-                @if($invoice->client?->company_name && $invoice->client?->contact_person)
-                    <div class="client-detail">Attn: {{ $invoice->client->contact_person }}</div>
-                @endif
-                @if($invoice->client?->phone)
-                    <div class="client-detail">{{ $invoice->client->phone }}</div>
-                @endif
-                @if($invoice->client?->email)
-                    <div class="client-detail">{{ $invoice->client->email }}</div>
-                @endif
-                @if($invoice->client?->address)
-                    <div class="client-detail">{{ $invoice->client->address }}</div>
+                <table style="width:100%; border-collapse:collapse;">
+                    @if($invoice->client?->company_name)
+                    <tr>
+                        <td style="font-size:8pt; color:#999; padding:2px 0; width:36%; white-space:nowrap;">Company</td>
+                        <td style="font-size:8.5pt; font-weight:bold; color:#1a1a1a; padding:2px 0;">{{ $invoice->client->company_name }}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:8pt; color:#999; padding:2px 0;">Contact</td>
+                        <td style="font-size:8.5pt; color:#333; padding:2px 0;">{{ $invoice->client->full_name }}</td>
+                    </tr>
+                    @else
+                    <tr>
+                        <td colspan="2" style="font-size:9pt; font-weight:bold; color:#1a1a1a; padding:2px 0;">{{ $invoice->client?->full_name ?? 'N/A' }}</td>
+                    </tr>
+                    @endif
+                    @if($invoice->client?->phone)
+                    <tr>
+                        <td style="font-size:8pt; color:#999; padding:2px 0;">Phone</td>
+                        <td style="font-size:8.5pt; color:#333; padding:2px 0;">{{ $invoice->client->phone }}</td>
+                    </tr>
+                    @endif
+                    @if($invoice->client?->email)
+                    <tr>
+                        <td style="font-size:8pt; color:#999; padding:2px 0;">Email</td>
+                        <td style="font-size:8.5pt; color:#333; padding:2px 0;">{{ $invoice->client->email }}</td>
+                    </tr>
+                    @endif
+                </table>
+                @if($invoice->client?->tin_number || $invoice->client?->vrn)
+                <div style="margin-top:7px; border-top:1px dashed #ddd; padding-top:6px;">
+                    @if($invoice->client?->tin_number)
+                    <div style="font-size:8.5pt; color:#1a1a1a; font-weight:bold;">TIN: {{ $invoice->client->tin_number }}</div>
+                    @endif
+                    @if($invoice->client?->vrn)
+                    <div style="font-size:8.5pt; color:#1a1a1a; font-weight:bold; margin-top:2px;">VRN: {{ $invoice->client->vrn }}</div>
+                    @endif
+                </div>
                 @endif
             </td>
             <td class="spacer-col"></td>
@@ -178,12 +204,6 @@
                     <tr>
                         <td class="lbl">Generator:</td>
                         <td class="val">{{ $invoice->booking->genset->name }}</td>
-                    </tr>
-                    @endif
-                    @if($invoice->payment_terms)
-                    <tr>
-                        <td class="lbl">Pay. Terms:</td>
-                        <td class="val">{{ $invoice->payment_terms }}</td>
                     </tr>
                     @endif
                     @if($invoice->is_zero_rated)
@@ -248,7 +268,7 @@
             @endif
             <tr class="grand-total">
                 <td style="padding:8px 8px; font-weight:bold; border-radius:0;">TOTAL:</td>
-                <td style="text-align:right; padding:8px 8px; font-size:11pt; border-radius:0;">TZS {{ number_format($invoice->total_amount, 0) }}</td>
+                <td style="text-align:right; padding:8px 8px; font-size:9.5pt; border-radius:0;">TZS {{ number_format($invoice->total_amount, 0) }}</td>
             </tr>
             @if($invoice->amount_paid > 0)
             <tr class="paid-amount">
@@ -274,8 +294,8 @@
     @endif
 
     <!-- Notes & Terms -->
-    @if($invoice->payment_terms || $invoice->terms_conditions || $invoice->notes)
-    <div style="margin-top:20px; border-top: 1px solid #e5e7eb; padding-top:12px;">
+    @if($invoice->payment_terms || $invoice->terms_conditions)
+    <div style="margin-top:12px; border-top: 1px solid #e5e7eb; padding-top:8px;">
         @if($invoice->payment_terms)
         <div class="notes-section">
             <div class="notes-title">Payment Terms</div>
@@ -283,15 +303,9 @@
         </div>
         @endif
         @if($invoice->terms_conditions)
-        <div class="notes-section" style="margin-top:8px;">
+        <div class="notes-section" style="margin-top:6px;">
             <div class="notes-title">Terms &amp; Conditions</div>
             <div class="notes-body">{{ $invoice->terms_conditions }}</div>
-        </div>
-        @endif
-        @if($invoice->notes)
-        <div class="notes-section" style="margin-top:8px;">
-            <div class="notes-title">Notes</div>
-            <div class="notes-body">{{ $invoice->notes }}</div>
         </div>
         @endif
     </div>

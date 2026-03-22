@@ -21,6 +21,7 @@
                     <tr>
                         <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Name</th>
                         <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Description</th>
+                        <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">COA Account</th>
                         <th class="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Items</th>
                         <th class="px-6 py-3"></th>
                     </tr>
@@ -30,11 +31,18 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-6 py-3 font-semibold text-gray-800">{{ $cat->name }}</td>
                         <td class="px-6 py-3 text-gray-500">{{ $cat->description ?: '—' }}</td>
+                        <td class="px-6 py-3 text-xs text-gray-500">
+                            @if($cat->account)
+                                <span class="font-mono">{{ $cat->account->code }}</span> {{ $cat->account->name }}
+                            @else
+                                <span class="text-gray-300">1150 (default)</span>
+                            @endif
+                        </td>
                         <td class="px-6 py-3">
                             <a href="{{ route('admin.inventory.items.index', ['category_id' => $cat->id]) }}" class="text-red-600 hover:underline">{{ $cat->items_count }} item{{ $cat->items_count !== 1 ? 's' : '' }}</a>
                         </td>
                         <td class="px-6 py-3 text-right flex gap-3 justify-end">
-                            <button onclick='openEditModal({{ $cat->id }}, {{ json_encode($cat->name) }}, {{ json_encode($cat->description) }})' class="text-xs text-gray-600 hover:text-gray-900 underline">Edit</button>
+                            <button onclick='openEditModal({{ $cat->id }}, {{ json_encode($cat->name) }}, {{ json_encode($cat->description) }}, {{ $cat->account_id ?? "null" }})' class="text-xs text-gray-600 hover:text-gray-900 underline">Edit</button>
                             <form method="POST" action="{{ route('admin.inventory.categories.destroy', $cat) }}" onsubmit="return confirm('Delete this category?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-xs text-red-500 hover:text-red-700 underline">Delete</button>
@@ -65,6 +73,16 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <input type="text" name="description" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">COA Account (for PO receipts)</label>
+                        <select name="account_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— Default: 1150 Inventory —</option>
+                            @foreach($coaAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} — {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">Determines which ledger account is debited when items from this category are received on a PO.</p>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 px-6 pb-5">
                     <button type="button" onclick="document.getElementById('createModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
@@ -92,6 +110,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <input type="text" id="editDesc" name="description" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">COA Account (for PO receipts)</label>
+                        <select id="editAccountId" name="account_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— Default: 1150 Inventory —</option>
+                            @foreach($coaAccounts as $acc)
+                                <option value="{{ $acc->id }}">{{ $acc->code }} — {{ $acc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 px-6 pb-5">
                     <button type="button" onclick="document.getElementById('editModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>
@@ -102,10 +129,12 @@
     </div>
 
     <script>
-    function openEditModal(id, name, desc) {
+    function openEditModal(id, name, desc, accountId) {
         document.getElementById('editForm').action = '/admin/inventory/categories/' + id;
         document.getElementById('editName').value = name;
         document.getElementById('editDesc').value = desc || '';
+        const sel = document.getElementById('editAccountId');
+        sel.value = accountId !== null ? String(accountId) : '';
         document.getElementById('editModal').classList.remove('hidden');
     }
     </script>

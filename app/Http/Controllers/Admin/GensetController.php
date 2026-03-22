@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccount;
 use App\Models\Genset;
 use App\Models\Booking;
+use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
 
 class GensetController extends Controller
@@ -46,7 +48,8 @@ class GensetController extends Controller
 
     public function create()
     {
-        return view('admin.gensets.create');
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        return view('admin.gensets.create', compact('bankAccounts'));
     }
 
     public function store(Request $request)
@@ -82,6 +85,17 @@ class GensetController extends Controller
         ]);
 
         $genset = Genset::create($validated);
+
+        // Capitalise asset if purchase price provided
+        if (!empty($validated['purchase_price']) && (float) $validated['purchase_price'] > 0) {
+            $capBankId = $request->filled('capitalize_bank_account_id')
+                ? (int) $request->capitalize_bank_account_id
+                : null;
+            $je = app(JournalEntryService::class)->onGensetCapitalized($genset, $capBankId);
+            if ($je) {
+                $genset->update(['journal_entry_id' => $je->id]);
+            }
+        }
 
         return redirect()
             ->route('admin.gensets.show', $genset)

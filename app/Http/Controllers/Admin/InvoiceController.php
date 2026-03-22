@@ -222,7 +222,13 @@ class InvoiceController extends Controller
             'void_reason' => 'nullable|string|max:500',
         ]);
 
+        $wasPosted = in_array($invoice->status, ['sent', 'partially_paid', 'disputed']);
+
         $invoice->voidInvoice($validated['void_reason'] ?? '');
+
+        if ($wasPosted) {
+            app(JournalEntryService::class)->onInvoiceVoided($invoice);
+        }
 
         return redirect()
             ->route('admin.invoices.show', $invoice)
@@ -262,6 +268,10 @@ class InvoiceController extends Controller
         ]);
 
         $subtotal = round($validated['quantity'] * $validated['unit_price'], 2);
+        // For rental/extra-day items, multiply by duration_days when provided
+        if (in_array($validated['item_type'], ['genset_rental', 'extra_days']) && !empty($validated['duration_days'])) {
+            $subtotal = round($validated['quantity'] * $validated['unit_price'] * (int) $validated['duration_days'], 2);
+        }
         // Credit items are negative
         if ($validated['item_type'] === 'credit') {
             $subtotal = -abs($subtotal);
@@ -303,6 +313,10 @@ class InvoiceController extends Controller
         ]);
 
         $subtotal = round($validated['quantity'] * $validated['unit_price'], 2);
+        // For rental/extra-day items, multiply by duration_days when provided
+        if (in_array($validated['item_type'], ['genset_rental', 'extra_days']) && !empty($validated['duration_days'])) {
+            $subtotal = round($validated['quantity'] * $validated['unit_price'] * (int) $validated['duration_days'], 2);
+        }
         if ($validated['item_type'] === 'credit') {
             $subtotal = -abs($subtotal);
         }

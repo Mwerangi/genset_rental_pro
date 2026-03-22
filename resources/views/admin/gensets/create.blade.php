@@ -157,6 +157,16 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Expiry</label>
                         <input type="date" name="warranty_expiry" value="{{ old('warranty_expiry') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500">
                     </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Capitalize via Bank Account</label>
+                        <select name="capitalize_bank_account_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                            <option value="">— Financed / No cash outflow (CR Loans Payable) —</option>
+                            @foreach($bankAccounts as $ba)
+                                <option value="{{ $ba->id }}" @selected(old('capitalize_bank_account_id') == $ba->id)>{{ $ba->name }} (Tsh {{ number_format($ba->current_balance, 0) }})</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">If a purchase price is entered: select a bank account to post DR Fleet / CR Bank, or leave blank to post DR Fleet / CR Loans Payable.</p>
+                    </div>
                 </div>
             </div>
 

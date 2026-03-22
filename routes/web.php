@@ -223,6 +223,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/accounting/supplier-payments/create', [SupplierPaymentController::class, 'create'])->name('accounting.supplier-payments.create');
     Route::post('/accounting/supplier-payments', [SupplierPaymentController::class, 'store'])->name('accounting.supplier-payments.store');
     Route::get('/accounting/supplier-payments/{supplierPayment}', [SupplierPaymentController::class, 'show'])->name('accounting.supplier-payments.show');
+    Route::post('/accounting/supplier-payments/{supplierPayment}/confirm', [SupplierPaymentController::class, 'confirm'])->name('accounting.supplier-payments.confirm');
+    Route::get('/accounting/supplier-payments/{supplierPayment}/remittance', [SupplierPaymentController::class, 'serveRemittance'])->name('accounting.supplier-payments.remittance');
 
     // Cash Requests (Petty Cash)
     Route::get('/accounting/cash-requests', [CashRequestController::class, 'index'])->name('accounting.cash-requests.index');
@@ -258,6 +260,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
     // AP / Payables Register
     Route::get('/accounting/reports/payables', [ReportsController::class, 'payables'])->name('accounting.reports.payables');
+
+    // Financial Statements
+    Route::get('/accounting/reports/profit-loss', [ReportsController::class, 'profitLoss'])->name('accounting.reports.profit-loss');
+    Route::get('/accounting/reports/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
 });
 
 require __DIR__.'/auth.php';

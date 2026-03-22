@@ -154,6 +154,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                         <input type="text" name="notes" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Pay From (Bank Account) <span class="text-red-500">*</span></label>
+                        <select name="bank_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— Select bank account —</option>
+                            @foreach($bankAccounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->name }} (Tsh {{ number_format($ba->current_balance, 0) }})</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 px-6 pb-5">
                     <button type="button" onclick="document.getElementById('addFuelModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">Cancel</button>

@@ -8,6 +8,7 @@ use App\Models\CashRequest;
 use App\Models\CreditNote;
 use App\Models\Expense;
 use App\Models\FuelLog;
+use App\Models\Genset;
 use App\Models\Invoice;
 use App\Models\InvoicePayment;
 use App\Models\JournalEntry;
@@ -94,32 +95,105 @@ class JournalEntryService
     // ─── INVOICE — Revenue Recognition ───────────────────────────────
 
     /**
+     * Build revenue/AR lines for an invoice, splitting by item type.
+     *   genset_rental / extra_days / damage / penalty / credit → 4100
+     *   delivery → 4110
+     *   fuel / maintenance / other → 4120
+     * If $reverse=true the debits/credits are swapped (for void reversal).
+     */
+    private function buildInvoiceJeLines(Invoice $invoice, bool $reverse = false): array
+    {
+        $invoice->loadMissing('items');
+        $vat   = (float) $invoice->vat_amount;
+        $total = (float) $invoice->total_amount;
+
+        $deliveryRevenue = 0.0;
+        $otherRevenue    = 0.0;
+
+        foreach ($invoice->items as $item) {
+            $amt = (float) $item->subtotal;
+            if ($item->item_type === 'delivery') {
+                $deliveryRevenue += $amt;
+            } elseif (in_array($item->item_type, ['fuel', 'maintenance', 'other'])) {
+                $otherRevenue += $amt;
+            }
+        }
+
+        // Rental is the remainder — guarantees the JE always balances
+        $rentalRevenue = round($total - $vat - $deliveryRevenue - $otherRevenue, 2);
+
+        $dr = $reverse ? 0 : 1;
+        $cr = $reverse ? 1 : 0;
+
+        $lines = [];
+        $lines[] = ['account_code' => '1140', 'debit' => $total * $dr, 'credit' => $total * $cr,
+                    'description'  => ($reverse ? 'AR reversed — ' : 'AR — ') . $invoice->invoice_number];
+
+        if ($rentalRevenue > 0.005) {
+            $lines[] = ['account_code' => '4100',
+                        'debit'        => round($rentalRevenue, 2) * $cr,
+                        'credit'       => round($rentalRevenue, 2) * $dr,
+                        'description'  => ($reverse ? 'Rental void — ' : 'Rental — ') . $invoice->invoice_number];
+        }
+        if ($deliveryRevenue > 0.005) {
+            $lines[] = ['account_code' => '4110',
+                        'debit'        => round($deliveryRevenue, 2) * $cr,
+                        'credit'       => round($deliveryRevenue, 2) * $dr,
+                        'description'  => ($reverse ? 'Delivery void — ' : 'Delivery — ') . $invoice->invoice_number];
+        }
+        if ($otherRevenue > 0.005) {
+            $lines[] = ['account_code' => '4120',
+                        'debit'        => round($otherRevenue, 2) * $cr,
+                        'credit'       => round($otherRevenue, 2) * $dr,
+                        'description'  => ($reverse ? 'Other void — ' : 'Other income — ') . $invoice->invoice_number];
+        }
+        if ($vat > 0) {
+            $lines[] = ['account_code' => '2120',
+                        'debit'        => $vat * $cr,
+                        'credit'       => $vat * $dr,
+                        'description'  => ($reverse ? 'VAT reversed — ' : 'VAT — ') . $invoice->invoice_number];
+        }
+
+        return $lines;
+    }
+
+    /**
      * When an invoice is marked SENT:
      *   DR 1140 Accounts Receivable   (total_amount)
-     *   CR 4100 Rental Income         (subtotal - discount)
-     *   CR 2120 VAT Payable           (vat_amount)   [if VAT > 0]
+     *   CR 4100 Rental Income         (rental items)
+     *   CR 4110 Delivery Income       (delivery items)
+     *   CR 4120 Other Income          (other items)
+     *   CR 2120 VAT Payable           (vat_amount — if VAT > 0)
      */
     public function onInvoiceSent(Invoice $invoice): ?JournalEntry
     {
-        $revenue = (float) $invoice->total_amount - (float) $invoice->vat_amount;
-        $vat     = (float) $invoice->vat_amount;
-        $total   = (float) $invoice->total_amount;
-
-        $lines = [
-            ['account_code' => '1140', 'debit' => $total,   'credit' => 0,       'description' => 'AR — ' . $invoice->invoice_number],
-            ['account_code' => '4100', 'debit' => 0,         'credit' => $revenue, 'description' => 'Revenue — ' . $invoice->invoice_number],
-        ];
-        if ($vat > 0) {
-            $lines[] = ['account_code' => '2120', 'debit' => 0, 'credit' => $vat, 'description' => 'VAT — ' . $invoice->invoice_number];
-        }
-
         return $this->createAndPost(
             "Invoice {$invoice->invoice_number} sent",
             'invoice',
             $invoice->id,
-            $lines,
+            $this->buildInvoiceJeLines($invoice, false),
             $invoice->issue_date?->toDateString(),
             $invoice->created_by
+        );
+    }
+
+    /**
+     * When a sent invoice is voided — reverses the sent JE:
+     *   DR 4100/4110/4120 Revenue     (reverse)
+     *   DR 2120 VAT Payable           (reverse)
+     *   CR 1140 Accounts Receivable   (reverse)
+     */
+    public function onInvoiceVoided(Invoice $invoice): ?JournalEntry
+    {
+        if ((float) $invoice->total_amount <= 0) return null;
+
+        return $this->createAndPost(
+            "Invoice voided — {$invoice->invoice_number}",
+            'invoice',
+            $invoice->id,
+            $this->buildInvoiceJeLines($invoice, true),
+            now()->toDateString(),
+            auth()->id()
         );
     }
 
@@ -166,11 +240,15 @@ class JournalEntryService
     // ─── PURCHASE ORDER — Inventory Receipt ──────────────────────────
 
     /**
-     * When a PO is marked received:
-     *   DR 1150 Inventory Asset   (total_value)
-     *   CR 2110 Accounts Payable  (total_value)
+     * When a PO is marked received.
+     * $receivedItems holds per-item routing: [['account_code'=>'1150','value'=>100.0], ...]
+     * If an inventory category has a linked COA account (e.g. 5110 for Fuel),
+     * that account is used instead of 1150 Inventory Asset.
+     *
+     *   DR [category COA / 1150]  (per item value)
+     *   CR 2110 Accounts Payable  (total)
      */
-    public function onPurchaseOrderReceived(PurchaseOrder $po, float $receivedValue = 0): ?JournalEntry
+    public function onPurchaseOrderReceived(PurchaseOrder $po, float $receivedValue = 0, array $receivedItems = []): ?JournalEntry
     {
         $total = $receivedValue > 0 ? round($receivedValue, 2) : (float) $po->total_value;
         if ($total <= 0) return null;
@@ -178,14 +256,35 @@ class JournalEntryService
         $isPartial = $po->status === 'partial';
         $label     = $isPartial ? 'Stock received (partial)' : 'Stock received';
 
+        $lines = [];
+
+        if (!empty($receivedItems)) {
+            // Group debit lines by account code
+            $byAccount = [];
+            foreach ($receivedItems as $ri) {
+                $code = $ri['account_code'];
+                $byAccount[$code] = ($byAccount[$code] ?? 0) + $ri['value'];
+            }
+            foreach ($byAccount as $code => $value) {
+                if ($value > 0.005) {
+                    $lines[] = ['account_code' => $code, 'debit' => round($value, 2), 'credit' => 0,
+                                'description'  => "Stock in — {$po->po_number}"];
+                }
+            }
+        } else {
+            $lines[] = ['account_code' => '1150', 'debit' => $total, 'credit' => 0,
+                        'description'  => "Inventory in — {$po->po_number}"];
+        }
+
+        // Single AP credit
+        $lines[] = ['account_code' => '2110', 'debit' => 0, 'credit' => $total,
+                    'description'  => 'AP — ' . ($po->supplier->name ?? $po->supplier_id)];
+
         return $this->createAndPost(
             "{$label} — PO {$po->po_number}",
             'purchase_order',
             $po->id,
-            [
-                ['account_code' => '1150', 'debit' => $total, 'credit' => 0,      'description' => "Inventory in — {$po->po_number}"],
-                ['account_code' => '2110', 'debit' => 0,       'credit' => $total, 'description' => 'AP — ' . ($po->supplier->name ?? $po->supplier_id)],
-            ],
+            $lines,
             now()->toDateString(),
             auth()->id()
         );
@@ -195,8 +294,9 @@ class JournalEntryService
 
     /**
      * When a supplier is paid:
-     *   DR 2110 Accounts Payable   (amount)
-     *   CR bank_account COA        (amount)
+     *   DR 2110 Accounts Payable   (gross amount)
+     *   CR bank_account COA        (net = amount - withholding_tax)
+     *   CR 2130 WHT Payable        (withholding_tax — if > 0)
      */
     public function onSupplierPayment(SupplierPayment $sp): ?JournalEntry
     {
@@ -206,20 +306,31 @@ class JournalEntryService
         $bankCoa = Account::find($bankAccount->account_id);
         if (!$bankCoa) return null;
 
+        $gross = (float) $sp->amount;
+        $wht   = (float) ($sp->withholding_tax ?? 0);
+        $net   = round($gross - $wht, 2);
+
+        $lines = [
+            ['account_code' => '2110',         'debit' => $gross, 'credit' => 0,    'description' => "AP settled — {$sp->supplier->name}"],
+            ['account_code' => $bankCoa->code, 'debit' => 0,      'credit' => $net, 'description' => "Bank out — {$sp->payment_number}"],
+        ];
+        if ($wht > 0) {
+            $lines[] = ['account_code' => '2130', 'debit' => 0, 'credit' => $wht,
+                        'description'  => "WHT withheld — {$sp->payment_number}"];
+        }
+
         $je = $this->createAndPost(
             "Supplier payment — {$sp->payment_number} to {$sp->supplier->name}",
             'supplier_payment',
             $sp->id,
-            [
-                ['account_code' => '2110',          'debit' => (float) $sp->amount, 'credit' => 0,                       'description' => "AP settled — {$sp->supplier->name}"],
-                ['account_code' => $bankCoa->code,  'debit' => 0,                    'credit' => (float) $sp->amount,    'description' => "Bank out — {$sp->payment_number}"],
-            ],
+            $lines,
             $sp->payment_date->toDateString(),
             $sp->created_by
         );
 
         if ($je) {
-            BankAccount::where('id', $bankAccount->id)->decrement('current_balance', (float) $sp->amount);
+            // Decrement bank balance by net amount paid out
+            BankAccount::where('id', $bankAccount->id)->decrement('current_balance', $net);
         }
 
         return $je;
@@ -362,18 +473,27 @@ class JournalEntryService
 
     /**
      * When a cash request is disbursed (paid):
-     *   DR 1160 Staff Advances  (total_amount)
-     *   CR 1130 Petty Cash      (total_amount)
+     *   DR 1160 Staff Advances       (total_amount)
+     *   CR [actual bank account COA] (total_amount)
+     *
+     * Uses the bank_account already saved on the CashRequest.
      */
     public function onCashRequestDisbursed(CashRequest $cr): ?JournalEntry
     {
+        $cr->load('bankAccount');
+        $bankAccount = $cr->bankAccount;
+        if (!$bankAccount || !$bankAccount->account_id) return null;
+
+        $bankCoa = Account::find($bankAccount->account_id);
+        if (!$bankCoa) return null;
+
         return $this->createAndPost(
             "Cash disbursed — {$cr->request_number}: {$cr->purpose}",
             'cash_request',
             $cr->id,
             [
-                ['account_code' => '1160', 'debit' => (float) $cr->total_amount, 'credit' => 0,                            'description' => "Advance — {$cr->requestedBy->name}"],
-                ['account_code' => '1130', 'debit' => 0,                          'credit' => (float) $cr->total_amount,   'description' => "Petty cash out — {$cr->request_number}"],
+                ['account_code' => '1160',          'debit' => (float) $cr->total_amount, 'credit' => 0,                           'description' => "Advance — {$cr->requestedBy->name}"],
+                ['account_code' => $bankCoa->code,  'debit' => 0,                          'credit' => (float) $cr->total_amount,  'description' => "Cash out — {$cr->request_number}"],
             ],
             now()->toDateString(),
             auth()->id()
@@ -505,6 +625,62 @@ class JournalEntryService
                 ['account_code' => '1140', 'debit' => 0,       'credit' => $total, 'description' => 'AR written off'],
             ],
             now()->toDateString(),
+            auth()->id()
+        );
+    }
+
+    // ─── GENSET CAPITALIZATION — Fixed Asset ──────────────────────────
+
+    /**
+     * When a genset is added to the fleet with a purchase price:
+     *   DR 1210 Generator Fleet — Cost  (purchase_price)
+     *   CR bank_account COA             (if paid from bank account)
+     *   — or —
+     *   CR 2210 Loans Payable           (if financed / no bank account)
+     */
+    public function onGensetCapitalized(Genset $genset, ?int $bankAccountId = null): ?JournalEntry
+    {
+        $cost = (float) $genset->purchase_price;
+        if ($cost <= 0) return null;
+
+        $date = $genset->purchase_date?->toDateString() ?? now()->toDateString();
+
+        if ($bankAccountId) {
+            $bankAccount = BankAccount::find($bankAccountId);
+            if (!$bankAccount || !$bankAccount->account_id) return null;
+
+            $bankCoa = Account::find($bankAccount->account_id);
+            if (!$bankCoa) return null;
+
+            $je = $this->createAndPost(
+                "Genset capitalized — {$genset->asset_number}",
+                'genset',
+                $genset->id,
+                [
+                    ['account_code' => '1210',         'debit' => $cost, 'credit' => 0,     'description' => "Fleet — {$genset->asset_number}: {$genset->name}"],
+                    ['account_code' => $bankCoa->code, 'debit' => 0,     'credit' => $cost, 'description' => "Purchase — {$genset->asset_number}"],
+                ],
+                $date,
+                auth()->id()
+            );
+
+            if ($je) {
+                BankAccount::where('id', $bankAccountId)->decrement('current_balance', $cost);
+            }
+
+            return $je;
+        }
+
+        // Financed — credit Loans Payable
+        return $this->createAndPost(
+            "Genset capitalized (financed) — {$genset->asset_number}",
+            'genset',
+            $genset->id,
+            [
+                ['account_code' => '1210', 'debit' => $cost, 'credit' => 0,     'description' => "Fleet — {$genset->asset_number}: {$genset->name}"],
+                ['account_code' => '2210', 'debit' => 0,     'credit' => $cost, 'description' => "Loan for — {$genset->asset_number}"],
+            ],
+            $date,
             auth()->id()
         );
     }

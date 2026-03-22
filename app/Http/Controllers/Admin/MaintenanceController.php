@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankAccount;
 use App\Models\Genset;
 use App\Models\MaintenanceRecord;
+use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
 
 class MaintenanceController extends Controller
@@ -90,7 +92,8 @@ class MaintenanceController extends Controller
     public function show(MaintenanceRecord $maintenance)
     {
         $maintenance->load(['genset', 'booking.client', 'createdBy']);
-        return view('admin.maintenance.show', compact('maintenance'));
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        return view('admin.maintenance.show', compact('maintenance', 'bankAccounts'));
     }
 
     public function edit(MaintenanceRecord $maintenance)
@@ -149,6 +152,7 @@ class MaintenanceController extends Controller
             'next_service_date'    => 'nullable|date',
             'next_service_hours'   => 'nullable|integer|min:0',
             'internal_notes'       => 'nullable|string',
+            'bank_account_id'      => 'nullable|exists:bank_accounts,id',
         ]);
 
         $maintenance->update([
@@ -160,7 +164,14 @@ class MaintenanceController extends Controller
             'next_service_date'    => $request->next_service_date,
             'next_service_hours'   => $request->next_service_hours,
             'internal_notes'       => $request->internal_notes        ?? $maintenance->internal_notes,
+            'bank_account_id'      => $request->bank_account_id       ?? null,
         ]);
+
+        $bankAccountId = $request->filled('bank_account_id') ? (int) $request->bank_account_id : null;
+        $je = app(JournalEntryService::class)->onMaintenanceCompleted($maintenance, $bankAccountId);
+        if ($je) {
+            $maintenance->update(['journal_entry_id' => $je->id]);
+        }
 
         // Update genset service info and restore availability
         $gensetUpdates = ['status' => 'available'];

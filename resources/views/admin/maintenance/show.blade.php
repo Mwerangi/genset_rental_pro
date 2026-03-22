@@ -304,6 +304,16 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Internal Notes</label>
                         <textarea name="internal_notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Any findings, recommendations...">{{ $maintenance->internal_notes }}</textarea>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Pay From (Bank Account)</label>
+                        <select name="bank_account_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <option value="">— Skip journal entry —</option>
+                            @foreach($bankAccounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->name }} (Tsh {{ number_format($ba->current_balance, 0) }})</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">Selecting a bank account will post a maintenance expense journal entry.</p>
+                    </div>
                 </div>
                 <div class="flex justify-end gap-3 px-6 pb-5">
                     <button type="button" onclick="document.getElementById('completeModal').classList.add('hidden')" class="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-700 hover:bg-gray-50">Back</button>

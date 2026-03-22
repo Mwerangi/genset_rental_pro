@@ -521,7 +521,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Duration (days, optional)</label>
-                    <input type="number" name="duration_days" min="0" placeholder="e.g. 5" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <input type="number" name="duration_days" min="0" placeholder="e.g. 5" oninput="calcAddSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div class="rounded-lg px-4 py-3 text-sm font-semibold text-right" style="background:#f9fafb;border:1px solid #e5e7eb;">
                     Line Subtotal: TZS <span id="add-subtotal-preview">0</span>
@@ -576,7 +576,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Duration (days, optional)</label>
-                    <input type="number" name="duration_days" id="edit-item-duration" min="0" placeholder="e.g. 5" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <input type="number" name="duration_days" id="edit-item-duration" min="0" placeholder="e.g. 5" oninput="calcEditSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div class="rounded-lg px-4 py-3 text-sm font-semibold text-right" style="background:#f9fafb;border:1px solid #e5e7eb;">
                     Line Subtotal: TZS <span id="edit-subtotal-preview">0</span>
@@ -703,13 +703,19 @@
     {{-- ─── JavaScript ──────────────────────────────────────────────────────── --}}
     <script>
     function calcAddSubtotal() {
+        var type  = document.querySelector('#add-item-form [name=item_type]').value;
         var qty   = parseFloat(document.querySelector('#add-item-form [name=quantity]').value) || 0;
         var price = parseFloat(document.querySelector('#add-item-form [name=unit_price]').value) || 0;
-        document.getElementById('add-subtotal-preview').textContent = Math.round(qty * price).toLocaleString();
+        var days  = parseFloat(document.querySelector('#add-item-form [name=duration_days]').value) || 0;
+        var sub   = (type === 'genset_rental' || type === 'extra_days') && days > 0
+                    ? qty * price * days
+                    : qty * price;
+        document.getElementById('add-subtotal-preview').textContent = Math.round(sub).toLocaleString();
     }
 
     function onAddItemTypeChange(sel) {
         document.getElementById('add-credit-hint').classList.toggle('hidden', sel.value !== 'credit');
+        calcAddSubtotal();
     }
 
     function openEditItemModal(id, type, description, qty, unitPrice, durationDays) {
@@ -726,13 +732,19 @@
     }
 
     function calcEditSubtotal() {
+        var type  = document.getElementById('edit-item-type').value;
         var qty   = parseFloat(document.getElementById('edit-item-quantity').value) || 0;
         var price = parseFloat(document.getElementById('edit-item-unit-price').value) || 0;
-        document.getElementById('edit-subtotal-preview').textContent = Math.round(qty * price).toLocaleString();
+        var days  = parseFloat(document.getElementById('edit-item-duration').value) || 0;
+        var sub   = (type === 'genset_rental' || type === 'extra_days') && days > 0
+                    ? qty * price * days
+                    : qty * price;
+        document.getElementById('edit-subtotal-preview').textContent = Math.round(sub).toLocaleString();
     }
 
     function onEditItemTypeChange(sel) {
         document.getElementById('edit-credit-hint').classList.toggle('hidden', sel.value !== 'credit');
+        calcEditSubtotal();
     }
 
     function openReverseModal(paymentId) {

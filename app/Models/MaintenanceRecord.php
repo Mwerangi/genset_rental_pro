@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\BankAccount;
+use App\Models\JournalEntry;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MaintenanceRecord extends Model
@@ -29,6 +31,8 @@ class MaintenanceRecord extends Model
         'next_service_hours',
         'internal_notes',
         'created_by',
+        'bank_account_id',
+        'journal_entry_id',
     ];
 
     protected $casts = [
@@ -69,6 +73,16 @@ class MaintenanceRecord extends Model
     public function genset(): BelongsTo
     {
         return $this->belongsTo(Genset::class);
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
+    }
+
+    public function journalEntry(): BelongsTo
+    {
+        return $this->belongsTo(JournalEntry::class);
     }
 
     public function booking(): BelongsTo

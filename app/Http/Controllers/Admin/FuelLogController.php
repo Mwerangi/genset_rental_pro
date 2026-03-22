@@ -28,8 +28,9 @@ class FuelLogController extends Controller
             $query->where('fuelled_at', '<=', $request->to . ' 23:59:59');
         }
 
-        $logs    = $query->paginate(25)->withQueryString();
-        $gensets = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name']);
+        $logs         = $query->paginate(25)->withQueryString();
+        $gensets      = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name']);
+        $bankAccounts = \App\Models\BankAccount::where('is_active', true)->orderBy('name')->get();
 
         $stats = [
             'total_litres' => FuelLog::sum('litres'),
@@ -38,7 +39,7 @@ class FuelLogController extends Controller
                                 ->whereYear('fuelled_at', now()->year)->sum('litres'),
         ];
 
-        return view('admin.inventory.fuel-logs.index', compact('logs', 'gensets', 'stats'));
+        return view('admin.inventory.fuel-logs.index', compact('logs', 'gensets', 'stats', 'bankAccounts'));
     }
 
     public function store(Request $request)
@@ -54,20 +55,18 @@ class FuelLogController extends Controller
             'fuelled_by'       => 'nullable|string|max:255',
             'location'         => 'nullable|string|max:255',
             'notes'            => 'nullable|string',
-            'bank_account_id'  => 'nullable|exists:bank_accounts,id',
+            'bank_account_id'  => 'required|exists:bank_accounts,id',
         ]);
 
-        $bankAccountId = $data['bank_account_id'] ?? null;
+        $bankAccountId = (int) $data['bank_account_id'];
         unset($data['bank_account_id']);
 
         $data['created_by'] = auth()->id();
 
         $fuelLog = FuelLog::create($data);
 
-        // Auto-post fuel expense to ledger if bank account provided
-        if ($bankAccountId) {
-            app(JournalEntryService::class)->onFuelLogged($fuelLog, $bankAccountId);
-        }
+        // Post fuel expense to ledger
+        app(JournalEntryService::class)->onFuelLogged($fuelLog, $bankAccountId);
 
         return back()->with('success', 'Fuel log recorded — ' . $data['litres'] . ' L @ Tsh ' . number_format($data['cost_per_litre'], 2) . '/L.');
     }

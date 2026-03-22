@@ -110,15 +110,22 @@ class PurchaseOrderController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $purchaseOrder) {
-            $batchValue = 0.0;
+            $batchValue    = 0.0;
+            $receivedItems = [];
 
             foreach ($request->items as $line) {
-                $poItem = PurchaseOrderItem::find($line['purchase_order_item_id']);
+                $poItem = PurchaseOrderItem::with('inventoryItem.category.account')
+                                           ->find($line['purchase_order_item_id']);
                 $qty    = (float) $line['quantity_received'];
 
                 if ($qty <= 0) continue;
 
-                $batchValue += $qty * (float) $poItem->unit_cost;
+                $lineValue    = $qty * (float) $poItem->unit_cost;
+                $batchValue  += $lineValue;
+
+                // Route each line to the category's COA account (falls back to 1150 Inventory)
+                $accountCode    = $poItem->inventoryItem?->category?->account?->code ?? '1150';
+                $receivedItems[] = ['account_code' => $accountCode, 'value' => $lineValue];
 
                 $poItem->increment('quantity_received', $qty);
 
@@ -146,7 +153,7 @@ class PurchaseOrderController extends Controller
 
             // Post Inventory / AP journal entry for every received batch (partial or full)
             if ($batchValue > 0) {
-                app(JournalEntryService::class)->onPurchaseOrderReceived($purchaseOrder, $batchValue);
+                app(JournalEntryService::class)->onPurchaseOrderReceived($purchaseOrder, $batchValue, $receivedItems);
             }
         });
 

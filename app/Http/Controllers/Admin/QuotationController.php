@@ -437,7 +437,7 @@ class QuotationController extends Controller
      */
     public function downloadPdf(Quotation $quotation)
     {
-        $quotation->load(['quoteRequest', 'client', 'createdBy', 'items']);
+        $quotation->load(['quoteRequest.client', 'client', 'createdBy', 'items']);
         
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.quotations.pdf', compact('quotation'));
         $pdf->setPaper('A4', 'portrait');

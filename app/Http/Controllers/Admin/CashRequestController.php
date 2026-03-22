@@ -192,7 +192,9 @@ class CashRequestController extends Controller
             'items.*.expense_category_id' => 'nullable|exists:expense_categories,id',
         ]);
 
-        DB::transaction(function () use ($request, $cashRequest) {
+        $jePosted = false;
+
+        DB::transaction(function () use ($request, $cashRequest, &$jePosted) {
             $totalActual = 0;
             foreach ($request->items as $index => $itemData) {
                 $item = $cashRequest->items()->find($itemData['id']);
@@ -229,10 +231,16 @@ class CashRequestController extends Controller
             $je = app(JournalEntryService::class)->onCashRequestRetired($cashRequest);
             if ($je) {
                 $cashRequest->update(['retire_journal_entry_id' => $je->id]);
+                $jePosted = true;
             }
         });
 
-        return back()->with('success', 'Cash request retired and posted to ledger.');
+        return back()->with(
+            $jePosted ? 'success' : 'warning',
+            $jePosted
+                ? 'Cash request retired and posted to ledger.'
+                : 'Cash request retired, but journal entry could not be posted — ensure all expense categories have a linked COA account.'
+        );
     }
 
     /** Edit a draft cash request */

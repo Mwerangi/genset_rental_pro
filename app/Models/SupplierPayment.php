@@ -9,14 +9,16 @@ class SupplierPayment extends Model
 {
     protected $fillable = [
         'payment_number', 'purchase_order_id', 'supplier_id',
-        'bank_account_id', 'amount', 'payment_date',
+        'bank_account_id', 'amount', 'withholding_tax', 'payment_date',
         'payment_method', 'reference', 'notes',
         'journal_entry_id', 'created_by',
+        'tax_invoice_number', 'status', 'remittance_path', 'confirmed_by', 'confirmed_at',
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
-        'payment_date' => 'date',
+        'amount'         => 'decimal:2',
+        'payment_date'   => 'date',
+        'confirmed_at'   => 'datetime',
     ];
 
     protected static function boot()
@@ -65,6 +67,11 @@ class SupplierPayment extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function confirmedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'confirmed_by');
     }
 
     // ─── Accessors ───────────────────────────────────────────────────

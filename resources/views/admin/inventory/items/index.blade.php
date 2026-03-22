@@ -79,9 +79,9 @@
                         </td>
                         <td class="px-5 py-3 text-gray-500 text-xs">{{ $item->category?->name ?? '—' }}</td>
                         <td class="px-5 py-3 font-semibold {{ $lowStock ? '' : 'text-gray-800' }}" style="{{ $lowStock ? 'color:#dc2626;' : '' }}">
-                            {{ number_format($item->current_stock, 2) + 0 }} {{ $item->unit_label }}
+                            {{ number_format((float) $item->current_stock, 2) }} {{ $item->unit_label }}
                         </td>
-                        <td class="px-5 py-3 text-gray-500 text-xs">{{ $item->min_stock_level + 0 }} {{ $item->unit_label }}</td>
+                        <td class="px-5 py-3 text-gray-500 text-xs">{{ (float) $item->min_stock_level }} {{ $item->unit_label }}</td>
                         <td class="px-5 py-3 text-gray-700">Tsh {{ number_format($item->unit_cost, 2) }}</td>
                         <td class="px-5 py-3 text-right">
                             <a href="{{ route('admin.inventory.items.show', $item) }}" class="text-sm text-red-600 hover:underline font-medium">View</a>

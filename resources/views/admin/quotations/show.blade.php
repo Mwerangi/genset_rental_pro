@@ -1,4 +1,47 @@
 <x-admin-layout>
+    <!-- Accept Confirmation Modal -->
+    <div
+        x-data="{ open: false }"
+        @open-accept-modal.window="open = true"
+        x-show="open"
+        x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center"
+    >
+        <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6" @click.stop>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-slate-900">Accept Quotation</h3>
+                <button @click="open = false" class="text-slate-400 hover:text-slate-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex gap-3 mb-5">
+                <div class="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">Accept {{ $quotation->quotation_number }}?</p>
+                    <p class="text-sm text-slate-500 mt-1">This will mark the quotation as accepted and automatically create a booking. This action cannot be undone.</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('admin.quotations.approve', $quotation) }}">
+                @csrf
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition font-semibold">
+                        Yes, Accept &amp; Create Booking
+                    </button>
+                    <button type="button" @click="open = false" class="flex-1 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition font-medium">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Rejection Modal -->
     <div
         x-data="{ open: false, reason: '' }"
@@ -208,15 +251,16 @@
 
                     @if(in_array($quotation->status, ['draft', 'sent', 'viewed']))
                         <!-- Approve -->
-                        <form method="POST" action="{{ route('admin.quotations.approve', $quotation) }}">
-                            @csrf
-                            <button type="submit" class="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition font-semibold flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                Approve Quotation
-                            </button>
-                        </form>
+                        <button
+                            type="button"
+                            @click="$dispatch('open-accept-modal')"
+                            class="w-full bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition font-semibold flex items-center justify-center gap-2"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Approve Quotation
+                        </button>
 
                         <!-- Reject -->
                         <button

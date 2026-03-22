@@ -88,7 +88,7 @@ class BookingController extends Controller
         ]);
 
         $startDate = \Carbon\Carbon::parse($validated['rental_start_date']);
-        $endDate   = $startDate->copy()->addDays($validated['rental_duration_days']);
+        $endDate   = $startDate->copy()->addDays((int) $validated['rental_duration_days']);
 
         $booking = Booking::create([
             'quote_request_id'     => $validated['quote_request_id'] ?? null,

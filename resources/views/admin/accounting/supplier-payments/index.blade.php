@@ -63,6 +63,8 @@
                     <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Supplier</th>
                     <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">PO</th>
                     <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Method</th>
+                    <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Tax Invoice / EFD #</th>
+                    <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
                     <th class="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Amount</th>
                     <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">JE</th>
                     <th class="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide"></th>
@@ -81,6 +83,14 @@
                     </td>
                     <td class="px-4 py-3">
                         <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{{ ucwords(str_replace('_',' ', $payment->payment_method)) }}</span>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-xs text-gray-700">{{ $payment->tax_invoice_number ?? '—' }}</td>
+                    <td class="px-4 py-3">
+                        @if($payment->status === 'confirmed')
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Confirmed</span>
+                        @else
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Paid</span>
+                        @endif
                     </td>
                     <td class="px-4 py-3 text-right font-semibold font-mono text-sm">Tsh {{ number_format($payment->amount, 0) }}</td>
                     <td class="px-4 py-3">

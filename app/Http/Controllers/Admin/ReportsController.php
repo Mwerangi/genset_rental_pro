@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\JournalEntryLine;
 use App\Models\PurchaseOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ReportsController extends Controller
 {
@@ -239,5 +242,111 @@ class ReportsController extends Controller
         ];
 
         return view('admin.accounting.reports.payables', compact('pos', 'totals', 'statusFilter'));
+    }
+
+    /**
+     * Profit & Loss Statement.
+     * Revenue and expenses from posted JE lines within a date range.
+     */
+    public function profitLoss(Request $request)
+    {
+        $from = $request->get('from', now()->startOfYear()->toDateString());
+        $to   = $request->get('to', now()->toDateString());
+
+        $base = DB::table('journal_entry_lines')
+            ->join('journal_entries', 'journal_entry_lines.journal_entry_id', '=', 'journal_entries.id')
+            ->join('accounts', 'journal_entry_lines.account_id', '=', 'accounts.id')
+            ->where('journal_entries.status', 'posted')
+            ->whereBetween('journal_entries.entry_date', [$from, $to]);
+
+        // Revenue: credit-normal — net = SUM(credit) - SUM(debit)
+        $revenueRows = (clone $base)
+            ->where('accounts.type', 'revenue')
+            ->groupBy('accounts.id', 'accounts.code', 'accounts.name')
+            ->selectRaw('accounts.id, accounts.code, accounts.name,
+                SUM(journal_entry_lines.credit) - SUM(journal_entry_lines.debit) AS net')
+            ->orderBy('accounts.code')
+            ->get();
+
+        // Expenses: debit-normal — net = SUM(debit) - SUM(credit)
+        $expenseRows = (clone $base)
+            ->where('accounts.type', 'expense')
+            ->groupBy('accounts.id', 'accounts.code', 'accounts.name')
+            ->selectRaw('accounts.id, accounts.code, accounts.name,
+                SUM(journal_entry_lines.debit) - SUM(journal_entry_lines.credit) AS net')
+            ->orderBy('accounts.code')
+            ->get();
+
+        $totalRevenue  = $revenueRows->sum('net');
+        $totalExpenses = $expenseRows->sum('net');
+        $netProfit     = $totalRevenue - $totalExpenses;
+
+        return view('admin.accounting.reports.profit-loss', compact(
+            'revenueRows', 'expenseRows',
+            'totalRevenue', 'totalExpenses', 'netProfit',
+            'from', 'to'
+        ));
+    }
+
+    /**
+     * Balance Sheet.
+     * Account balances as at a given date, computed from posted JE lines.
+     */
+    public function balanceSheet(Request $request)
+    {
+        $asAt = $request->get('as_at', now()->toDateString());
+
+        // Aggregate posted JE lines up to $asAt per account
+        $aggregates = DB::table('journal_entry_lines')
+            ->join('journal_entries', 'journal_entry_lines.journal_entry_id', '=', 'journal_entries.id')
+            ->join('accounts', 'journal_entry_lines.account_id', '=', 'accounts.id')
+            ->where('journal_entries.status', 'posted')
+            ->where('journal_entries.entry_date', '<=', $asAt)
+            ->whereIn('accounts.type', ['asset', 'liability', 'equity', 'revenue', 'expense'])
+            ->groupBy('accounts.id', 'accounts.code', 'accounts.name', 'accounts.type', 'accounts.normal_balance')
+            ->selectRaw('accounts.id, accounts.code, accounts.name, accounts.type, accounts.normal_balance,
+                SUM(journal_entry_lines.debit)  AS total_debit,
+                SUM(journal_entry_lines.credit) AS total_credit')
+            ->orderBy('accounts.code')
+            ->get();
+
+        $assets      = collect();
+        $liabilities = collect();
+        $equity      = collect();
+
+        // Retained earnings = revenue - expenses up to $asAt
+        $retainedEarnings = 0;
+
+        foreach ($aggregates as $row) {
+            // Compute signed balance based on normal_balance convention
+            $balance = $row->normal_balance === 'debit'
+                ? (float) $row->total_debit - (float) $row->total_credit
+                : (float) $row->total_credit - (float) $row->total_debit;
+
+            if ($row->type === 'asset') {
+                $assets->push((object) ['code' => $row->code, 'name' => $row->name, 'balance' => $balance]);
+            } elseif ($row->type === 'liability') {
+                $liabilities->push((object) ['code' => $row->code, 'name' => $row->name, 'balance' => $balance]);
+            } elseif ($row->type === 'equity') {
+                $equity->push((object) ['code' => $row->code, 'name' => $row->name, 'balance' => $balance]);
+            } elseif ($row->type === 'revenue') {
+                // Revenue credits increase retained earnings
+                $retainedEarnings += (float) $row->total_credit - (float) $row->total_debit;
+            } elseif ($row->type === 'expense') {
+                // Expense debits reduce retained earnings
+                $retainedEarnings -= (float) $row->total_debit - (float) $row->total_credit;
+            }
+        }
+
+        $totalAssets      = $assets->sum('balance');
+        $totalLiabilities = $liabilities->sum('balance');
+        $totalEquity      = $equity->sum('balance') + $retainedEarnings;
+        $totalLiabEquity  = $totalLiabilities + $totalEquity;
+
+        return view('admin.accounting.reports.balance-sheet', compact(
+            'assets', 'liabilities', 'equity',
+            'totalAssets', 'totalLiabilities', 'totalEquity', 'totalLiabEquity',
+            'retainedEarnings', 'asAt'
+        ));
     }
 }

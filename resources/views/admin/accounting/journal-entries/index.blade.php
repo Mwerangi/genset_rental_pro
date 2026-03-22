@@ -81,7 +81,8 @@
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Entry #</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Date</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
-                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Source</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Nature / Source</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Accounts (COA)</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Total Dr</th>
                     <th class="text-center px-4 py-3 font-semibold text-gray-600">Status</th>
                     <th class="px-4 py-3"></th>
@@ -97,9 +98,46 @@
                     <td class="px-4 py-3 text-gray-600 text-xs">{{ $je->entry_date?->format('d M Y') }}</td>
                     <td class="px-4 py-3 text-gray-800 max-w-xs truncate">{{ $je->description }}</td>
                     <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
-                            {{ ucfirst(str_replace('_', ' ', $je->source_type ?? 'manual')) }}
+                        @php
+                            $sourceLabels = [
+                                'manual'           => ['Manual Entry',      'bg-purple-50 text-purple-700'],
+                                'invoice'          => ['Invoice',           'bg-blue-50 text-blue-700'],
+                                'payment'          => ['Client Payment',    'bg-teal-50 text-teal-700'],
+                                'purchase_order'   => ['Purchase Order',    'bg-orange-50 text-orange-700'],
+                                'supplier_payment' => ['Supplier Payment',  'bg-amber-50 text-amber-700'],
+                                'expense'          => ['Expense',           'bg-red-50 text-red-700'],
+                                'cash_request'     => ['Cash Request',      'bg-cyan-50 text-cyan-700'],
+                                'credit_note'      => ['Credit Note',       'bg-pink-50 text-pink-700'],
+                                'maintenance'      => ['Maintenance',       'bg-lime-50 text-lime-700'],
+                                'genset'           => ['Asset / Genset',    'bg-indigo-50 text-indigo-700'],
+                            ];
+                            [$label, $cls] = $sourceLabels[$je->source_type] ?? [ucfirst(str_replace('_', ' ', $je->source_type ?? 'manual')), 'bg-gray-100 text-gray-600'];
+                        @endphp
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $cls }}">
+                            {{ $label }}
                         </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        @php
+                            $drLines = $je->lines->filter(fn($l) => $l->debit > 0);
+                            $crLines = $je->lines->filter(fn($l) => $l->credit > 0);
+                        @endphp
+                        <div class="space-y-1">
+                            @foreach($drLines as $line)
+                            <div class="flex items-center gap-1">
+                                <span class="inline-block w-5 text-center text-xs font-bold text-blue-600 shrink-0">DR</span>
+                                <span class="font-mono text-xs text-gray-500">{{ $line->account?->code }}</span>
+                                <span class="text-xs text-gray-700 truncate max-w-[140px]" title="{{ $line->account?->name }}">{{ $line->account?->name }}</span>
+                            </div>
+                            @endforeach
+                            @foreach($crLines as $line)
+                            <div class="flex items-center gap-1">
+                                <span class="inline-block w-5 text-center text-xs font-bold text-green-600 shrink-0">CR</span>
+                                <span class="font-mono text-xs text-gray-500">{{ $line->account?->code }}</span>
+                                <span class="text-xs text-gray-700 truncate max-w-[140px]" title="{{ $line->account?->name }}">{{ $line->account?->name }}</span>
+                            </div>
+                            @endforeach
+                        </div>
                     </td>
                     <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900">
                         Tsh {{ number_format($je->lines->sum('debit'), 0) }}
@@ -122,7 +160,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="7" class="px-4 py-10 text-center text-gray-400">No journal entries found.</td></tr>
+                <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No journal entries found.</td></tr>
                 @endforelse
             </tbody>
         </table>

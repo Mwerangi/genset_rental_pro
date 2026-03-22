@@ -13,7 +13,7 @@ class JournalEntryController extends Controller
 {
     public function index(Request $request)
     {
-        $query = JournalEntry::with(['lines', 'createdBy'])->latest('entry_date');
+        $query = JournalEntry::with(['lines.account', 'createdBy'])->latest('entry_date');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);

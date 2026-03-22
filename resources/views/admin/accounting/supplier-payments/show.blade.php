@@ -2,7 +2,14 @@
     <div class="mb-6 flex items-center justify-between">
         <div>
             <a href="{{ route('admin.accounting.supplier-payments.index') }}" class="text-sm text-gray-500 hover:text-gray-700">← Supplier Payments</a>
-            <h1 class="text-2xl font-bold text-gray-900 mt-2">{{ $supplierPayment->payment_number }}</h1>
+            <div class="flex items-center gap-3 mt-2">
+                <h1 class="text-2xl font-bold text-gray-900">{{ $supplierPayment->payment_number }}</h1>
+                @if($supplierPayment->status === 'confirmed')
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Confirmed</span>
+                @else
+                <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">Paid — Awaiting Confirmation</span>
+                @endif
+            </div>
             <p class="text-sm text-gray-500 mt-0.5">{{ $supplierPayment->payment_date->format('d M Y') }}</p>
         </div>
     </div>
@@ -24,6 +31,9 @@
                     <dt class="text-gray-500">Method</dt><dd>{{ ucwords(str_replace('_',' ',$supplierPayment->payment_method)) }}</dd>
                     @if($supplierPayment->reference)
                     <dt class="text-gray-500">Reference</dt><dd class="font-mono text-xs text-gray-700">{{ $supplierPayment->reference }}</dd>
+                    @endif
+                    @if($supplierPayment->tax_invoice_number)
+                    <dt class="text-gray-500">Tax Invoice / EFD #</dt><dd class="font-mono text-xs text-gray-900 font-semibold">{{ $supplierPayment->tax_invoice_number }}</dd>
                     @endif
                     @if($supplierPayment->notes)
                     <dt class="text-gray-500">Notes</dt><dd class="text-gray-900">{{ $supplierPayment->notes }}</dd>
@@ -78,6 +88,60 @@
                 @if($supplierPayment->withholding_tax > 0)
                 <p class="text-xs text-gray-500 mt-1">WHT: Tsh {{ number_format($supplierPayment->withholding_tax, 0) }}</p>
                 <p class="text-xs text-gray-500">Net: Tsh {{ number_format($supplierPayment->amount - $supplierPayment->withholding_tax, 0) }}</p>
+                @endif
+            </div>
+
+            <!-- Confirmation Card -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 mt-4">
+                <p class="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-3">Payment Confirmation</p>
+
+                @if($supplierPayment->status === 'confirmed')
+                <div class="flex items-start gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-green-700">Confirmed</p>
+                        <p class="text-xs text-gray-500 mt-0.5">By {{ $supplierPayment->confirmedBy?->name ?? '—' }}</p>
+                        <p class="text-xs text-gray-500">{{ $supplierPayment->confirmed_at?->format('d M Y, H:i') }}</p>
+                    </div>
+                </div>
+                @if($supplierPayment->remittance_path)
+                <a href="{{ route('admin.accounting.supplier-payments.remittance', $supplierPayment) }}"
+                   class="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Download Remittance Proof
+                </a>
+                @endif
+
+                {{-- Re-confirm / replace remittance --}}
+                <form method="POST" action="{{ route('admin.accounting.supplier-payments.confirm', $supplierPayment) }}"
+                      enctype="multipart/form-data" class="mt-4 pt-4 border-t border-gray-100 space-y-3">
+                    @csrf
+                    <p class="text-xs text-gray-500 font-medium">Update remittance proof (optional)</p>
+                    <input type="file" name="remittance_file" accept=".jpg,.jpeg,.png,.pdf"
+                           class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                    <button type="submit" class="w-full px-3 py-2 bg-gray-100 border border-gray-200 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-200">
+                        Replace File
+                    </button>
+                </form>
+
+                @else
+                <p class="text-xs text-gray-500 mb-3">Upload remittance proof (bank advice, SWIFT confirmation, cheque scan) to confirm this payment was executed.</p>
+                <form method="POST" action="{{ route('admin.accounting.supplier-payments.confirm', $supplierPayment) }}"
+                      enctype="multipart/form-data" class="space-y-3">
+                    @csrf
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">Remittance Proof <span class="text-gray-400 font-normal">(JPG, PNG, PDF — max 5 MB)</span></label>
+                        <input type="file" name="remittance_file" accept=".jpg,.jpeg,.png,.pdf"
+                               class="w-full text-xs border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button type="submit" class="w-full px-3 py-2.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
+                        Confirm Payment
+                    </button>
+                </form>
                 @endif
             </div>
         </div>

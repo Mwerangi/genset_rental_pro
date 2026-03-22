@@ -9,6 +9,7 @@ use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SupplierPaymentController extends Controller
 {
@@ -38,14 +39,12 @@ class SupplierPaymentController extends Controller
         $payments  = $query->paginate(25)->withQueryString();
         $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
-        $stats = [
-            'total_this_month' => SupplierPayment::whereMonth('payment_date', now()->month)
-                                                   ->whereYear('payment_date', now()->year)
-                                                   ->sum('amount'),
-            'total_all_time'   => SupplierPayment::sum('amount'),
-        ];
+        $monthTotal   = SupplierPayment::whereMonth('payment_date', now()->month)
+                                        ->whereYear('payment_date', now()->year)
+                                        ->sum('amount');
+        $allTimeTotal = SupplierPayment::sum('amount');
 
-        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'stats'));
+        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'monthTotal', 'allTimeTotal'));
     }
 
     public function create(Request $request)
@@ -80,15 +79,19 @@ class SupplierPaymentController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'purchase_order_id' => 'nullable|exists:purchase_orders,id',
-            'supplier_id'       => 'required|exists:suppliers,id',
-            'bank_account_id'   => 'required|exists:bank_accounts,id',
-            'amount'            => 'required|numeric|min:0.01',
-            'payment_date'      => 'required|date',
-            'payment_method'    => 'required|in:bank_transfer,mobile_money,cheque,cash',
-            'reference'         => 'nullable|string|max:200',
-            'notes'             => 'nullable|string',
+            'purchase_order_id'  => 'nullable|exists:purchase_orders,id',
+            'supplier_id'        => 'required|exists:suppliers,id',
+            'bank_account_id'    => 'required|exists:bank_accounts,id',
+            'amount'             => 'required|numeric|min:0.01',
+            'withholding_tax'    => 'nullable|numeric|min:0',
+            'payment_date'       => 'required|date',
+            'payment_method'     => 'required|in:bank_transfer,mobile_money,cheque,cash',
+            'reference'          => 'nullable|string|max:200',
+            'tax_invoice_number' => 'nullable|string|max:100',
+            'notes'              => 'nullable|string',
         ]);
+
+        $data['withholding_tax'] = $data['withholding_tax'] ?? 0;
 
         $data['created_by'] = auth()->id();
 
@@ -106,7 +109,41 @@ class SupplierPaymentController extends Controller
 
     public function show(SupplierPayment $supplierPayment)
     {
-        $supplierPayment->load(['supplier', 'bankAccount', 'purchaseOrder', 'journalEntry.lines.account', 'createdBy']);
+        $supplierPayment->load(['supplier', 'bankAccount', 'purchaseOrder', 'journalEntry.lines.account', 'createdBy', 'confirmedBy']);
         return view('admin.accounting.supplier-payments.show', compact('supplierPayment'));
+    }
+
+    public function confirm(Request $request, SupplierPayment $supplierPayment)
+    {
+        $request->validate([
+            'remittance_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+        ]);
+
+        $remittancePath = $supplierPayment->remittance_path;
+
+        if ($request->hasFile('remittance_file')) {
+            if ($remittancePath) {
+                Storage::disk('private')->delete($remittancePath);
+            }
+            $remittancePath = $request->file('remittance_file')
+                ->store('remittances/' . $supplierPayment->id, 'private');
+        }
+
+        $supplierPayment->update([
+            'status'          => 'confirmed',
+            'confirmed_by'    => auth()->id(),
+            'confirmed_at'    => now(),
+            'remittance_path' => $remittancePath,
+        ]);
+
+        return back()->with('success', 'Payment confirmed successfully.');
+    }
+
+    public function serveRemittance(SupplierPayment $supplierPayment)
+    {
+        abort_unless($supplierPayment->remittance_path, 404);
+        abort_unless(Storage::disk('private')->exists($supplierPayment->remittance_path), 404);
+
+        return Storage::disk('private')->download($supplierPayment->remittance_path);
     }
 }

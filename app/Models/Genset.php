@@ -37,6 +37,7 @@ class Genset extends Model
         'next_service_date',
         'service_interval_hours',
         'notes',
+        'journal_entry_id',
     ];
 
     protected $casts = [

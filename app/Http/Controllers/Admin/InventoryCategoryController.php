@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\InventoryCategory;
 use Illuminate\Http\Request;
 
@@ -10,8 +11,9 @@ class InventoryCategoryController extends Controller
 {
     public function index()
     {
-        $categories = InventoryCategory::withCount('items')->orderBy('name')->get();
-        return view('admin.inventory.categories.index', compact('categories'));
+        $categories   = InventoryCategory::withCount('items')->with('account')->orderBy('name')->get();
+        $coaAccounts  = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
+        return view('admin.inventory.categories.index', compact('categories', 'coaAccounts'));
     }
 
     public function store(Request $request)
@@ -19,6 +21,7 @@ class InventoryCategoryController extends Controller
         $data = $request->validate([
             'name'        => 'required|string|max:255|unique:inventory_categories,name',
             'description' => 'nullable|string|max:500',
+            'account_id'  => 'nullable|exists:accounts,id',
         ]);
 
         InventoryCategory::create($data);
@@ -31,6 +34,7 @@ class InventoryCategoryController extends Controller
         $data = $request->validate([
             'name'        => 'required|string|max:255|unique:inventory_categories,name,' . $category->id,
             'description' => 'nullable|string|max:500',
+            'account_id'  => 'nullable|exists:accounts,id',
         ]);
 
         $category->update($data);
