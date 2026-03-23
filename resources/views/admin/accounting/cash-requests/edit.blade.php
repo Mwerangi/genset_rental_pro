@@ -33,13 +33,14 @@
                     <p class="text-sm font-semibold text-gray-700">Cost Items</p>
                     <button type="button" id="addItem" class="text-sm text-red-600 hover:text-red-700 font-medium">+ Add Item</button>
                 </div>
+                <p class="text-xs text-gray-500 mb-3">Each item must be categorised — the category determines which ledger account gets debited when you retire this request.</p>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="text-left px-3 py-2 font-semibold text-gray-600">Item Description <span class="text-red-500">*</span></th>
-                                <th class="text-left px-3 py-2 font-semibold text-gray-600">Category</th>
-                                <th class="text-right px-3 py-2 font-semibold text-gray-600 w-36">Est. Amount <span class="text-red-500">*</span></th>
+                                <th class="text-left px-3 py-2 font-semibold text-gray-600">Category <span class="text-red-500">*</span></th>
+                                <th class="text-right px-3 py-2 font-semibold text-gray-600 w-36">Est. Amount (TZS) <span class="text-red-500">*</span></th>
                                 <th class="px-3 py-2 w-10"></th>
                             </tr>
                         </thead>
@@ -52,13 +53,17 @@
                                 <td class="px-3 py-2">
                                     <input type="text" name="items[{{ $idx }}][description]" value="{{ $item->description ?? '' }}" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400" required>
                                 </td>
-                                <td class="px-3 py-2">
-                                    <select name="items[{{ $idx }}][expense_category_id]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
-                                        <option value="">—</option>
+                                <td class="px-3 py-2 min-w-[200px]">
+                                    <select name="items[{{ $idx }}][expense_category_id]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 cat-select" required>
+                                        <option value="">— Select category —</option>
                                         @foreach($categories as $cat)
-                                        <option value="{{ $cat->id }}" @selected(($item->expense_category_id ?? '') == $cat->id)>{{ $cat->name }}</option>
+                                        <option value="{{ $cat->id }}" data-coa="{{ $cat->account?->code }} - {{ $cat->account?->name }}"
+                                            @selected(($item->expense_category_id ?? '') == $cat->id)>
+                                            {{ $cat->name }}
+                                        </option>
                                         @endforeach
                                     </select>
+                                    <p class="text-xs text-blue-600 mt-0.5 coa-hint"></p>
                                 </td>
                                 <td class="px-3 py-2">
                                     <input type="number" name="items[{{ $idx }}][estimated_amount]" value="{{ $item->estimated_amount ?? '' }}" step="0.01" min="0.01" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400 amount-input" oninput="updateTotal()" required>
@@ -89,7 +94,25 @@
 
     <script>
     let itemIndex = {{ $existingItems->count() }};
-    const catOptions = `{!! collect($categories)->map(fn($c) => '<option value="'.$c->id.'">'.htmlspecialchars($c->name, ENT_QUOTES).'</option>')->implode('') !!}`;
+    const catData = @json($categories->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'coa' => ($c->account ? $c->account->code . ' - ' . $c->account->name : '')]));
+
+    function buildOptions(selectedId = '') {
+        return catData.map(c =>
+            `<option value="${c.id}" data-coa="${c.coa}" ${c.id == selectedId ? 'selected' : ''}>${c.name}</option>`
+        ).join('');
+    }
+
+    function wireCoaHints(container) {
+        container.querySelectorAll('.cat-select').forEach(sel => {
+            function updateHint() {
+                const opt = sel.options[sel.selectedIndex];
+                const hint = sel.closest('td').querySelector('.coa-hint');
+                if (hint) hint.textContent = opt?.dataset.coa ? 'Ledger: ' + opt.dataset.coa : '';
+            }
+            sel.addEventListener('change', updateHint);
+            updateHint();
+        });
+    }
 
     function updateTotal() {
         let total = 0;
@@ -97,14 +120,24 @@
         document.getElementById('totalAmount').textContent = total.toLocaleString('en', { minimumFractionDigits: 0 });
     }
 
+    wireCoaHints(document.getElementById('itemsBody'));
+    updateTotal();
+
     document.getElementById('addItem').addEventListener('click', () => {
         const tr = document.createElement('tr');
         tr.className = 'item-row border-t border-gray-100';
-        tr.innerHTML = `<td class="px-3 py-2"><input type="text" name="items[${itemIndex}][description]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" required></td>
-        <td class="px-3 py-2"><select name="items[${itemIndex}][expense_category_id]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">—</option>${catOptions}</select></td>
+        tr.innerHTML = `
+        <td class="px-3 py-2"><input type="text" name="items[${itemIndex}][description]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" required></td>
+        <td class="px-3 py-2 min-w-[200px]">
+            <select name="items[${itemIndex}][expense_category_id]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm cat-select" required>
+                <option value="">— Select category —</option>${buildOptions()}
+            </select>
+            <p class="text-xs text-blue-600 mt-0.5 coa-hint"></p>
+        </td>
         <td class="px-3 py-2"><input type="number" name="items[${itemIndex}][estimated_amount]" step="0.01" min="0.01" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right amount-input" oninput="updateTotal()" required></td>
         <td class="px-3 py-2 text-center"><button type="button" class="remove-item text-red-400 hover:text-red-600">✕</button></td>`;
         document.getElementById('itemsBody').appendChild(tr);
+        wireCoaHints(tr);
         tr.querySelector('.remove-item').addEventListener('click', () => { tr.remove(); updateTotal(); });
         itemIndex++;
     });
@@ -114,8 +147,5 @@
             e.target.closest('tr').remove(); updateTotal();
         }
     });
-
-    // Init total on load
-    updateTotal();
     </script>
 </x-admin-layout>

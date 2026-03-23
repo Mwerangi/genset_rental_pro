@@ -199,14 +199,17 @@
     {{-- Retire Modal --}}
     @if($cashRequest->status === 'paid')
     <div id="retireModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto" onclick="if(event.target===this)this.classList.add('hidden')">
-        <div class="bg-white rounded-xl p-6 shadow-xl w-full max-w-xl my-8">
-            <h3 class="font-bold text-gray-900 mb-4">Retire Cash Request</h3>
+        <div class="bg-white rounded-xl p-6 shadow-xl w-full max-w-4xl my-8">
+            <h3 class="font-bold text-gray-900 mb-1">Retire Cash Request</h3>
+            <p class="text-xs text-gray-500 mb-4">Confirm actual amounts and verify the expense category for each item — this determines which ledger account will be debited.</p>
             <form method="POST" action="{{ route('admin.accounting.cash-requests.retire', $cashRequest) }}" enctype="multipart/form-data">
                 @csrf
+                <div class="overflow-x-auto">
                 <table class="w-full text-sm mb-4">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Item</th>
+                            <th class="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Category <span class="text-red-500">*</span></th>
                             <th class="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Est.</th>
                             <th class="text-right px-2 py-1.5 text-xs font-medium text-gray-500">Actual <span class="text-red-500">*</span></th>
                             <th class="text-left px-2 py-1.5 text-xs font-medium text-gray-500">Receipt #</th>
@@ -217,8 +220,20 @@
                         @foreach($cashRequest->items as $i=>$item)
                         <tr class="border-t border-gray-100">
                             <input type="hidden" name="items[{{ $i }}][id]" value="{{ $item->id }}">
-                            <input type="hidden" name="items[{{ $i }}][expense_category_id]" value="{{ $item->expense_category_id }}">
-                            <td class="px-2 py-1.5 text-xs text-gray-700">{{ $item->description }}</td>
+                            <td class="px-2 py-1.5 text-xs text-gray-700 max-w-[150px]">{{ $item->description }}</td>
+                            <td class="px-2 py-1.5 min-w-[180px]">
+                                <select name="items[{{ $i }}][expense_category_id]" class="w-full border border-gray-300 rounded px-2 py-1 text-xs retire-cat-select" required>
+                                    <option value="">— Select —</option>
+                                    @foreach($categories as $cat)
+                                    <option value="{{ $cat->id }}"
+                                        data-coa="{{ $cat->account ? $cat->account->code . ' - ' . $cat->account->name : '' }}"
+                                        {{ $item->expense_category_id == $cat->id ? 'selected' : '' }}>
+                                        {{ $cat->name }}
+                                    </option>
+                                    @endforeach
+                                </select>
+                                <p class="text-xs text-blue-600 mt-0.5 retire-coa-hint"></p>
+                            </td>
                             <td class="px-2 py-1.5 text-right text-xs text-gray-500">{{ number_format($item->estimated_amount, 0) }}</td>
                             <td class="px-2 py-1.5"><input type="number" name="items[{{ $i }}][actual_amount]" value="{{ $item->actual_amount ?? $item->estimated_amount }}" step="0.01" min="0" class="w-full border border-gray-300 rounded px-2 py-1 text-xs text-right" required></td>
                             <td class="px-2 py-1.5"><input type="text" name="items[{{ $i }}][receipt_ref]" value="{{ $item->receipt_ref }}" class="w-full border border-gray-300 rounded px-2 py-1 text-xs" placeholder="RCP-xxx"></td>
@@ -234,6 +249,7 @@
                         @endforeach
                     </tbody>
                 </table>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button type="button" onclick="document.getElementById('retireModal').classList.add('hidden')" class="px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Cancel</button>
                     <button type="submit" class="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium">Submit & Post to Ledger</button>
@@ -242,4 +258,18 @@
         </div>
     </div>
     @endif
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.retire-cat-select').forEach(sel => {
+        function updateHint() {
+            const opt = sel.options[sel.selectedIndex];
+            const hint = sel.closest('td').querySelector('.retire-coa-hint');
+            if (hint) hint.textContent = opt?.dataset.coa ? 'Ledger: ' + opt.dataset.coa : '';
+        }
+        sel.addEventListener('change', updateHint);
+        updateHint();
+    });
+});
+</script>
 </x-admin-layout>

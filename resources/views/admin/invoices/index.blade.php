@@ -39,7 +39,7 @@
             <p class="text-sm font-semibold text-amber-900">Outstanding Balance</p>
             <p class="text-xs text-amber-700 mt-0.5">Total unpaid across all open invoices</p>
         </div>
-        <p class="text-2xl font-bold text-amber-900">TZS {{ number_format($stats['total_outstanding'], 0) }}</p>
+        <p class="text-2xl font-bold text-amber-900">TZS {{ number_format($stats['total_outstanding'], 0) }} <span class="text-sm font-normal text-amber-700">(equiv.)</span></p>
     </div>
     @endif
 
@@ -116,10 +116,15 @@
                                 <p class="text-xs mt-0.5" style="color:#dc2626;">Overdue</p>
                             @endif
                         </td>
-                        <td class="px-4 py-3 font-semibold text-gray-900">TZS {{ number_format($invoice->total_amount, 0) }}</td>
+                        <td class="px-4 py-3 font-semibold text-gray-900">
+                            {{ $invoice->formatAmount($invoice->total_amount, 0) }}
+                            @if($invoice->currency === 'USD')
+                                <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3">
                             @if($invoice->balance_due > 0)
-                                <span class="font-semibold" style="color:#dc2626;">TZS {{ number_format($invoice->balance_due, 0) }}</span>
+                                <span class="font-semibold" style="color:#dc2626;">{{ $invoice->formatAmount($invoice->balance_due, 0) }}</span>
                             @else
                                 <span class="text-gray-400 text-xs">—</span>
                             @endif

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\BankAccount;
 use App\Models\CashRequest;
 use App\Models\CashRequestItem;
@@ -45,7 +46,10 @@ class CashRequestController extends Controller
 
     public function create()
     {
-        $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+        $categories = ExpenseCategory::with('account')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         return view('admin.accounting.cash-requests.create', compact('categories'));
     }
 
@@ -56,7 +60,7 @@ class CashRequestController extends Controller
             'items'                 => 'required|array|min:1',
             'items.*.description'   => 'required|string|max:500',
             'items.*.estimated_amount' => 'required|numeric|min:0.01',
-            'items.*.expense_category_id' => 'nullable|exists:expense_categories,id',
+            'items.*.expense_category_id' => 'required|exists:expense_categories,id',
             'notes'                 => 'nullable|string',
         ]);
 
@@ -88,14 +92,18 @@ class CashRequestController extends Controller
     {
         $cashRequest->load([
             'requestedBy', 'approvedBy', 'bankAccount',
-            'items.expenseCategory',
+            'items.expenseCategory.account',
             'journalEntry.lines.account',
             'retireJournalEntry.lines.account',
         ]);
 
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        $categories = ExpenseCategory::with('account')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
 
-        return view('admin.accounting.cash-requests.show', compact('cashRequest', 'bankAccounts'));
+        return view('admin.accounting.cash-requests.show', compact('cashRequest', 'bankAccounts', 'categories'));
     }
 
     /** Submit draft for approval */
@@ -106,6 +114,15 @@ class CashRequestController extends Controller
         }
 
         $cashRequest->update(['status' => 'pending']);
+
+        AppNotification::notify(
+            null,
+            'cash_request',
+            'Cash Request Pending Approval',
+            ($cashRequest->requestedBy?->name ?? 'A user') . ' submitted a cash request for TZS ' . number_format($cashRequest->total_amount, 0) . '.',
+            route('admin.accounting.cash-requests.show', $cashRequest),
+            'cash'
+        );
 
         return back()->with('success', 'Cash request submitted for approval.');
     }
@@ -127,6 +144,15 @@ class CashRequestController extends Controller
             'approved_at' => now(),
         ]);
 
+        AppNotification::notify(
+            $cashRequest->requested_by,
+            'cash_request',
+            'Your Cash Request Was Approved',
+            'TZS ' . number_format($cashRequest->total_amount, 0) . ' is approved for disbursement.',
+            route('admin.accounting.cash-requests.show', $cashRequest),
+            'cash'
+        );
+
         return back()->with('success', 'Cash request approved.');
     }
 
@@ -143,6 +169,15 @@ class CashRequestController extends Controller
             'status'           => 'rejected',
             'rejection_reason' => $request->reason,
         ]);
+
+        AppNotification::notify(
+            $cashRequest->requested_by,
+            'cash_request',
+            'Your Cash Request Was Rejected',
+            'Reason: ' . $request->reason,
+            route('admin.accounting.cash-requests.show', $cashRequest),
+            'cash'
+        );
 
         return back()->with('success', 'Cash request rejected.');
     }
@@ -189,7 +224,7 @@ class CashRequestController extends Controller
             'items.*.actual_amount'       => 'required|numeric|min:0',
             'items.*.receipt_ref'         => 'nullable|string|max:100',
             'items.*.receipt_file'        => 'nullable|file|mimes:jpg,jpeg,png,pdf,heic|max:5120',
-            'items.*.expense_category_id' => 'nullable|exists:expense_categories,id',
+            'items.*.expense_category_id' => 'required|exists:expense_categories,id',
         ]);
 
         $jePosted = false;
@@ -251,7 +286,10 @@ class CashRequestController extends Controller
                              ->with('error', 'Only draft requests can be edited.');
         }
 
-        $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+        $categories = ExpenseCategory::with('account')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
         $cashRequest->load('items.expenseCategory');
 
         return view('admin.accounting.cash-requests.edit', compact('cashRequest', 'categories'));
@@ -270,7 +308,7 @@ class CashRequestController extends Controller
             'items'                       => 'required|array|min:1',
             'items.*.description'         => 'required|string|max:500',
             'items.*.estimated_amount'    => 'required|numeric|min:0.01',
-            'items.*.expense_category_id' => 'nullable|exists:expense_categories,id',
+            'items.*.expense_category_id' => 'required|exists:expense_categories,id',
             'notes'                       => 'nullable|string',
         ]);
 

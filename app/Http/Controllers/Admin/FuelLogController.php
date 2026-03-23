@@ -39,7 +39,36 @@ class FuelLogController extends Controller
                                 ->whereYear('fuelled_at', now()->year)->sum('litres'),
         ];
 
-        return view('admin.inventory.fuel-logs.index', compact('logs', 'gensets', 'stats', 'bankAccounts'));
+        // Monthly chart data — last 12 months
+        $monthlyRaw = FuelLog::selectRaw("DATE_FORMAT(fuelled_at, '%Y-%m') as month, SUM(litres) as litres, SUM(total_cost) as cost")
+            ->where('fuelled_at', '>=', now()->subMonths(11)->startOfMonth())
+            ->groupByRaw("DATE_FORMAT(fuelled_at, '%Y-%m')")
+            ->orderByRaw("month ASC")
+            ->get()
+            ->keyBy('month');
+
+        $chartLabels = [];
+        $chartLitres = [];
+        $chartCosts  = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $key           = now()->subMonths($i)->format('Y-m');
+            $chartLabels[] = now()->subMonths($i)->format('M Y');
+            $chartLitres[] = round($monthlyRaw[$key]->litres ?? 0, 1);
+            $chartCosts[]  = round($monthlyRaw[$key]->cost ?? 0, 0);
+        }
+
+        // Top 5 gensets by fuel consumption
+        $topGensets = FuelLog::selectRaw('genset_id, SUM(litres) as total_litres, SUM(total_cost) as total_cost')
+            ->with('genset:id,asset_number,name')
+            ->groupBy('genset_id')
+            ->orderByDesc('total_litres')
+            ->limit(5)
+            ->get();
+
+        return view('admin.inventory.fuel-logs.index', compact(
+            'logs', 'gensets', 'stats', 'bankAccounts',
+            'chartLabels', 'chartLitres', 'chartCosts', 'topGensets'
+        ));
     }
 
     public function store(Request $request)

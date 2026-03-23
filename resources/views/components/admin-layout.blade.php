@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-data="{ sidebarOpen: false, salesOpen: {{ request()->routeIs('admin.quote-requests.*') || request()->routeIs('admin.quotations.*') ? 'true' : 'false' }}, bookingsOpen: {{ request()->routeIs('admin.bookings.*') ? 'true' : 'false' }}, inventoryOpen: {{ request()->routeIs('admin.inventory.*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.purchase-orders.*') || request()->routeIs('admin.fuel-logs.*') ? 'true' : 'false' }}, accountingOpen: {{ request()->routeIs('admin.accounting.*') || request()->routeIs('admin.invoices.*') ? 'true' : 'false' }}, invoicesOpen: {{ request()->routeIs('admin.invoices.*') ? 'true' : 'false' }} }">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-data="{ sidebarOpen: false, salesOpen: {{ request()->routeIs('admin.quote-requests.*') || request()->routeIs('admin.quotations.*') ? 'true' : 'false' }}, bookingsOpen: {{ request()->routeIs('admin.bookings.*') || request()->routeIs('admin.quotations.*') ? 'true' : 'false' }}, inventoryOpen: {{ request()->routeIs('admin.inventory.*') || request()->routeIs('admin.suppliers.*') || request()->routeIs('admin.purchase-orders.*') || request()->routeIs('admin.fuel-logs.*') ? 'true' : 'false' }}, accountingOpen: {{ request()->routeIs('admin.accounting.*') || request()->routeIs('admin.invoices.*') ? 'true' : 'false' }}, invoicesOpen: {{ request()->routeIs('admin.invoices.*') ? 'true' : 'false' }}, settingsOpen: {{ request()->routeIs('admin.users.*') || request()->routeIs('admin.permissions.*') || request()->routeIs('admin.roles.*') ? 'true' : 'false' }} }">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -53,6 +53,7 @@
                     </a>
 
                     <!-- Sales Pipeline (dropdown) -->
+                    @permission('view_quote_requests', 'view_quotations')
                     <div class="space-y-1">
                         <button
                             @click="salesOpen = !salesOpen"
@@ -86,6 +87,7 @@
                             class="mt-1 space-y-1 border-l-2 border-red-100 ml-5 pl-2"
                         >
                             <!-- Prospectus (Quote Requests) -->
+                            @permission('view_quote_requests')
                             <a href="{{ route('admin.quote-requests.index') }}" class="group {{ request()->routeIs('admin.quote-requests.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-150">
                                 <div class="flex items-center gap-2.5">
                                     <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,10 +102,31 @@
                                     <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#ef4444;color:#fff;">{{ $newRequestsCount }}</span>
                                 @endif
                             </a>
+                            @endpermission
+
+                            <!-- Quotations -->
+                            @permission('view_quotations')
+                            <a href="{{ route('admin.quotations.index') }}" class="group {{ request()->routeIs('admin.quotations.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-150">
+                                <div class="flex items-center gap-2.5">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <span class="text-sm font-medium">Quotations</span>
+                                </div>
+                                @php
+                                    $draftQuotationsCount = \App\Models\Quotation::where('status', 'draft')->count();
+                                @endphp
+                                @if($draftQuotationsCount > 0)
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#f59e0b;color:#fff;">{{ $draftQuotationsCount }}</span>
+                                @endif
+                            </a>
+                            @endpermission
                         </div>
                     </div>
+                    @endpermission
 
                     <!-- Bookings (dropdown) -->
+                    @permission('view_bookings')
                     <div class="space-y-1">
                         <button
                             @click="bookingsOpen = !bookingsOpen"
@@ -174,10 +197,30 @@
                                     <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#ef4444;color:#fff;">{{ $rejectedBookings }}</span>
                                 @endif
                             </a>
+
+                            <!-- Quotations shortcut -->
+                            @permission('view_quotations')
+                            <div class="pt-1 mt-1 border-t border-red-100">
+                                <a href="{{ route('admin.quotations.index') }}" class="group {{ request()->routeIs('admin.quotations.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2 rounded-lg transition-colors duration-150">
+                                    <div class="flex items-center gap-2.5">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        <span class="text-sm font-medium">Quotations</span>
+                                    </div>
+                                    @php $draftCount = \App\Models\Quotation::where('status', 'draft')->count(); @endphp
+                                    @if($draftCount > 0)
+                                        <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#f59e0b;color:#fff;">{{ $draftCount }}</span>
+                                    @endif
+                                </a>
+                            </div>
+                            @endpermission
                         </div>
                     </div>
+                    @endpermission
 
-                    <!-- Generators -->
+                    <!-- Fleet -->
+                    @permission('view_fleet')
                     <a href="{{ route('admin.gensets.index') }}" class="{{ request()->routeIs('admin.gensets.*') ? 'bg-red-600 text-white' : 'text-gray-700 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors duration-150">
                         <div class="flex items-center gap-3">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -190,6 +233,7 @@
                     </a>
 
                     <!-- Rentals -->
+                    @permission('view_bookings')
                     @php $activeRentalsCount = \App\Models\Booking::where('status', 'active')->count(); @endphp
                     <a href="{{ route('admin.bookings.active-rentals') }}" class="{{ request()->routeIs('admin.bookings.active-rentals') ? 'bg-red-600 text-white' : 'text-gray-700 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors duration-150">
                         <div class="flex items-center gap-3">
@@ -200,6 +244,7 @@
                             <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#2563eb;color:#fff;">{{ $activeRentalsCount }}</span>
                         @endif
                     </a>
+                    @endpermission
 
                     <!-- Deliveries -->
                     @php $pendingDeliveries = \App\Models\Delivery::whereIn('status', ['pending', 'dispatched'])->count(); @endphp
@@ -213,7 +258,7 @@
                         @endif
                     </a>
 
-                    <!-- Maintenance -->
+                    <!-- Maintenance -->  {{-- still inside @permission('view_fleet') --}}
                     @php $activeMaintenance = \App\Models\MaintenanceRecord::whereIn('status', ['scheduled', 'in_progress'])->count(); @endphp
                     <a href="{{ route('admin.maintenance.index') }}" class="{{ request()->routeIs('admin.maintenance.*') ? 'bg-red-600 text-white' : 'text-gray-700 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors duration-150">
                         <div class="flex items-center gap-3">
@@ -224,8 +269,10 @@
                             <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#b45309;color:#fff;">{{ $activeMaintenance }}</span>
                         @endif
                     </a>
+                    @endpermission {{-- end view_fleet --}}
 
                     <!-- Inventory -->
+                    @permission('view_inventory', 'view_fuel_logs')
                     @php
                         $lowStockItems = \App\Models\InventoryItem::where('is_active', true)->whereColumn('current_stock', '<=', 'min_stock_level')->where('min_stock_level', '>', 0)->count();
                         $pendingPOs = \App\Models\PurchaseOrder::whereIn('status', ['draft', 'sent', 'partial'])->count();
@@ -289,8 +336,10 @@
                             </a>
                         </div>
                     </div>
+                    @endpermission
 
                     <!-- Customers -->
+                    @permission('view_clients')
                     <a href="{{ route('admin.clients.index') }}" class="{{ request()->routeIs('admin.clients.*') ? 'bg-red-600 text-white' : 'text-gray-700 hover:bg-red-50 hover:text-red-600' }} flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors duration-150">
                         <div class="flex items-center gap-3">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
@@ -301,8 +350,10 @@
                             <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#ef4444;color:#fff;">{{ $totalClients }}</span>
                         @endif
                     </a>
+                    @endpermission
 
                     <!-- Accounting -->
+                    @permission('view_accounting', 'view_invoices', 'view_reports')
                     <div class="space-y-1">
                         <button
                             @click="accountingOpen = !accountingOpen"
@@ -330,6 +381,10 @@
                                 $awaitingPayment = \App\Models\Invoice::whereIn('status', ['draft','sent','partially_paid'])->count();
                                 $overdueInvoices = \App\Models\Invoice::whereIn('status', ['draft','sent','partially_paid'])->where('due_date', '<', now())->count();
                             @endphp
+
+                            {{-- ── OPERATIONS ──────────────────────────────── --}}
+                            <p class="px-3 pt-1 pb-0.5 text-xs font-bold uppercase tracking-widest text-gray-400">Operations</p>
+
                             <!-- Invoices sub-menu -->
                             <div>
                                 <button @click="invoicesOpen = !invoicesOpen"
@@ -382,34 +437,30 @@
                                 </div>
                             </div>
 
-                            <a href="{{ route('admin.accounting.accounts.index') }}" class="{{ request()->routeIs('admin.accounting.accounts.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
-                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                                <span class="font-medium">Chart of Accounts</span>
-                            </a>
-                            <a href="{{ route('admin.accounting.bank-accounts.index') }}" class="{{ request()->routeIs('admin.accounting.bank-accounts.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
-                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
-                                <span class="font-medium">Bank Accounts</span>
-                            </a>
-                            <a href="{{ route('admin.accounting.journal-entries.index') }}" class="{{ request()->routeIs('admin.accounting.journal-entries.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
-                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                                <span class="font-medium">Journal Entries</span>
-                            </a>
                             <a href="{{ route('admin.accounting.expenses.index') }}" class="{{ request()->routeIs('admin.accounting.expenses.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                 <span class="font-medium">Expenses</span>
-                            </a>
-                            <a href="{{ route('admin.accounting.supplier-payments.index') }}" class="{{ request()->routeIs('admin.accounting.supplier-payments.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
-                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <span class="font-medium">Supplier Payments</span>
                             </a>
                             <a href="{{ route('admin.accounting.cash-requests.index') }}" class="{{ request()->routeIs('admin.accounting.cash-requests.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                 <span class="font-medium">Cash Requests</span>
                             </a>
+                            <a href="{{ route('admin.accounting.supplier-payments.index') }}" class="{{ request()->routeIs('admin.accounting.supplier-payments.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span class="font-medium">Supplier Payments</span>
+                            </a>
                             <a href="{{ route('admin.accounting.credit-notes.index') }}" class="{{ request()->routeIs('admin.accounting.credit-notes.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                                 <span class="font-medium">Credit Notes</span>
                             </a>
+                            <a href="{{ route('admin.accounting.journal-entries.index') }}" class="{{ request()->routeIs('admin.accounting.journal-entries.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                                <span class="font-medium">Journal Entries</span>
+                            </a>
+
+                            {{-- ── REPORTS ──────────────────────────────────── --}}
+                            <p class="px-3 pt-2 pb-0.5 text-xs font-bold uppercase tracking-widest text-gray-400">Reports</p>
+
                             <a href="{{ route('admin.accounting.tax-reports.vat') }}" class="{{ request()->routeIs('admin.accounting.tax-reports.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                                 <span class="font-medium">Tax Reports</span>
@@ -426,14 +477,51 @@
                                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h12M3 18h8"/></svg>
                                 <span class="font-medium">Payables Register</span>
                             </a>
+
+                            {{-- ── SETUP ──────────────────────────────────── --}}
+                            <p class="px-3 pt-2 pb-0.5 text-xs font-bold uppercase tracking-widest text-gray-400">Setup</p>
+
+                            <a href="{{ route('admin.accounting.accounts.index') }}" class="{{ request()->routeIs('admin.accounting.accounts.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                <span class="font-medium">Chart of Accounts</span>
+                            </a>
+                            <a href="{{ route('admin.accounting.bank-accounts.index') }}" class="{{ request()->routeIs('admin.accounting.bank-accounts.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                                <span class="font-medium">Cash &amp; Bank Accounts</span>
+                            </a>
                         </div>
                     </div>
+                    @endpermission
 
-                    <!-- Settings -->
-                    <a href="#" class="text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        <span class="font-medium">Settings</span>
-                    </a>
+                    <!-- Settings (with Users submenu) -->
+                    <div>
+                        <button @click="settingsOpen = !settingsOpen"
+                            class="{{ request()->routeIs('admin.users.*') ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-red-50 hover:text-red-600' }} w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span class="font-medium">Settings</span>
+                            </div>
+                            <svg class="w-4 h-4 transition-transform duration-200" :class="settingsOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div x-show="settingsOpen" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 -translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="mt-1 ml-4 pl-3 border-l-2 border-gray-100 space-y-0.5">
+                            @permission('manage_users')
+                            <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                <span class="font-medium">Users</span>
+                            </a>
+                            @endpermission
+                            @permission('manage_permissions')
+                            <a href="{{ route('admin.roles.index') }}" class="{{ request()->routeIs('admin.roles.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                <span class="font-medium">Roles</span>
+                            </a>
+                            <a href="{{ route('admin.permissions.index') }}" class="{{ request()->routeIs('admin.permissions.*') ? 'bg-red-600 text-white' : 'text-gray-600 hover:bg-red-50 hover:text-red-600' }} flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors duration-150">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                <span class="font-medium">Permissions</span>
+                            </a>
+                            @endpermission
+                        </div>
+                    </div>
                 </nav>
             </aside>
 
@@ -473,12 +561,23 @@
 
                         <div class="flex items-center gap-4 ml-auto">
                             <!-- Notifications -->
-                            <button class="relative text-gray-400 hover:text-red-600 transition-colors">
+                            @php
+                                $unreadNotifCount = \App\Models\AppNotification::where('is_read', false)
+                                    ->where(fn($q) => $q->where('user_id', Auth::id())->orWhereNull('user_id'))
+                                    ->count();
+                            @endphp
+                            <a href="{{ route('admin.notifications.index') }}" class="relative text-gray-400 hover:text-red-600 transition-colors">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                                 </svg>
-                                <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-600"></span>
-                            </button>
+                                @if($unreadNotifCount > 0)
+                                <span class="absolute -top-1 -right-1 flex items-center justify-center h-4 w-4 rounded-full bg-red-600 text-white text-[10px] font-bold leading-none">
+                                    {{ $unreadNotifCount > 9 ? '9+' : $unreadNotifCount }}
+                                </span>
+                                @else
+                                <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-gray-300"></span>
+                                @endif
+                            </a>
 
                             <!-- User Dropdown -->
                             <div x-data="{ open: false }" class="relative">
@@ -545,5 +644,6 @@
         @if(session('info'))
             <script>document.addEventListener('DOMContentLoaded', () => toast.info(@js(session('info'))))</script>
         @endif
+        @stack('scripts')
     </body>
 </html>

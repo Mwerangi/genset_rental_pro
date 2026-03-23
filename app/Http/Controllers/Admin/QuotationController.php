@@ -57,7 +57,7 @@ class QuotationController extends Controller
             'sent'    => Quotation::where('status', 'sent')->count(),
             'viewed'  => Quotation::where('status', 'viewed')->count(),
             'accepted' => Quotation::where('status', 'accepted')->count(),
-            'total_value' => Quotation::where('status', 'accepted')->sum('total_amount'),
+            'total_value' => Quotation::where('status', 'accepted')->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
         return view('admin.quotations.index', compact('quotations', 'stats'));
@@ -95,7 +95,7 @@ class QuotationController extends Controller
 
         $stats = [
             'total'       => Quotation::where('status', 'accepted')->count(),
-            'total_value' => Quotation::where('status', 'accepted')->sum('total_amount'),
+            'total_value' => Quotation::where('status', 'accepted')->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
             'this_month'  => Quotation::where('status', 'accepted')
                                 ->whereMonth('accepted_at', now()->month)
                                 ->whereYear('accepted_at', now()->year)
@@ -103,7 +103,8 @@ class QuotationController extends Controller
             'month_value' => Quotation::where('status', 'accepted')
                                 ->whereMonth('accepted_at', now()->month)
                                 ->whereYear('accepted_at', now()->year)
-                                ->sum('total_amount'),
+                                ->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')
+                                ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
         return view('admin.quotations.approved', compact('quotations', 'stats'));
@@ -166,6 +167,8 @@ class QuotationController extends Controller
         $validated = $request->validate([
             'quote_request_id' => 'nullable|exists:quote_requests,id',
             'valid_until' => 'required|date|after:today',
+            'currency' => 'required|in:TZS,USD',
+            'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
             'payment_terms' => 'nullable|string|max:500',
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
@@ -181,15 +184,19 @@ class QuotationController extends Controller
         try {
             // Create quotation
             $quotation = Quotation::create([
-                'quote_request_id' => $validated['quote_request_id'],
-                'valid_until' => $validated['valid_until'],
-                'payment_terms' => $validated['payment_terms'] ?? 'Payment due within 30 days of acceptance',
-                'terms_conditions' => $validated['terms_conditions'],
-                'notes' => $validated['notes'],
-                'vat_rate' => 18, // Tanzania standard VAT
-                'status' => $request->has('send') ? 'sent' : 'draft',
-                'created_by' => auth()->id(),
-                'sent_at' => $request->has('send') ? now() : null,
+                'quote_request_id'     => $validated['quote_request_id'],
+                'valid_until'          => $validated['valid_until'],
+                'currency'             => $validated['currency'],
+                'exchange_rate_to_tzs' => $validated['currency'] === 'USD'
+                    ? $validated['exchange_rate_to_tzs']
+                    : 1.0,
+                'payment_terms'        => $validated['payment_terms'] ?? 'Payment due within 30 days of acceptance',
+                'terms_conditions'     => $validated['terms_conditions'],
+                'notes'                => $validated['notes'],
+                'vat_rate'             => 18, // Tanzania standard VAT
+                'status'               => $request->has('send') ? 'sent' : 'draft',
+                'created_by'           => auth()->id(),
+                'sent_at'              => $request->has('send') ? now() : null,
             ]);
 
             // Create quotation items
@@ -271,6 +278,8 @@ class QuotationController extends Controller
 
         $validated = $request->validate([
             'valid_until' => 'required|date|after:today',
+            'currency' => 'required|in:TZS,USD',
+            'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
             'payment_terms' => 'nullable|string|max:500',
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
@@ -286,10 +295,14 @@ class QuotationController extends Controller
         try {
             // Update quotation fields
             $quotation->update([
-                'valid_until' => $validated['valid_until'],
-                'payment_terms' => $validated['payment_terms'],
-                'terms_conditions' => $validated['terms_conditions'],
-                'notes' => $validated['notes'],
+                'valid_until'          => $validated['valid_until'],
+                'currency'             => $validated['currency'],
+                'exchange_rate_to_tzs' => $validated['currency'] === 'USD'
+                    ? $validated['exchange_rate_to_tzs']
+                    : 1.0,
+                'payment_terms'        => $validated['payment_terms'],
+                'terms_conditions'     => $validated['terms_conditions'],
+                'notes'                => $validated['notes'],
             ]);
 
             // Hard-delete all existing items via direct query (no Eloquent events)
@@ -396,6 +409,8 @@ class QuotationController extends Controller
             'delivery_location'    => $qr?->delivery_location,
             'pickup_location'      => $qr?->pickup_location,
             'total_amount'         => $quotation->total_amount,
+            'currency'             => $quotation->currency ?? 'TZS',
+            'exchange_rate_to_tzs' => $quotation->exchange_rate_to_tzs ?? 1.0,
             'customer_name'        => $qr?->full_name,
             'customer_email'       => $qr?->email,
             'customer_phone'       => $qr?->phone,

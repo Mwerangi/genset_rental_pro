@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Client;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -20,6 +21,8 @@ class Quotation extends Model
         'vat_rate',
         'vat_amount',
         'total_amount',
+        'currency',
+        'exchange_rate_to_tzs',
         'payment_terms',
         'terms_conditions',
         'notes',
@@ -37,6 +40,7 @@ class Quotation extends Model
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',
         'total_amount' => 'decimal:2',
+        'exchange_rate_to_tzs' => 'decimal:4',
         'sent_at' => 'datetime',
         'viewed_at' => 'datetime',
         'accepted_at' => 'datetime',
@@ -89,7 +93,7 @@ class Quotation extends Model
 
     public function client(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'client_id');
+        return $this->belongsTo(Client::class, 'client_id');
     }
 
     public function createdBy(): BelongsTo
@@ -184,7 +188,7 @@ class Quotation extends Model
 
     public function canBeEdited(): bool
     {
-        return in_array($this->status, ['draft']);
+        return in_array($this->status, ['draft', 'sent', 'viewed', 'accepted']);
     }
 
     public function canBeConverted(): bool
@@ -210,6 +214,22 @@ class Quotation extends Model
 
     public function getFormattedTotalAttribute(): string
     {
-        return 'TZS ' . number_format($this->total_amount, 2);
+        return $this->currencySymbol() . ' ' . number_format($this->total_amount, 2);
+    }
+
+    public function currencySymbol(): string
+    {
+        return $this->currency === 'USD' ? 'USD' : 'TZS';
+    }
+
+    public function formatAmount(float $amount, int $decimals = 2): string
+    {
+        return $this->currencySymbol() . ' ' . number_format($amount, $decimals);
+    }
+
+    /** Total converted to TZS (for accounting/reporting) */
+    public function totalInTzs(): float
+    {
+        return round((float) $this->total_amount * (float) $this->exchange_rate_to_tzs, 2);
     }
 }

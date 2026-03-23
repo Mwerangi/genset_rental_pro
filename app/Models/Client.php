@@ -26,7 +26,6 @@ class Client extends Model
         'notes',
         'source',
         'quote_request_id',
-        'client_id',
         'created_by',
     ];
 

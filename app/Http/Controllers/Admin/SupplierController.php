@@ -48,6 +48,22 @@ class SupplierController extends Controller
             ->with('success', $supplier->name . ' added as supplier.');
     }
 
+    public function show(Supplier $supplier)
+    {
+        $supplier->load([
+            'purchaseOrders' => fn($q) => $q->latest()->limit(10),
+            'purchaseOrders.items',
+        ]);
+
+        $stats = [
+            'total_orders'   => $supplier->purchaseOrders()->count(),
+            'pending_orders' => $supplier->purchaseOrders()->whereIn('status', ['draft', 'sent'])->count(),
+            'received_orders'=> $supplier->purchaseOrders()->where('status', 'received')->count(),
+        ];
+
+        return view('admin.inventory.suppliers.show', compact('supplier', 'stats'));
+    }
+
     public function edit(Supplier $supplier)
     {
         return view('admin.inventory.suppliers.create', compact('supplier'));

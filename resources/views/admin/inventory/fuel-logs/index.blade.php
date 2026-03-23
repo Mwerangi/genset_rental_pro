@@ -26,6 +26,22 @@
         </div>
     </div>
 
+    {{-- Charts --}}
+    <div class="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {{-- Monthly consumption bar chart --}}
+        <div class="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold text-gray-600 mb-4">Monthly Fuel Consumption (Last 12 Months)</h2>
+            <canvas id="fuelConsumptionChart" height="110"></canvas>
+        </div>
+        {{-- Top gensets doughnut --}}
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-col">
+            <h2 class="text-sm font-semibold text-gray-600 mb-4">Top 5 Gensets by Consumption</h2>
+            <div class="flex-1 flex items-center justify-center">
+                <canvas id="topGensetsChart" height="180"></canvas>
+            </div>
+        </div>
+    </div>
+
     {{-- Filters --}}
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-6">
         <form method="GET" class="flex flex-wrap gap-3">
@@ -97,8 +113,7 @@
         @endif
     </div>
 
-    {{-- Add Fuel Modal --}}
-    <div id="addFuelModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onclick="if(event.target===this) this.classList.add('hidden')">
+    {{-- Add Fuel Modal --}}    <div id="addFuelModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onclick="if(event.target===this) this.classList.add('hidden')">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4 sticky top-0 bg-white">
                 <h3 class="text-lg font-bold text-gray-900">Log Fuelling Event</h3>
@@ -171,4 +186,104 @@
             </form>
         </div>
     </div>
+
+    @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        // Monthly consumption + cost chart
+        (function() {
+            const labels = @json($chartLabels);
+            const litres = @json($chartLitres);
+            const costs  = @json($chartCosts);
+
+            new Chart(document.getElementById('fuelConsumptionChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Litres',
+                            data: litres,
+                            backgroundColor: 'rgba(220,38,38,0.7)',
+                            borderRadius: 4,
+                            yAxisID: 'yLitres',
+                        },
+                        {
+                            label: 'Cost (Tsh)',
+                            data: costs,
+                            type: 'line',
+                            borderColor: '#1e40af',
+                            backgroundColor: 'rgba(30,64,175,0.1)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            tension: 0.3,
+                            yAxisID: 'yCost',
+                            fill: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index' },
+                    scales: {
+                        yLitres: {
+                            type: 'linear',
+                            position: 'left',
+                            title: { display: true, text: 'Litres' },
+                            grid: { color: 'rgba(0,0,0,0.05)' },
+                        },
+                        yCost: {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'Cost (Tsh)' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { callback: v => 'Tsh ' + v.toLocaleString() }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ctx.dataset.label === 'Litres'
+                                    ? ctx.parsed.y.toLocaleString() + ' L'
+                                    : 'Tsh ' + ctx.parsed.y.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+
+        // Top gensets doughnut
+        (function() {
+            const labels = @json($topGensets->map(fn($g) => $g->genset ? $g->genset->asset_number : 'Unknown'));
+            const data   = @json($topGensets->pluck('total_litres')->map(fn($v) => round($v, 1)));
+            const colors = ['#dc2626','#1e40af','#16a34a','#d97706','#7c3aed'];
+
+            new Chart(document.getElementById('topGensetsChart'), {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => ' ' + ctx.parsed.toLocaleString() + ' L'
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
+    @endpush
 </x-admin-layout>

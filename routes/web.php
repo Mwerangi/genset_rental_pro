@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\QuoteRequestController;
 use App\Http\Controllers\Admin\QuotationController;
 use App\Http\Controllers\Admin\BookingController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Admin\SupplierController;
 use App\Http\Controllers\Admin\PurchaseOrderController;
 use App\Http\Controllers\Admin\FuelLogController;
 use App\Http\Controllers\Admin\AccountController;
+use App\Http\Controllers\Admin\AccountTransferController;
 use App\Http\Controllers\Admin\BankAccountController;
 use App\Http\Controllers\Admin\JournalEntryController;
 use App\Http\Controllers\Admin\ExpenseController;
@@ -24,6 +26,8 @@ use App\Http\Controllers\Admin\CashRequestController;
 use App\Http\Controllers\Admin\CreditNoteController;
 use App\Http\Controllers\Admin\TaxReportController;
 use App\Http\Controllers\Admin\ReportsController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\QuoteRequestController as PublicQuoteRequestController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,9 +38,7 @@ Route::get('/', function () {
 // Public quote request submission (from landing page)
 Route::post('/quote-request', [PublicQuoteRequestController::class, 'store'])->name('quote-request.store');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -46,136 +48,163 @@ Route::middleware('auth')->group(function () {
 
 // Admin Routes
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
-    // Quote Requests
-    Route::get('/quote-requests', [QuoteRequestController::class, 'index'])->name('quote-requests.index');
-    Route::get('/quote-requests/export', [QuoteRequestController::class, 'export'])->name('quote-requests.export');
-    Route::get('/quote-requests/{quoteRequest}', [QuoteRequestController::class, 'show'])->name('quote-requests.show');
-    Route::post('/quote-requests/{quoteRequest}/mark-as-reviewed', [QuoteRequestController::class, 'markAsReviewed'])->name('quote-requests.mark-as-reviewed');
-    Route::post('/quote-requests/{quoteRequest}/reject', [QuoteRequestController::class, 'reject'])->name('quote-requests.reject');
 
-    // Quotations (accessed via prospects, kept for direct URL access)
-    Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
-    Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
-    Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
-    Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
-    Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
-    Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->name('quotations.update');
-    Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
-    Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
-    Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
+    // ── Notifications (always accessible to any authenticated user) ──────────
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount'])->name('notifications.unread-count');
 
-    // Bookings
-    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
-    Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
-    Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
-    Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
-    Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
-    Route::post('/bookings/{booking}/approve', [BookingController::class, 'approve'])->name('bookings.approve');
-    Route::post('/bookings/{booking}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
-    Route::post('/bookings/{booking}/activate', [BookingController::class, 'activate'])->name('bookings.activate');
-    Route::post('/bookings/{booking}/return', [BookingController::class, 'markReturned'])->name('bookings.return');
-    Route::post('/bookings/{booking}/invoice', [BookingController::class, 'markInvoiced'])->name('bookings.invoice');
-    Route::post('/bookings/{booking}/mark-paid', [BookingController::class, 'markPaid'])->name('bookings.mark-paid');
-    Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
-    Route::post('/bookings/{booking}/generate-invoice', [InvoiceController::class, 'generate'])->name('bookings.generate-invoice');
+    // ── Sales Pipeline — Quote Requests ──────────────────────────────────────
+    Route::middleware('permission:view_quote_requests')->group(function () {
+        Route::get('/quote-requests', [QuoteRequestController::class, 'index'])->name('quote-requests.index');
+        Route::get('/quote-requests/export', [QuoteRequestController::class, 'export'])->name('quote-requests.export');
+        Route::get('/quote-requests/{quoteRequest}', [QuoteRequestController::class, 'show'])->name('quote-requests.show');
+        Route::post('/quote-requests/{quoteRequest}/mark-as-reviewed', [QuoteRequestController::class, 'markAsReviewed'])->name('quote-requests.mark-as-reviewed');
+        Route::post('/quote-requests/{quoteRequest}/reject', [QuoteRequestController::class, 'reject'])->name('quote-requests.reject');
+    });
 
-    // Accounts — Invoices
-    Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
-    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
-    Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
-    Route::delete('/invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'deletePayment'])->name('invoices.payments.delete');
-    Route::post('/invoices/{invoice}/mark-sent', [InvoiceController::class, 'markSent'])->name('invoices.mark-sent');
-    Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
-    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
-    // Invoice amendments
-    Route::post('/invoices/{invoice}/items', [InvoiceController::class, 'storeItem'])->name('invoices.items.store');
-    Route::put('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'updateItem'])->name('invoices.items.update');
-    Route::delete('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'deleteItem'])->name('invoices.items.delete');
-    Route::patch('/invoices/{invoice}/discount', [InvoiceController::class, 'updateDiscount'])->name('invoices.discount.update');
-    Route::post('/invoices/{invoice}/payments/{payment}/reverse', [InvoiceController::class, 'reversePayment'])->name('invoices.payments.reverse');
-    Route::post('/invoices/{invoice}/dispute', [InvoiceController::class, 'dispute'])->name('invoices.dispute');
-    Route::post('/invoices/{invoice}/write-off', [InvoiceController::class, 'writeOff'])->name('invoices.write-off');
+    // ── Sales Pipeline — Quotations ───────────────────────────────────────────
+    Route::middleware('permission:view_quotations')->group(function () {
+        Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
+        Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
+        Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
+        Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
+        Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
+        Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->name('quotations.update');
+        Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
+        Route::get('/quotations/approved', [QuotationController::class, 'approved'])->name('quotations.approved');
+        Route::get('/quotations/rejected', [QuotationController::class, 'rejected'])->name('quotations.rejected');
+        Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
+        Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
+    });
 
-    // Clients (CRM)
-    Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-    Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
-    Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
-    Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-    Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
-    Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
-    Route::post('/clients/{client}/contacts', [ClientController::class, 'storeContact'])->name('clients.contacts.store');
-    Route::delete('/clients/{client}/contacts/{contact}', [ClientController::class, 'destroyContact'])->name('clients.contacts.destroy');
-    Route::post('/clients/{client}/addresses', [ClientController::class, 'storeAddress'])->name('clients.addresses.store');
-    Route::delete('/clients/{client}/addresses/{address}', [ClientController::class, 'destroyAddress'])->name('clients.addresses.destroy');
+    // ── Bookings ──────────────────────────────────────────────────────────────
+    Route::middleware('permission:view_bookings')->group(function () {
+        Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+        Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
+        Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
+        Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
+        Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
+        Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
+        Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
+        Route::post('/bookings/{booking}/approve', [BookingController::class, 'approve'])->name('bookings.approve');
+        Route::post('/bookings/{booking}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
+        Route::post('/bookings/{booking}/activate', [BookingController::class, 'activate'])->name('bookings.activate');
+        Route::post('/bookings/{booking}/return', [BookingController::class, 'markReturned'])->name('bookings.return');
+        Route::post('/bookings/{booking}/invoice', [BookingController::class, 'markInvoiced'])->name('bookings.invoice');
+        Route::post('/bookings/{booking}/mark-paid', [BookingController::class, 'markPaid'])->name('bookings.mark-paid');
+        Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+        Route::post('/bookings/{booking}/generate-invoice', [InvoiceController::class, 'generate'])->name('bookings.generate-invoice');
+        Route::post('/bookings/{booking}/generate-proforma', [InvoiceController::class, 'generateProforma'])->name('bookings.generate-proforma');
+    });
 
-    // Fleet / Gensets
-    Route::get('/gensets', [GensetController::class, 'index'])->name('gensets.index');
-    Route::get('/gensets/create', [GensetController::class, 'create'])->name('gensets.create');
-    Route::post('/gensets', [GensetController::class, 'store'])->name('gensets.store');
+    // ── Invoices ──────────────────────────────────────────────────────────────
+    Route::middleware('permission:view_invoices')->group(function () {
+        Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+        Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
+        Route::delete('/invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'deletePayment'])->name('invoices.payments.delete');
+        Route::post('/invoices/{invoice}/mark-sent', [InvoiceController::class, 'markSent'])->name('invoices.mark-sent');
+        Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
+        Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
+        Route::post('/invoices/{invoice}/convert-proforma', [InvoiceController::class, 'convertProforma'])->name('invoices.convert-proforma');
+        Route::post('/invoices/{invoice}/items', [InvoiceController::class, 'storeItem'])->name('invoices.items.store');
+        Route::put('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'updateItem'])->name('invoices.items.update');
+        Route::delete('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'deleteItem'])->name('invoices.items.delete');
+        Route::patch('/invoices/{invoice}/discount', [InvoiceController::class, 'updateDiscount'])->name('invoices.discount.update');
+        Route::post('/invoices/{invoice}/payments/{payment}/reverse', [InvoiceController::class, 'reversePayment'])->name('invoices.payments.reverse');
+        Route::post('/invoices/{invoice}/dispute', [InvoiceController::class, 'dispute'])->name('invoices.dispute');
+        Route::post('/invoices/{invoice}/write-off', [InvoiceController::class, 'writeOff'])->name('invoices.write-off');
+    });
+
+    // ── Clients (CRM) ────────────────────────────────────────────────────────
+    Route::middleware('permission:view_clients')->group(function () {
+        Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
+        Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
+        Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
+        Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+        Route::post('/clients/{client}/contacts', [ClientController::class, 'storeContact'])->name('clients.contacts.store');
+        Route::delete('/clients/{client}/contacts/{contact}', [ClientController::class, 'destroyContact'])->name('clients.contacts.destroy');
+        Route::post('/clients/{client}/addresses', [ClientController::class, 'storeAddress'])->name('clients.addresses.store');
+        Route::delete('/clients/{client}/addresses/{address}', [ClientController::class, 'destroyAddress'])->name('clients.addresses.destroy');
+    });
+
+    // ── Fleet — Gensets ───────────────────────────────────────────────────────
+    Route::middleware('permission:view_fleet')->group(function () {
+        Route::get('/gensets', [GensetController::class, 'index'])->name('gensets.index');
+        Route::get('/gensets/create', [GensetController::class, 'create'])->name('gensets.create');
+        Route::post('/gensets', [GensetController::class, 'store'])->name('gensets.store');
     Route::get('/gensets/{genset}', [GensetController::class, 'show'])->name('gensets.show');
-    Route::get('/gensets/{genset}/edit', [GensetController::class, 'edit'])->name('gensets.edit');
-    Route::put('/gensets/{genset}', [GensetController::class, 'update'])->name('gensets.update');
-    Route::delete('/gensets/{genset}', [GensetController::class, 'destroy'])->name('gensets.destroy');
-    Route::post('/gensets/{genset}/status', [GensetController::class, 'updateStatus'])->name('gensets.status');
+        Route::get('/gensets/{genset}/edit', [GensetController::class, 'edit'])->name('gensets.edit');
+        Route::put('/gensets/{genset}', [GensetController::class, 'update'])->name('gensets.update');
+        Route::delete('/gensets/{genset}', [GensetController::class, 'destroy'])->name('gensets.destroy');
+        Route::post('/gensets/{genset}/status', [GensetController::class, 'updateStatus'])->name('gensets.status');
 
-    // Deliveries
-    Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
-    Route::post('/deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
-    Route::get('/deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
-    Route::post('/deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
-    Route::post('/deliveries/{delivery}/complete', [DeliveryController::class, 'complete'])->name('deliveries.complete');
-    Route::post('/deliveries/{delivery}/fail', [DeliveryController::class, 'fail'])->name('deliveries.fail');
+        // ── Fleet — Deliveries ────────────────────────────────────────────────
+        Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
+        Route::post('/deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
+        Route::get('/deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
+        Route::post('/deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
+        Route::post('/deliveries/{delivery}/complete', [DeliveryController::class, 'complete'])->name('deliveries.complete');
+        Route::post('/deliveries/{delivery}/fail', [DeliveryController::class, 'fail'])->name('deliveries.fail');
 
-    // Maintenance
-    Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
-    Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
-    Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
-    Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
-    Route::get('/maintenance/{maintenance}/edit', [MaintenanceController::class, 'edit'])->name('maintenance.edit');
-    Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
-    Route::post('/maintenance/{maintenance}/start', [MaintenanceController::class, 'start'])->name('maintenance.start');
-    Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
-    Route::post('/maintenance/{maintenance}/cancel', [MaintenanceController::class, 'cancel'])->name('maintenance.cancel');
+        // ── Fleet — Maintenance ───────────────────────────────────────────────
+        Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
+        Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
+        Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
+        Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
+        Route::get('/maintenance/{maintenance}/edit', [MaintenanceController::class, 'edit'])->name('maintenance.edit');
+        Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
+        Route::delete('/maintenance/{maintenance}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+        Route::post('/maintenance/{maintenance}/start', [MaintenanceController::class, 'start'])->name('maintenance.start');
+        Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
+        Route::post('/maintenance/{maintenance}/cancel', [MaintenanceController::class, 'cancel'])->name('maintenance.cancel');
+    });
+    // ── Inventory ─────────────────────────────────────────────────────────────
+    Route::middleware('permission:view_inventory')->group(function () {
+        Route::get('/inventory/categories', [InventoryCategoryController::class, 'index'])->name('inventory.categories.index');
+        Route::post('/inventory/categories', [InventoryCategoryController::class, 'store'])->name('inventory.categories.store');
+        Route::put('/inventory/categories/{category}', [InventoryCategoryController::class, 'update'])->name('inventory.categories.update');
+        Route::delete('/inventory/categories/{category}', [InventoryCategoryController::class, 'destroy'])->name('inventory.categories.destroy');
 
-    // Inventory — Categories
-    Route::get('/inventory/categories', [InventoryCategoryController::class, 'index'])->name('inventory.categories.index');
-    Route::post('/inventory/categories', [InventoryCategoryController::class, 'store'])->name('inventory.categories.store');
-    Route::put('/inventory/categories/{category}', [InventoryCategoryController::class, 'update'])->name('inventory.categories.update');
-    Route::delete('/inventory/categories/{category}', [InventoryCategoryController::class, 'destroy'])->name('inventory.categories.destroy');
+        Route::get('/inventory/items', [InventoryItemController::class, 'index'])->name('inventory.items.index');
+        Route::get('/inventory/items/create', [InventoryItemController::class, 'create'])->name('inventory.items.create');
+        Route::post('/inventory/items', [InventoryItemController::class, 'store'])->name('inventory.items.store');
+        Route::get('/inventory/items/{item}', [InventoryItemController::class, 'show'])->name('inventory.items.show');
+        Route::get('/inventory/items/{item}/edit', [InventoryItemController::class, 'edit'])->name('inventory.items.edit');
+        Route::put('/inventory/items/{item}', [InventoryItemController::class, 'update'])->name('inventory.items.update');
+        Route::post('/inventory/items/{item}/adjust', [InventoryItemController::class, 'adjust'])->name('inventory.items.adjust');
 
-    // Inventory — Items
-    Route::get('/inventory/items', [InventoryItemController::class, 'index'])->name('inventory.items.index');
-    Route::get('/inventory/items/create', [InventoryItemController::class, 'create'])->name('inventory.items.create');
-    Route::post('/inventory/items', [InventoryItemController::class, 'store'])->name('inventory.items.store');
-    Route::get('/inventory/items/{item}', [InventoryItemController::class, 'show'])->name('inventory.items.show');
-    Route::get('/inventory/items/{item}/edit', [InventoryItemController::class, 'edit'])->name('inventory.items.edit');
-    Route::put('/inventory/items/{item}', [InventoryItemController::class, 'update'])->name('inventory.items.update');
-    Route::post('/inventory/items/{item}/adjust', [InventoryItemController::class, 'adjust'])->name('inventory.items.adjust');
+        Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
+        Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
+        Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+        Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+        Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
+        Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
 
-    // Inventory — Suppliers
-    Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-    Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
-    Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
-    Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
-    Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
+        Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
+        Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
+        Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
+        Route::post('/purchase-orders/{purchaseOrder}/send', [PurchaseOrderController::class, 'send'])->name('purchase-orders.send');
+        Route::post('/purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
+        Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+    });
 
-    // Inventory — Purchase Orders
-    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
-    Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
-    Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
-    Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
-    Route::post('/purchase-orders/{purchaseOrder}/send', [PurchaseOrderController::class, 'send'])->name('purchase-orders.send');
-    Route::post('/purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
-    Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
-
-    // Fuel Logs
-    Route::get('/fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
-    Route::post('/fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
-    Route::get('/fuel-logs/genset/{genset}', [FuelLogController::class, 'gensetLogs'])->name('fuel-logs.genset');
+    // ── Fuel Logs ─────────────────────────────────────────────────────────────
+    Route::middleware('permission:view_fuel_logs')->group(function () {
+        Route::get('/fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
+        Route::post('/fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
+        Route::get('/fuel-logs/genset/{genset}', [FuelLogController::class, 'gensetLogs'])->name('fuel-logs.genset');
+    });
 
     // ─── ACCOUNTING MODULE ────────────────────────────────────────────────────
-
-    // Chart of Accounts
+    Route::middleware('permission:view_accounting')->group(function () {
+        // Chart of Accounts
     Route::get('/accounting/accounts', [AccountController::class, 'index'])->name('accounting.accounts.index');
     Route::get('/accounting/accounts/create', [AccountController::class, 'create'])->name('accounting.accounts.create');
     Route::post('/accounting/accounts', [AccountController::class, 'store'])->name('accounting.accounts.store');
@@ -192,6 +221,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/accounting/bank-accounts/{bankAccount}/edit', [BankAccountController::class, 'edit'])->name('accounting.bank-accounts.edit');
     Route::put('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])->name('accounting.bank-accounts.update');
     Route::delete('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'destroy'])->name('accounting.bank-accounts.destroy');
+
+    // Account Transfers (between bank/cash accounts)
+    Route::post('/accounting/account-transfers', [AccountTransferController::class, 'store'])->name('accounting.account-transfers.store');
 
     // Journal Entries
     Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
@@ -248,22 +280,49 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::get('/accounting/credit-notes/{creditNote}', [CreditNoteController::class, 'show'])->name('accounting.credit-notes.show');
     Route::post('/accounting/credit-notes/{creditNote}/issue', [CreditNoteController::class, 'issue'])->name('accounting.credit-notes.issue');
     Route::post('/accounting/credit-notes/{creditNote}/void', [CreditNoteController::class, 'void'])->name('accounting.credit-notes.void');
+    }); // end view_accounting
 
-    // Tax Reports
-    Route::get('/accounting/tax-reports/vat', [TaxReportController::class, 'vatReport'])->name('accounting.tax-reports.vat');
-    Route::get('/accounting/tax-reports/wht', [TaxReportController::class, 'whtReport'])->name('accounting.tax-reports.wht');
-    Route::get('/accounting/tax-reports/trial-balance', [TaxReportController::class, 'trialBalance'])->name('accounting.tax-reports.trial-balance');
+    // ── Reports (Tax + Financial) ─────────────────────────────────────────────
+    Route::middleware('permission:view_reports')->group(function () {
+        Route::get('/accounting/tax-reports/vat', [TaxReportController::class, 'vatReport'])->name('accounting.tax-reports.vat');
+        Route::get('/accounting/tax-reports/wht', [TaxReportController::class, 'whtReport'])->name('accounting.tax-reports.wht');
+        Route::get('/accounting/tax-reports/z-report', [TaxReportController::class, 'zReport'])->name('accounting.tax-reports.z-report');
+        Route::get('/accounting/tax-reports/trial-balance', [TaxReportController::class, 'trialBalance'])->name('accounting.tax-reports.trial-balance');
 
-    // AR Reports
-    Route::get('/accounting/reports/aging', [ReportsController::class, 'aging'])->name('accounting.reports.aging');
-    Route::get('/accounting/reports/statement', [ReportsController::class, 'statement'])->name('accounting.reports.statement');
+        Route::get('/accounting/reports/aging', [ReportsController::class, 'aging'])->name('accounting.reports.aging');
+        Route::get('/accounting/reports/statement', [ReportsController::class, 'statement'])->name('accounting.reports.statement');
+        Route::get('/accounting/reports/payables', [ReportsController::class, 'payables'])->name('accounting.reports.payables');
+        Route::get('/accounting/reports/profit-loss', [ReportsController::class, 'profitLoss'])->name('accounting.reports.profit-loss');
+        Route::get('/accounting/reports/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
+    });
 
-    // AP / Payables Register
-    Route::get('/accounting/reports/payables', [ReportsController::class, 'payables'])->name('accounting.reports.payables');
+    // ─── USER MANAGEMENT ─────────────────────────────────────────────────────
+    Route::middleware('permission:manage_users')->group(function () {
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+        Route::post('/users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
+        Route::post('/users/{user}/unlock', [UserController::class, 'unlock'])->name('users.unlock');
+        Route::get('/users/{user}/activity-log', [UserController::class, 'activityLog'])->name('users.activity-log');
+    });
 
-    // Financial Statements
-    Route::get('/accounting/reports/profit-loss', [ReportsController::class, 'profitLoss'])->name('accounting.reports.profit-loss');
-    Route::get('/accounting/reports/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
+    // ─── ROLE PERMISSIONS MANAGEMENT ─────────────────────────────────────────
+    Route::middleware('permission:manage_permissions')->group(function () {
+        Route::get('/settings/permissions', [\App\Http\Controllers\Admin\PermissionController::class, 'index'])->name('permissions.index');
+        Route::post('/settings/permissions/{role}', [\App\Http\Controllers\Admin\PermissionController::class, 'update'])->name('permissions.update');
+
+        // Role management (CRUD for role definitions)
+        Route::get('/settings/roles', [\App\Http\Controllers\Admin\RoleController::class, 'index'])->name('roles.index');
+        Route::post('/settings/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('roles.store');
+        Route::put('/settings/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('roles.update');
+        Route::delete('/settings/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
+    });
+
+    // Notifications are already registered above (always accessible)
 });
 
 require __DIR__.'/auth.php';

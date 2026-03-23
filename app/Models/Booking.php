@@ -23,6 +23,8 @@ class Booking extends Model
         'delivery_location',
         'pickup_location',
         'total_amount',
+        'currency',
+        'exchange_rate_to_tzs',
         'notes',
         'customer_name',
         'customer_email',
@@ -33,11 +35,12 @@ class Booking extends Model
     ];
 
     protected $casts = [
-        'rental_start_date' => 'date',
-        'rental_end_date'   => 'date',
-        'approved_at'       => 'datetime',
-        'cancelled_at'      => 'datetime',
-        'total_amount'      => 'decimal:2',
+        'rental_start_date'   => 'date',
+        'rental_end_date'     => 'date',
+        'approved_at'         => 'datetime',
+        'cancelled_at'        => 'datetime',
+        'total_amount'        => 'decimal:2',
+        'exchange_rate_to_tzs'=> 'decimal:4',
     ];
 
     protected static function boot()
@@ -141,7 +144,7 @@ class Booking extends Model
 
     public function getFormattedTotalAttribute(): string
     {
-        return 'TZS ' . number_format($this->total_amount, 0);
+        return ($this->currency === 'USD' ? 'USD' : 'TZS') . ' ' . number_format($this->total_amount, 0);
     }
 
     public function getStatusColorAttribute(): string

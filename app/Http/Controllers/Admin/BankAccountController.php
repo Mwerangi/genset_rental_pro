@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\AccountTransfer;
 use App\Models\BankAccount;
+use App\Models\CashRequest;
 use App\Models\InvoicePayment;
 use App\Models\SupplierPayment;
 use Illuminate\Http\Request;
@@ -62,7 +64,23 @@ class BankAccountController extends Controller
                                    ->latest('payment_date')
                                    ->take(50)->get();
 
-        return view('admin.accounting.bank-accounts.show', compact('bankAccount', 'receipts', 'payments'));
+        $cashDisbursements = CashRequest::with('requestedBy')
+                                        ->where('bank_account_id', $bankAccount->id)
+                                        ->whereIn('status', ['paid', 'retired'])
+                                        ->latest('paid_at')
+                                        ->take(50)->get();
+
+        $transfersOut = AccountTransfer::with('toAccount')
+                                       ->where('from_bank_account_id', $bankAccount->id)
+                                       ->latest('transfer_date')
+                                       ->take(50)->get();
+
+        $transfersIn = AccountTransfer::with('fromAccount')
+                                      ->where('to_bank_account_id', $bankAccount->id)
+                                      ->latest('transfer_date')
+                                      ->take(50)->get();
+
+        return view('admin.accounting.bank-accounts.show', compact('bankAccount', 'receipts', 'payments', 'cashDisbursements', 'transfersOut', 'transfersIn'));
     }
 
     public function edit(BankAccount $bankAccount)

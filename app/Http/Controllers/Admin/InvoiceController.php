@@ -40,7 +40,8 @@ class InvoiceController extends Controller
             'overdue'        => Invoice::whereNotIn('status', ['paid', 'void', 'declined'])
                                     ->whereDate('due_date', '<', now())->count(),
             'total_outstanding' => Invoice::whereNotIn('status', ['paid', 'void', 'declined'])
-                                       ->selectRaw('SUM(total_amount - amount_paid)')->value('SUM(total_amount - amount_paid)') ?? 0,
+                                        ->selectRaw('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)')
+                                        ->value('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)') ?? 0,
         ];
 
         return view('admin.invoices.index', compact('invoices', 'stats'));
@@ -78,22 +79,28 @@ class InvoiceController extends Controller
         $vatAmount   = $quotation ? (float) $quotation->vat_amount : round($subtotal * $vatRate / 100, 2);
         $total       = $quotation ? (float) $quotation->total_amount : ($subtotal + $vatAmount);
 
+        // Inherit currency from quotation → booking → default TZS
+        $currency    = $quotation?->currency ?? $booking->currency ?? 'TZS';
+        $exRate      = $quotation?->exchange_rate_to_tzs ?? $booking->exchange_rate_to_tzs ?? 1.0;
+
         $invoice = Invoice::create([
-            'booking_id'      => $booking->id,
-            'client_id'       => $booking->client_id,
-            'quotation_id'    => $quotation?->id,
-            'status'          => 'draft',
-            'issue_date'      => now()->toDateString(),
-            'due_date'        => now()->addDays(30)->toDateString(),
-            'subtotal'        => $subtotal,
-            'is_zero_rated'   => $isZeroRated,
-            'vat_rate'        => $vatRate,
-            'vat_amount'      => $vatAmount,
-            'total_amount'    => $total,
-            'amount_paid'     => 0,
-            'payment_terms'   => $quotation?->payment_terms ?? 'Net 30',
-            'terms_conditions'=> $quotation?->terms_conditions,
-            'created_by'      => auth()->id(),
+            'booking_id'           => $booking->id,
+            'client_id'            => $booking->client_id,
+            'quotation_id'         => $quotation?->id,
+            'status'               => 'draft',
+            'issue_date'           => now()->toDateString(),
+            'due_date'             => now()->addDays(30)->toDateString(),
+            'subtotal'             => $subtotal,
+            'is_zero_rated'        => $isZeroRated,
+            'vat_rate'             => $vatRate,
+            'vat_amount'           => $vatAmount,
+            'currency'             => $currency,
+            'exchange_rate_to_tzs' => $exRate,
+            'total_amount'         => $total,
+            'amount_paid'          => 0,
+            'payment_terms'        => $quotation?->payment_terms ?? 'Net 30',
+            'terms_conditions'     => $quotation?->terms_conditions,
+            'created_by'           => auth()->id(),
         ]);
 
         // Copy items from quotation, or create single line item from booking total
@@ -168,9 +175,10 @@ class InvoiceController extends Controller
         $invoice->recalculatePayments();
 
         $invoice->refresh();
+        $sym = $invoice->currencySymbol();
         $msg = $invoice->status === 'paid'
             ? 'Payment recorded — invoice is now FULLY PAID!'
-            : 'Payment of TZS ' . number_format($validated['amount'], 0) . ' recorded. Balance: TZS ' . number_format($invoice->balance_due, 0);
+            : 'Payment of ' . $sym . ' ' . number_format($validated['amount'], 0) . ' recorded. Balance: ' . $sym . ' ' . number_format($invoice->balance_due, 0);
 
         return redirect()
             ->route('admin.invoices.show', $invoice)
@@ -439,5 +447,123 @@ class InvoiceController extends Controller
         app(JournalEntryService::class)->onInvoiceWrittenOff($invoice);
 
         return back()->with('success', 'Invoice written off.');
+    }
+
+    /**
+     * Generate a proforma invoice from a booking (no accounting impact).
+     */
+    public function generateProforma(Booking $booking)
+    {
+        if (!in_array($booking->status, ['created', 'approved', 'active', 'returned'])) {
+            return back()->with('error', 'Proforma can only be generated for valid bookings.');
+        }
+
+        // Check if a proforma already exists for this booking
+        $existing = Invoice::where('booking_id', $booking->id)
+            ->where('invoice_type', 'proforma')
+            ->where('status', '!=', 'void')
+            ->first();
+
+        if ($existing) {
+            return redirect()->route('admin.invoices.show', $existing)
+                ->with('info', 'A proforma already exists for this booking.');
+        }
+
+        $booking->load('quotation.items', 'client');
+        $quotation  = $booking->quotation;
+        $subtotal   = $quotation ? (float) $quotation->subtotal : (float) $booking->total_amount;
+        $vatRate    = $quotation ? (float) $quotation->vat_rate : 18.00;
+        $vatAmount  = round($subtotal * $vatRate / 100, 2);
+        $total      = $subtotal + $vatAmount;
+
+        $proforma = Invoice::create([
+            'invoice_number'  => Invoice::generateProformaNumber(),
+            'invoice_type'    => 'proforma',
+            'booking_id'      => $booking->id,
+            'client_id'       => $booking->client_id,
+            'quotation_id'    => $quotation?->id,
+            'status'          => 'draft',
+            'issue_date'      => now()->toDateString(),
+            'due_date'        => now()->addDays(30)->toDateString(),
+            'subtotal'        => $subtotal,
+            'is_zero_rated'   => false,
+            'vat_rate'        => $vatRate,
+            'vat_amount'      => $vatAmount,
+            'total_amount'    => $total,
+            'amount_paid'     => 0,
+            'payment_terms'   => $quotation?->payment_terms ?? 'Net 30',
+            'terms_conditions'=> $quotation?->terms_conditions,
+            'notes'           => 'This is a proforma invoice and is not a tax invoice.',
+            'created_by'      => auth()->id(),
+        ]);
+
+        if ($quotation && $quotation->items->isNotEmpty()) {
+            foreach ($quotation->items as $item) {
+                InvoiceItem::create([
+                    'invoice_id'    => $proforma->id,
+                    'item_type'     => $item->item_type,
+                    'description'   => $item->description,
+                    'quantity'      => $item->quantity,
+                    'unit_price'    => $item->unit_price,
+                    'duration_days' => $item->duration_days,
+                    'subtotal'      => $item->subtotal,
+                ]);
+            }
+        } else {
+            InvoiceItem::create([
+                'invoice_id'  => $proforma->id,
+                'item_type'   => 'genset_rental',
+                'description' => 'Genset Rental — ' . $booking->booking_number,
+                'quantity'    => 1,
+                'unit_price'  => $subtotal,
+                'subtotal'    => $subtotal,
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.invoices.show', $proforma)
+            ->with('success', 'Proforma invoice ' . $proforma->invoice_number . ' created.');
+    }
+
+    /**
+     * Convert a proforma invoice into a proper tax invoice.
+     */
+    public function convertProforma(Invoice $invoice)
+    {
+        if (!$invoice->isProforma()) {
+            return back()->with('error', 'Only proforma invoices can be converted.');
+        }
+
+        if ($invoice->booking && $invoice->booking->invoice_id) {
+            return back()->with('error', 'A tax invoice already exists for this booking.');
+        }
+
+        // Create tax invoice
+        $taxInvoice = $invoice->replicate(['invoice_number', 'invoice_type', 'converted_from_id']);
+        $taxInvoice->invoice_number    = Invoice::generateInvoiceNumber();
+        $taxInvoice->invoice_type      = 'tax_invoice';
+        $taxInvoice->converted_from_id = $invoice->id;
+        $taxInvoice->status            = 'draft';
+        $taxInvoice->notes             = null;
+        $taxInvoice->save();
+
+        // Copy items
+        foreach ($invoice->items as $item) {
+            $newItem = $item->replicate(['invoice_id']);
+            $newItem->invoice_id = $taxInvoice->id;
+            $newItem->save();
+        }
+
+        // Link to booking
+        if ($invoice->booking_id) {
+            $invoice->booking->update(['invoice_id' => $taxInvoice->id]);
+        }
+
+        // Void the proforma
+        $invoice->update(['status' => 'void', 'void_at' => now(), 'void_reason' => 'Converted to ' . $taxInvoice->invoice_number]);
+
+        return redirect()
+            ->route('admin.invoices.show', $taxInvoice)
+            ->with('success', 'Proforma converted to tax invoice ' . $taxInvoice->invoice_number . '.');
     }
 }

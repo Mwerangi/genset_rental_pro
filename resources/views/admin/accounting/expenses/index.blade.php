@@ -4,11 +4,18 @@
             <h1 class="text-2xl font-bold text-gray-900">Expenses</h1>
             <p class="text-gray-500 mt-1">Operational expenses and cost tracking</p>
         </div>
-        <a href="{{ route('admin.accounting.expenses.create') }}"
-           class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            New Expense
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('admin.accounting.expense-categories.index') }}"
+               class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                Manage Categories
+            </a>
+            <a href="{{ route('admin.accounting.expenses.create') }}"
+               class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New Expense
+            </a>
+        </div>
     </div>
 
     @if(session('success'))

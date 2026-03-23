@@ -65,126 +65,91 @@
         </div>
     </div>
 
-    <!-- Summary cards -->
+    <!-- Summary cards — always show both USD and TZS rows -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        @php
+            $statusStyles = [
+                'draft'          => 'bg-gray-100 text-gray-600',
+                'sent'           => 'bg-blue-100 text-blue-700',
+                'partially_paid' => 'bg-yellow-100 text-yellow-700',
+                'paid'           => 'bg-green-100 text-green-700',
+                'disputed'       => 'bg-red-100 text-red-700',
+            ];
+        @endphp
         <div class="bg-white border border-gray-200 rounded-xl p-4">
-            <p class="text-xs text-gray-500">Opening Balance</p>
-            <p class="text-xl font-bold {{ $openingBalance > 0 ? 'text-red-700' : 'text-gray-900' }} mt-0.5">Tsh {{ number_format($openingBalance, 0) }}</p>
+            <p class="text-xs text-gray-500 font-medium mb-2">Opening Balance</p>
+            <p class="text-base font-bold {{ $opening['USD'] > 0 ? 'text-red-700' : 'text-gray-400' }}">USD {{ number_format($opening['USD'], 0) }}</p>
+            <p class="text-base font-bold {{ $opening['TZS'] > 0 ? 'text-red-700' : 'text-gray-400' }} mt-0.5">TZS {{ number_format($opening['TZS'], 0) }}</p>
         </div>
         <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
-            <p class="text-xs text-blue-600 font-medium">Invoiced This Period</p>
-            <p class="text-xl font-bold text-blue-900 mt-0.5">Tsh {{ number_format($totalInvoiced, 0) }}</p>
+            <p class="text-xs text-blue-600 font-medium mb-2">Invoiced This Period</p>
+            <p class="text-base font-bold {{ $invoiced['USD'] > 0 ? 'text-blue-900' : 'text-blue-300' }}">USD {{ number_format($invoiced['USD'], 0) }}</p>
+            <p class="text-base font-bold {{ $invoiced['TZS'] > 0 ? 'text-blue-900' : 'text-blue-300' }} mt-0.5">TZS {{ number_format($invoiced['TZS'], 0) }}</p>
         </div>
         <div class="bg-green-50 border border-green-100 rounded-xl p-4">
-            <p class="text-xs text-green-600 font-medium">Payments Received</p>
-            <p class="text-xl font-bold text-green-800 mt-0.5">Tsh {{ number_format($totalPaid, 0) }}</p>
+            <p class="text-xs text-green-600 font-medium mb-2">Payments Received</p>
+            <p class="text-base font-bold {{ $paid['USD'] > 0 ? 'text-green-800' : 'text-green-300' }}">USD {{ number_format($paid['USD'], 0) }}</p>
+            <p class="text-base font-bold {{ $paid['TZS'] > 0 ? 'text-green-800' : 'text-green-300' }} mt-0.5">TZS {{ number_format($paid['TZS'], 0) }}</p>
         </div>
-        <div class="bg-{{ $closingBalance > 0 ? 'red' : 'gray' }}-50 border border-{{ $closingBalance > 0 ? 'red' : 'gray' }}-100 rounded-xl p-4">
-            <p class="text-xs text-{{ $closingBalance > 0 ? 'red' : 'gray' }}-600 font-medium">Closing Balance</p>
-            <p class="text-xl font-bold text-{{ $closingBalance > 0 ? 'red' : 'gray' }}-900 mt-0.5">Tsh {{ number_format($closingBalance, 0) }}</p>
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            <p class="text-xs text-gray-600 font-medium mb-2">Closing Balance</p>
+            <p class="text-base font-bold {{ $closing['USD'] > 0 ? 'text-red-700' : ($closing['USD'] < 0 ? 'text-green-700' : 'text-gray-400') }}">USD {{ number_format($closing['USD'], 0) }}</p>
+            <p class="text-base font-bold {{ $closing['TZS'] > 0 ? 'text-red-700' : ($closing['TZS'] < 0 ? 'text-green-700' : 'text-gray-400') }} mt-0.5">TZS {{ number_format($closing['TZS'], 0) }}</p>
         </div>
     </div>
 
-    <!-- Transaction table -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <!-- Transaction table — dual USD / TZS columns -->
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
         <div class="px-4 py-3 border-b border-gray-100">
             <p class="font-semibold text-gray-800">Transaction History</p>
         </div>
-
-        @if($openingBalance > 0)
-        <table class="w-full text-sm">
+        <table class="w-full text-sm min-w-[860px]">
             <thead class="bg-gray-50 border-b border-gray-100">
                 <tr>
-                    <th class="text-left px-4 py-2.5 text-xs font-medium text-gray-500 w-28">Date</th>
-                    <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-500 w-36">Reference</th>
-                    <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-500">Description</th>
-                    <th class="text-right px-3 py-2.5 text-xs font-medium text-blue-600">Debit</th>
-                    <th class="text-right px-3 py-2.5 text-xs font-medium text-green-600">Credit</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-700">Balance</th>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500 w-24" rowspan="2">Date</th>
+                    <th class="text-left px-3 py-2 text-xs font-medium text-gray-500 w-32" rowspan="2">Reference</th>
+                    <th class="text-left px-3 py-2 text-xs font-medium text-gray-500" rowspan="2">Description</th>
+                    <th colspan="2" class="text-center px-3 py-2 text-xs font-semibold text-blue-700 border-l border-blue-100 bg-blue-50/50">Debit</th>
+                    <th colspan="2" class="text-center px-3 py-2 text-xs font-semibold text-green-700 border-l border-green-100 bg-green-50/50">Credit</th>
+                    <th colspan="2" class="text-center px-3 py-2 text-xs font-semibold text-gray-700 border-l border-gray-200 bg-gray-100/50">Balance</th>
+                </tr>
+                <tr class="border-b border-gray-100">
+                    <th class="text-right px-3 py-1.5 text-xs font-medium text-blue-500 border-l border-blue-100 bg-blue-50/30 w-24">USD</th>
+                    <th class="text-right px-3 py-1.5 text-xs font-medium text-blue-500 bg-blue-50/30 w-28">TZS</th>
+                    <th class="text-right px-3 py-1.5 text-xs font-medium text-green-500 border-l border-green-100 bg-green-50/30 w-24">USD</th>
+                    <th class="text-right px-3 py-1.5 text-xs font-medium text-green-500 bg-green-50/30 w-28">TZS</th>
+                    <th class="text-right px-3 py-1.5 text-xs font-medium text-gray-500 border-l border-gray-200 bg-gray-100/30 w-24">USD</th>
+                    <th class="text-right px-4 py-1.5 text-xs font-medium text-gray-500 bg-gray-100/30 w-28">TZS</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-                <!-- Opening balance row -->
+                @if($opening['USD'] > 0 || $opening['TZS'] > 0)
                 <tr class="bg-gray-50/70">
                     <td class="px-4 py-2.5 text-gray-500 text-xs">{{ \Carbon\Carbon::parse($from)->format('d M Y') }}</td>
                     <td class="px-3 py-2.5 text-xs text-gray-500 font-mono">—</td>
                     <td class="px-3 py-2.5 text-xs font-medium text-gray-600 italic">Opening Balance (b/f)</td>
-                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-500">—</td>
-                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-500">—</td>
-                    <td class="px-4 py-2.5 text-right font-mono text-sm font-semibold {{ $openingBalance > 0 ? 'text-red-700' : 'text-gray-700' }}">
-                        {{ number_format($openingBalance, 0) }}
+                    {{-- Debit USD --}}
+                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-300 border-l border-blue-50">—</td>
+                    {{-- Debit TZS --}}
+                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-300">—</td>
+                    {{-- Credit USD --}}
+                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-300 border-l border-green-50">—</td>
+                    {{-- Credit TZS --}}
+                    <td class="px-3 py-2.5 text-right text-xs font-mono text-gray-300">—</td>
+                    {{-- Balance USD --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs font-semibold {{ $opening['USD'] > 0 ? 'text-red-700' : 'text-gray-400' }} border-l border-gray-100">
+                        {{ number_format($opening['USD'], 0) }}
                     </td>
-                </tr>
-                @foreach($lines as $line)
-                <tr class="{{ $line['type'] === 'payment' ? 'bg-green-50/30' : '' }} hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-2.5 text-xs text-gray-600">{{ \Carbon\Carbon::parse($line['date'])->format('d M Y') }}</td>
-                    <td class="px-3 py-2.5 text-xs font-mono">
-                        @if($line['type'] === 'invoice' && $line['id'])
-                            <a href="{{ route('admin.invoices.show', $line['id']) }}" class="text-blue-600 hover:underline">{{ $line['reference'] }}</a>
-                        @else
-                            <span class="text-gray-600">{{ $line['reference'] }}</span>
-                        @endif
+                    {{-- Balance TZS --}}
+                    <td class="px-4 py-2.5 text-right font-mono text-xs font-semibold {{ $opening['TZS'] > 0 ? 'text-red-700' : 'text-gray-400' }}">
+                        {{ number_format($opening['TZS'], 0) }}
                     </td>
-                    <td class="px-3 py-2.5 text-xs text-gray-700">
-                        {{ $line['description'] }}
-                        @if($line['status'])
-                            @php
-                                $statusStyles = [
-                                    'draft'         => 'bg-gray-100 text-gray-600',
-                                    'sent'          => 'bg-blue-100 text-blue-700',
-                                    'partially_paid'=> 'bg-yellow-100 text-yellow-700',
-                                    'paid'          => 'bg-green-100 text-green-700',
-                                    'disputed'      => 'bg-red-100 text-red-700',
-                                ];
-                            @endphp
-                            <span class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full {{ $statusStyles[$line['status']] ?? 'bg-gray-100 text-gray-600' }}">
-                                {{ ucfirst(str_replace('_', ' ', $line['status'])) }}
-                            </span>
-                        @endif
-                    </td>
-                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ $line['debit'] > 0 ? 'font-medium text-gray-900' : 'text-gray-300' }}">
-                        {{ $line['debit'] > 0 ? number_format($line['debit'], 0) : '—' }}
-                    </td>
-                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ $line['credit'] > 0 ? 'font-medium text-green-700' : 'text-gray-300' }}">
-                        {{ $line['credit'] > 0 ? number_format($line['credit'], 0) : '—' }}
-                    </td>
-                    <td class="px-4 py-2.5 text-right font-mono text-xs font-semibold {{ $line['balance'] > 0 ? 'text-red-700' : 'text-green-700' }}">
-                        {{ number_format($line['balance'], 0) }}
-                    </td>
-                </tr>
-                @endforeach
-                @if($lines->isEmpty())
-                <tr>
-                    <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-400">No transactions in this period</td>
                 </tr>
                 @endif
-            </tbody>
-            <tfoot class="bg-gray-50 border-t-2 border-gray-200">
-                <tr>
-                    <td colspan="3" class="px-4 py-3 text-sm font-semibold text-gray-700">Closing Balance</td>
-                    <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-blue-700">{{ number_format($totalInvoiced, 0) }}</td>
-                    <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-green-700">{{ number_format($totalPaid, 0) }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-base font-bold {{ $closingBalance > 0 ? 'text-red-700' : 'text-green-700' }}">
-                        Tsh {{ number_format($closingBalance, 0) }}
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
-        @else
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b border-gray-100">
-                <tr>
-                    <th class="text-left px-4 py-2.5 text-xs font-medium text-gray-500 w-28">Date</th>
-                    <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-500 w-36">Reference</th>
-                    <th class="text-left px-3 py-2.5 text-xs font-medium text-gray-500">Description</th>
-                    <th class="text-right px-3 py-2.5 text-xs font-medium text-blue-600">Debit</th>
-                    <th class="text-right px-3 py-2.5 text-xs font-medium text-green-600">Credit</th>
-                    <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-700">Balance</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-50">
+
                 @forelse($lines as $line)
-                <tr class="{{ $line['type'] === 'payment' ? 'bg-green-50/30' : '' }} hover:bg-gray-50 transition-colors">
+                @php $isUsd = $line['currency'] === 'USD'; @endphp
+                <tr class="{{ $line['type'] === 'payment' ? 'bg-green-50/20' : '' }} hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-2.5 text-xs text-gray-600">{{ \Carbon\Carbon::parse($line['date'])->format('d M Y') }}</td>
                     <td class="px-3 py-2.5 text-xs font-mono">
                         @if($line['type'] === 'invoice' && $line['id'])
@@ -196,50 +161,66 @@
                     <td class="px-3 py-2.5 text-xs text-gray-700">
                         {{ $line['description'] }}
                         @if($line['status'])
-                            @php
-                                $statusStyles = [
-                                    'draft'         => 'bg-gray-100 text-gray-600',
-                                    'sent'          => 'bg-blue-100 text-blue-700',
-                                    'partially_paid'=> 'bg-yellow-100 text-yellow-700',
-                                    'paid'          => 'bg-green-100 text-green-700',
-                                    'disputed'      => 'bg-red-100 text-red-700',
-                                ];
-                            @endphp
                             <span class="ml-1.5 text-xs px-1.5 py-0.5 rounded-full {{ $statusStyles[$line['status']] ?? 'bg-gray-100 text-gray-600' }}">
                                 {{ ucfirst(str_replace('_', ' ', $line['status'])) }}
                             </span>
                         @endif
                     </td>
-                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ $line['debit'] > 0 ? 'font-medium text-gray-900' : 'text-gray-300' }}">
-                        {{ $line['debit'] > 0 ? number_format($line['debit'], 0) : '—' }}
+                    {{-- Debit USD --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs border-l border-blue-50 {{ ($line['debit'] > 0 && $isUsd) ? 'font-semibold text-gray-900' : 'text-gray-200' }}">
+                        {{ ($line['debit'] > 0 && $isUsd) ? number_format($line['debit'], 0) : '—' }}
                     </td>
-                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ $line['credit'] > 0 ? 'font-medium text-green-700' : 'text-gray-300' }}">
-                        {{ $line['credit'] > 0 ? number_format($line['credit'], 0) : '—' }}
+                    {{-- Debit TZS --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ ($line['debit'] > 0 && !$isUsd) ? 'font-semibold text-gray-900' : 'text-gray-200' }}">
+                        {{ ($line['debit'] > 0 && !$isUsd) ? number_format($line['debit'], 0) : '—' }}
                     </td>
-                    <td class="px-4 py-2.5 text-right font-mono text-xs font-semibold {{ $line['balance'] > 0 ? 'text-red-700' : 'text-green-700' }}">
-                        {{ number_format($line['balance'], 0) }}
+                    {{-- Credit USD --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs border-l border-green-50 {{ ($line['credit'] > 0 && $isUsd) ? 'font-semibold text-green-700' : 'text-gray-200' }}">
+                        {{ ($line['credit'] > 0 && $isUsd) ? number_format($line['credit'], 0) : '—' }}
+                    </td>
+                    {{-- Credit TZS --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs {{ ($line['credit'] > 0 && !$isUsd) ? 'font-semibold text-green-700' : 'text-gray-200' }}">
+                        {{ ($line['credit'] > 0 && !$isUsd) ? number_format($line['credit'], 0) : '—' }}
+                    </td>
+                    {{-- Balance USD --}}
+                    <td class="px-3 py-2.5 text-right font-mono text-xs font-semibold border-l border-gray-100 {{ $line['balance_usd'] > 0 ? 'text-red-700' : ($line['balance_usd'] < 0 ? 'text-green-700' : 'text-gray-400') }}">
+                        {{ number_format($line['balance_usd'], 0) }}
+                    </td>
+                    {{-- Balance TZS --}}
+                    <td class="px-4 py-2.5 text-right font-mono text-xs font-semibold {{ $line['balance_tzs'] > 0 ? 'text-red-700' : ($line['balance_tzs'] < 0 ? 'text-green-700' : 'text-gray-400') }}">
+                        {{ number_format($line['balance_tzs'], 0) }}
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="px-4 py-10 text-center text-sm text-gray-400">No transactions in this period</td>
+                    <td colspan="9" class="px-4 py-10 text-center text-sm text-gray-400">No transactions in this period</td>
                 </tr>
                 @endforelse
             </tbody>
-            @if($lines->isNotEmpty())
             <tfoot class="bg-gray-50 border-t-2 border-gray-200">
                 <tr>
-                    <td colspan="3" class="px-4 py-3 text-sm font-semibold text-gray-700">Closing Balance</td>
-                    <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-blue-700">{{ number_format($totalInvoiced, 0) }}</td>
-                    <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-green-700">{{ number_format($totalPaid, 0) }}</td>
-                    <td class="px-4 py-3 text-right font-mono text-base font-bold {{ $closingBalance > 0 ? 'text-red-700' : 'text-green-700' }}">
-                        Tsh {{ number_format($closingBalance, 0) }}
-                    </td>
+                    <td colspan="3" class="px-4 py-3 text-sm font-semibold text-gray-700">Totals / Closing Balance</td>
+                    {{-- Total Debit USD --}}
+                    <td class="px-3 py-3 text-right font-mono text-xs font-bold text-blue-700 border-l border-blue-100">{{ number_format($invoiced['USD'], 0) }}</td>
+                    {{-- Total Debit TZS --}}
+                    <td class="px-3 py-3 text-right font-mono text-xs font-bold text-blue-700">{{ number_format($invoiced['TZS'], 0) }}</td>
+                    {{-- Total Credit USD --}}
+                    <td class="px-3 py-3 text-right font-mono text-xs font-bold text-green-700 border-l border-green-100">{{ number_format($paid['USD'], 0) }}</td>
+                    {{-- Total Credit TZS --}}
+                    <td class="px-3 py-3 text-right font-mono text-xs font-bold text-green-700">{{ number_format($paid['TZS'], 0) }}</td>
+                    {{-- Closing Balance USD --}}
+                    <td class="px-3 py-3 text-right font-mono text-sm font-bold border-l border-gray-200 {{ $closing['USD'] > 0 ? 'text-red-700' : ($closing['USD'] < 0 ? 'text-green-700' : 'text-gray-500') }}">{{ number_format($closing['USD'], 0) }}</td>
+                    {{-- Closing Balance TZS --}}
+                    <td class="px-4 py-3 text-right font-mono text-sm font-bold {{ $closing['TZS'] > 0 ? 'text-red-700' : ($closing['TZS'] < 0 ? 'text-green-700' : 'text-gray-500') }}">{{ number_format($closing['TZS'], 0) }}</td>
+                </tr>
+                <tr class="border-t border-gray-100">
+                    <td colspan="3" class="px-4 py-1.5 text-xs text-gray-400 italic">Currency columns: USD | TZS</td>
+                    <td colspan="2" class="px-3 py-1.5 text-center text-xs text-blue-400">Debit</td>
+                    <td colspan="2" class="px-3 py-1.5 text-center text-xs text-green-400 border-l border-green-50">Credit</td>
+                    <td colspan="2" class="px-3 py-1.5 text-center text-xs text-gray-400 border-l border-gray-100">Balance (outstanding)</td>
                 </tr>
             </tfoot>
-            @endif
         </table>
-        @endif
     </div>
     @endif
 </x-admin-layout>

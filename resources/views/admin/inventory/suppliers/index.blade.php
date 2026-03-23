@@ -45,7 +45,9 @@
                 <tbody class="divide-y divide-gray-100">
                     @foreach($suppliers as $sup)
                     <tr class="hover:bg-gray-50">
-                        <td class="px-5 py-3 font-semibold text-gray-800">{{ $sup->name }}</td>
+                        <td class="px-5 py-3 font-semibold text-gray-800">
+                            <a href="{{ route('admin.suppliers.show', $sup) }}" class="hover:text-red-600">{{ $sup->name }}</a>
+                        </td>
                         <td class="px-5 py-3 text-gray-600">{{ $sup->contact_person ?? '—' }}</td>
                         <td class="px-5 py-3 text-xs text-gray-500">
                             @if($sup->phone) <p>{{ $sup->phone }}</p> @endif
@@ -61,7 +63,8 @@
                                 <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold" style="background:#f3f4f6;color:#6b7280;">Inactive</span>
                             @endif
                         </td>
-                        <td class="px-5 py-3 text-right">
+                        <td class="px-5 py-3 text-right space-x-3">
+                            <a href="{{ route('admin.suppliers.show', $sup) }}" class="text-sm text-gray-600 hover:text-red-600 font-medium">View</a>
                             <a href="{{ route('admin.suppliers.edit', $sup) }}" class="text-sm text-red-600 hover:underline font-medium">Edit</a>
                         </td>
                     </tr>

@@ -132,7 +132,8 @@ class ClientController extends Controller
 
         $totalSpend = $client->bookings()
             ->whereIn('status', ['invoiced', 'paid'])
-            ->sum('total_amount');
+            ->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')
+            ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0;
 
         $activeBookings = $client->bookings()
             ->whereIn('status', ['approved', 'active'])

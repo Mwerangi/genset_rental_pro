@@ -194,6 +194,12 @@
                         <td class="val">{{ $quotation->payment_terms }}</td>
                     </tr>
                     @endif
+                    @if($quotation->currency === 'USD')
+                    <tr>
+                        <td class="lbl">Currency:</td>
+                        <td class="val">USD &mdash; Rate: {{ number_format($quotation->exchange_rate_to_tzs, 0) }} TZS</td>
+                    </tr>
+                    @endif
                 </table>
             </td>
         </tr>
@@ -207,7 +213,7 @@
                 <th class="right" style="width:8%;">Qty</th>
                 <th class="right" style="width:13%;">Unit Price</th>
                 <th class="right" style="width:10%;">Days</th>
-                <th class="right" style="width:14%;">Amount (TZS)</th>
+                <th class="right" style="width:14%;">Amount ({{ $quotation->currencySymbol() }})</th>
             </tr>
         </thead>
         <tbody>
@@ -235,15 +241,15 @@
         <table class="summary-table">
             <tr>
                 <td class="lbl">Subtotal:</td>
-                <td class="val">TZS {{ number_format($quotation->subtotal, 0) }}</td>
+                <td class="val">{{ $quotation->formatAmount($quotation->subtotal, 0) }}</td>
             </tr>
             <tr>
                 <td class="lbl">VAT ({{ $quotation->vat_rate }}%):</td>
-                <td class="val">TZS {{ number_format($quotation->vat_amount, 0) }}</td>
+                <td class="val">{{ $quotation->formatAmount($quotation->vat_amount, 0) }}</td>
             </tr>
             <tr class="grand-total">
                 <td style="padding:8px 8px; font-weight:bold;">TOTAL:</td>
-                <td style="text-align:right; padding:8px 8px; font-size:9.5pt;">TZS {{ number_format($quotation->total_amount, 0) }}</td>
+                <td style="text-align:right; padding:8px 8px; font-size:9.5pt;">{{ $quotation->formatAmount($quotation->total_amount, 0) }}</td>
             </tr>
         </table>
     </div>
@@ -279,7 +285,7 @@
     <div style="margin-top:12px; border-top: 1px solid #e5e7eb; padding-top:8px;">
         <div class="notes-section">
             <div class="notes-title">Payment Terms</div>
-            <div class="notes-body">Payment due within 30 days of acceptance. All prices are in Tanzanian Shillings (TZS).</div>
+            <div class="notes-body">Payment due within 30 days of acceptance. All prices are in {{ $quotation->currency === 'USD' ? 'US Dollars (USD)' : 'Tanzanian Shillings (TZS)' }}.</div>
         </div>
         <div class="notes-section" style="margin-top:8px;">
             <div class="notes-title">Terms &amp; Conditions</div>

@@ -1,14 +1,90 @@
 <x-admin-layout>
-    <div class="mb-6 flex items-center justify-between">
+    <div x-data="{ transferOpen: false }" class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Bank & Cash Accounts</h1>
             <p class="text-gray-500 mt-1">Registered payment accounts and balances</p>
         </div>
-        <a href="{{ route('admin.accounting.bank-accounts.create') }}"
-           class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            New Account
-        </a>
+        <div class="flex items-center gap-3">
+            <button @click="transferOpen = true"
+                class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                Transfer Funds
+            </button>
+            <a href="{{ route('admin.accounting.bank-accounts.create') }}"
+               class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New Account
+            </a>
+        </div>
+
+        {{-- Transfer Modal --}}
+        <div x-show="transferOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/40" @click="transferOpen = false"></div>
+            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6" @click.stop>
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-lg font-bold text-gray-900">Transfer Funds</h2>
+                    <button @click="transferOpen = false" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <form method="POST" action="{{ route('admin.accounting.account-transfers.store') }}">
+                    @csrf
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">From Account <span class="text-red-500">*</span></label>
+                            <select name="from_bank_account_id" required
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                                <option value="">— Select source account —</option>
+                                @foreach($accounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->name }} ({{ $ba->currency }} {{ number_format($ba->current_balance, 0) }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">To Account <span class="text-red-500">*</span></label>
+                            <select name="to_bank_account_id" required
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                                <option value="">— Select destination account —</option>
+                                @foreach($accounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Amount <span class="text-red-500">*</span></label>
+                                <input type="number" name="amount" min="1" step="1" required
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                    placeholder="0">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
+                                <input type="date" name="transfer_date" required value="{{ date('Y-m-d') }}"
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description / Reference</label>
+                            <input type="text" name="description" maxlength="255"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                placeholder="e.g. Monthly petty cash top-up">
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="transferOpen = false"
+                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                            Confirm Transfer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     @if(session('success'))

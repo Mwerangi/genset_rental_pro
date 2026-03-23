@@ -28,6 +28,9 @@
         <span class="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-semibold" style="{{ $statusStyle }}">
             {{ $booking->status_label }}
         </span>
+        @if($booking->currency === 'USD')
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD &mdash; @ {{ number_format($booking->exchange_rate_to_tzs, 0) }} TZS</span>
+        @endif
     </div>
 
     {{-- ================================================================
@@ -207,11 +210,11 @@
                         </div>
                         <div>
                             <p class="text-sm font-medium text-slate-600">Subtotal</p>
-                            <p class="text-sm text-slate-900 mt-1">{{ 'TZS ' . number_format($booking->quotation->subtotal, 0) }}</p>
+                            <p class="text-sm text-slate-900 mt-1">{{ $booking->quotation->formatAmount($booking->quotation->subtotal, 0) }}</p>
                         </div>
                         <div>
                             <p class="text-sm font-medium text-slate-600">VAT ({{ $booking->quotation->vat_rate }}%)</p>
-                            <p class="text-sm text-slate-900 mt-1">{{ 'TZS ' . number_format($booking->quotation->vat_amount, 0) }}</p>
+                            <p class="text-sm text-slate-900 mt-1">{{ $booking->quotation->formatAmount($booking->quotation->vat_amount, 0) }}</p>
                         </div>
                     </div>
 
@@ -230,7 +233,7 @@
                                             <span class="text-slate-900">{{ $item->description }}</span>
                                             <span class="text-slate-500 ml-2 text-xs">× {{ $item->quantity }}{{ $item->duration_days ? ' × ' . $item->duration_days . ' days' : '' }}</span>
                                         </div>
-                                        <span class="font-medium text-slate-900">{{ 'TZS ' . number_format($item->subtotal, 0) }}</span>
+                                        <span class="font-medium text-slate-900">{{ $booking->quotation->formatAmount($item->subtotal, 0) }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -562,18 +565,18 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Total</span>
-                        <span class="font-medium text-gray-800">TZS {{ number_format($booking->invoice->total_amount, 0) }}</span>
+                        <span class="font-medium text-gray-800">{{ $booking->invoice->formatAmount($booking->invoice->total_amount, 0) }}</span>
                     </div>
                     @if($booking->invoice->amount_paid > 0)
                     <div class="flex justify-between">
                         <span class="text-gray-500">Paid</span>
-                        <span class="font-semibold text-green-700">TZS {{ number_format($booking->invoice->amount_paid, 0) }}</span>
+                        <span class="font-semibold text-green-700">{{ $booking->invoice->formatAmount($booking->invoice->amount_paid, 0) }}</span>
                     </div>
                     @endif
                     <div class="flex justify-between border-t border-gray-100 pt-2 mt-1">
                         <span class="font-semibold text-gray-700">Balance Due</span>
                         @if($booking->invoice->balance_due > 0)
-                            <span class="font-bold" style="color:#dc2626;">TZS {{ number_format($booking->invoice->balance_due, 0) }}</span>
+                            <span class="font-bold" style="color:#dc2626;">{{ $booking->invoice->formatAmount($booking->invoice->balance_due, 0) }}</span>
                         @else
                             <span class="font-bold text-green-700">Paid ✓</span>
                         @endif
@@ -741,14 +744,14 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Subtotal</span>
-                        <span class="text-gray-700">TZS {{ number_format($booking->quotation->subtotal, 0) }}</span>
+                        <span class="text-gray-700">{{ $booking->quotation->formatAmount($booking->quotation->subtotal, 0) }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">VAT ({{ $booking->quotation->vat_rate }}%)</span>
                         @if($booking->quotation->vat_rate == 0)
                             <span class="font-medium" style="color:#15803d;">Zero Rated</span>
                         @else
-                            <span class="text-gray-700">TZS {{ number_format($booking->quotation->vat_amount, 0) }}</span>
+                            <span class="text-gray-700">{{ $booking->quotation->formatAmount($booking->quotation->vat_amount, 0) }}</span>
                         @endif
                     </div>
                     @endif
@@ -760,9 +763,13 @@
                 <p class="text-xs text-gray-400 mb-5">An invoice number (INV-YYYY-XXXX) will be auto-generated. Line items will be copied from the linked quotation.</p>
                 <div class="flex justify-end gap-3">
                     <button type="button" onclick="document.getElementById('modal-generate-invoice').classList.add('hidden')" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <form method="POST" action="{{ route('admin.bookings.generate-proforma', $booking) }}">
+                        @csrf
+                        <button type="submit" class="px-5 py-2 rounded-lg text-sm font-semibold text-amber-800 border border-amber-400 hover:bg-amber-50">Generate Proforma</button>
+                    </form>
                     <form method="POST" action="{{ route('admin.bookings.generate-invoice', $booking) }}">
                         @csrf
-                        <button type="submit" class="px-5 py-2 rounded-lg text-sm font-semibold text-white" style="background:#ea580c;">Confirm — Generate Invoice</button>
+                        <button type="submit" class="px-5 py-2 rounded-lg text-sm font-semibold text-white" style="background:#ea580c;">Confirm — Generate Tax Invoice</button>
                     </form>
                 </div>
             </div>

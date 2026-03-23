@@ -78,4 +78,104 @@
             </table>
         </div>
     </div>
+
+    <!-- Cash Disbursements -->
+    <div class="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-gray-100 bg-orange-50">
+            <p class="font-semibold text-orange-800">Cash Disbursements (Cash Requests)</p>
+        </div>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+                <tr>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Date</th>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Ref</th>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Purpose</th>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Requested By</th>
+                    <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Status</th>
+                    <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Amount</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                @forelse($cashDisbursements as $cr)
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-2 text-xs text-gray-500">{{ $cr->paid_at?->format('d M Y') }}</td>
+                    <td class="px-4 py-2">
+                        <a href="{{ route('admin.accounting.cash-requests.show', $cr) }}" class="text-blue-600 hover:underline text-xs font-mono">{{ $cr->request_number }}</a>
+                    </td>
+                    <td class="px-4 py-2 text-xs text-gray-700">{{ Str::limit($cr->purpose, 50) }}</td>
+                    <td class="px-4 py-2 text-xs text-gray-500">{{ $cr->requestedBy?->name }}</td>
+                    <td class="px-4 py-2">
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium {{ $cr->status_style }}">{{ $cr->status_label }}</span>
+                    </td>
+                    <td class="px-4 py-2 text-right font-semibold text-orange-700 font-mono text-xs">-{{ number_format($cr->actual_amount ?? $cr->total_amount, 0) }}</td>
+                </tr>
+                @empty
+                <tr><td colspan="6" class="px-4 py-6 text-center text-xs text-gray-400">No cash disbursements from this account yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Internal Transfers -->
+    @if($transfersOut->isNotEmpty() || $transfersIn->isNotEmpty())
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Transfers Out -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 bg-slate-50">
+                <p class="font-semibold text-slate-700">Transfers Out</p>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Date</th>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Ref</th>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">To</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @forelse($transfersOut as $tr)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2 text-xs text-gray-500">{{ $tr->transfer_date->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ $tr->reference }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-700">{{ $tr->toAccount?->name }}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-slate-700 font-mono text-xs">-{{ number_format($tr->amount, 0) }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="4" class="px-4 py-4 text-center text-xs text-gray-400">No outgoing transfers.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Transfers In -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 bg-slate-50">
+                <p class="font-semibold text-slate-700">Transfers In</p>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Date</th>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Ref</th>
+                        <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">From</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @forelse($transfersIn as $tr)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-2 text-xs text-gray-500">{{ $tr->transfer_date->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ $tr->reference }}</td>
+                        <td class="px-4 py-2 text-xs text-gray-700">{{ $tr->fromAccount?->name }}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-green-700 font-mono text-xs">+{{ number_format($tr->amount, 0) }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="4" class="px-4 py-4 text-center text-xs text-gray-400">No incoming transfers.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @endif
 </x-admin-layout>

@@ -117,9 +117,16 @@
                 <p class="text-slate-600 mt-1">Quotation details</p>
             </div>
         </div>
-        <x-badge :color="$quotation->status_color" class="text-base px-4 py-2">
-            {{ ucfirst($quotation->status) }}
-        </x-badge>
+        <div class="flex items-center gap-3">
+            @if($quotation->currency === 'USD')
+            <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm font-semibold">
+                USD — @ {{ number_format($quotation->exchange_rate_to_tzs, 0) }} TZS
+            </span>
+            @endif
+            <x-badge :color="$quotation->status_color" class="text-base px-4 py-2">
+                {{ ucfirst($quotation->status) }}
+            </x-badge>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -174,7 +181,7 @@
                                         </div>
                                     </td>
                                     <td class="py-3 px-4 text-right text-slate-900">{{ $item->quantity }}</td>
-                                    <td class="py-3 px-4 text-right text-slate-900">TZS {{ number_format($item->unit_price, 2) }}</td>
+                                    <td class="py-3 px-4 text-right text-slate-900">{{ $quotation->currencySymbol() }} {{ number_format($item->unit_price, 2) }}</td>
                                     <td class="py-3 px-4 text-right text-slate-900">
                                         @if($item->item_type === 'genset_rental' && $item->duration_days)
                                             {{ $item->duration_days }} days
@@ -189,11 +196,11 @@
                         <tfoot class="border-t-2 border-slate-300">
                             <tr>
                                 <td colspan="4" class="py-3 px-4 text-right font-medium text-slate-600">Subtotal</td>
-                                <td class="py-3 px-4 text-right font-semibold text-slate-900">TZS {{ number_format($quotation->subtotal, 2) }}</td>
+                                <td class="py-3 px-4 text-right font-semibold text-slate-900">{{ $quotation->formatAmount($quotation->subtotal) }}</td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="py-3 px-4 text-right font-medium text-slate-600">VAT ({{ $quotation->vat_rate }}%)</td>
-                                <td class="py-3 px-4 text-right font-semibold text-slate-900">TZS {{ number_format($quotation->vat_amount, 2) }}</td>
+                                <td class="py-3 px-4 text-right font-semibold text-slate-900">{{ $quotation->formatAmount($quotation->vat_amount) }}</td>
                             </tr>
                             <tr class="border-t border-slate-200">
                                 <td colspan="4" class="py-3 px-4 text-right font-bold text-slate-900">Total Amount</td>
@@ -376,11 +383,11 @@
                 <div class="space-y-3">
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-slate-600">Subtotal</span>
-                        <span class="font-semibold text-slate-900">TZS {{ number_format($quotation->subtotal, 2) }}</span>
+                        <span class="font-semibold text-slate-900">{{ $quotation->formatAmount($quotation->subtotal) }}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
                         <span class="text-slate-600">VAT ({{ $quotation->vat_rate }}%)</span>
-                        <span class="font-semibold text-slate-900">TZS {{ number_format($quotation->vat_amount, 2) }}</span>
+                        <span class="font-semibold text-slate-900">{{ $quotation->formatAmount($quotation->vat_amount) }}</span>
                     </div>
                     <div class="border-t border-slate-200 pt-3">
                         <div class="flex items-center justify-between">

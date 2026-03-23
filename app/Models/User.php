@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Services\PermissionService;
+use App\Models\Role as RoleModel;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -13,37 +14,84 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
         'password',
+        'role',
+        'phone',
+        'department',
+        'position',
+        'status',
+        'last_login_at',
+        'last_login_ip',
+        'login_attempts',
+        'locked_until',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'password'          => 'hashed',
+            'last_login_at'     => 'datetime',
+            'locked_until'      => 'datetime',
         ];
+    }
+
+    // ── Relationships ──────────────────────────────────────────────
+
+    public function activityLogs()
+    {
+        return $this->hasMany(UserActivityLog::class);
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_until && $this->locked_until->isFuture();
+    }
+
+    /**
+     * Check if this user has one of the given roles.
+     */
+    public function hasRole(string ...$roles): bool
+    {
+        return in_array($this->role, $roles, true);
+    }
+
+    /**
+     * Check if this user has the given permission (uses cached DB lookup).
+     * Super admin always returns true.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return PermissionService::can($this, $permission);
+    }
+
+    public function getRoleLabelAttribute(): string
+    {
+        return RoleModel::labelFor($this->role ?? '');
+    }
+
+    public function getRoleBadgeColorAttribute(): string
+    {
+        return RoleModel::badgeColorFor($this->role ?? '');
+    }
+
+    public static function roles(): array
+    {
+        return RoleModel::asKeyLabel();
     }
 }

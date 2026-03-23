@@ -3,6 +3,24 @@
     $isEditable = $invoice->is_editable;
 @endphp
 
+    {{-- Proforma Banner --}}
+    @if($invoice->isProforma())
+    <div class="mb-4 bg-amber-50 border border-amber-300 rounded-xl px-5 py-3 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="text-sm font-semibold text-amber-800">PROFORMA INVOICE — This is not a tax invoice and has no accounting impact.</span>
+        </div>
+        @if($invoice->status !== 'void')
+        <form method="POST" action="{{ route('admin.invoices.convert-proforma', $invoice) }}" onsubmit="return confirm('Convert this proforma to a Tax Invoice? This cannot be undone.')">
+            @csrf
+            <button type="submit" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 text-white hover:bg-amber-700">
+                Convert to Tax Invoice
+            </button>
+        </form>
+        @endif
+    </div>
+    @endif
+
     <div class="mb-6">
         <a href="{{ route('admin.invoices.index') }}" class="text-sm text-gray-500 hover:text-red-600 flex items-center gap-1 mb-3">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -12,12 +30,18 @@
             <div>
                 <div class="flex items-center gap-3 flex-wrap">
                     <h1 class="text-2xl font-bold text-gray-900 font-mono">{{ $invoice->invoice_number }}</h1>
+                    @if($invoice->isProforma())
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">PROFORMA</span>
+                    @endif
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold" style="{{ $invoice->status_style }}">{{ $invoice->status_label }}</span>
                     @if($invoice->is_overdue)
                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold" style="background:#fee2e2;color:#dc2626;">OVERDUE</span>
                     @endif
                     @if($invoice->is_zero_rated)
                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background:#f0fdf4;color:#15803d;">Zero Rated</span>
+                    @endif
+                    @if($invoice->currency === 'USD')
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD &mdash; @ {{ number_format($invoice->exchange_rate_to_tzs, 0) }} TZS</span>
                     @endif
                 </div>
                 <p class="text-gray-500 mt-1 text-sm">
@@ -85,10 +109,10 @@
                                     </p>
                                 </td>
                                 <td class="px-4 py-3 text-right text-gray-700">{{ $item->quantity }}</td>
-                                <td class="px-4 py-3 text-right text-gray-700">TZS {{ number_format($item->unit_price, 0) }}</td>
+                                <td class="px-4 py-3 text-right text-gray-700">{{ $invoice->currencySymbol() }} {{ number_format($item->unit_price, 0) }}</td>
                                 <td class="px-4 py-3 text-right text-gray-500">{{ $item->duration_days ?? '—' }}</td>
                                 <td class="px-5 py-3 text-right font-semibold {{ $item->subtotal < 0 ? 'text-green-700' : 'text-gray-900' }}">
-                                    {{ $item->subtotal < 0 ? '&minus;' : '' }}TZS {{ number_format(abs($item->subtotal), 0) }}
+                                    {{ $item->subtotal < 0 ? '&minus;' : '' }}{{ $invoice->currencySymbol() }} {{ number_format(abs($item->subtotal), 0) }}
                                 </td>
                                 @if($isEditable)
                                 <td class="px-3 py-3 text-right whitespace-nowrap">
@@ -111,7 +135,7 @@
                         <tfoot class="bg-gray-50 border-t border-gray-200">
                             <tr>
                                 <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">Items Subtotal</td>
-                                <td class="px-5 py-2 text-right font-semibold text-gray-900">TZS {{ number_format($invoice->subtotal, 0) }}</td>
+                                <td class="px-5 py-2 text-right font-semibold text-gray-900">{{ $invoice->formatAmount($invoice->subtotal, 0) }}</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
                             @if($isEditable || $invoice->discount_amount > 0)
@@ -124,7 +148,7 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-2 text-right font-semibold {{ $invoice->discount_amount > 0 ? 'text-green-700' : 'text-gray-400' }}">
-                                    @if($invoice->discount_amount > 0)&minus; @endif TZS {{ number_format($invoice->discount_amount, 0) }}
+                                    @if($invoice->discount_amount > 0)&minus; @endif {{ $invoice->formatAmount($invoice->discount_amount, 0) }}
                                 </td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
@@ -138,13 +162,13 @@
                             @else
                             <tr>
                                 <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">VAT ({{ $invoice->vat_rate }}%)</td>
-                                <td class="px-5 py-2 text-right font-semibold text-gray-700">TZS {{ number_format($invoice->vat_amount, 0) }}</td>
+                                <td class="px-5 py-2 text-right font-semibold text-gray-700">{{ $invoice->formatAmount($invoice->vat_amount, 0) }}</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
                             @endif
                             <tr class="border-t border-gray-200">
                                 <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-3 text-right text-sm font-bold text-gray-800">Total</td>
-                                <td class="px-5 py-3 text-right font-bold text-gray-900 text-base">TZS {{ number_format($invoice->total_amount, 0) }}</td>
+                                <td class="px-5 py-3 text-right font-bold text-gray-900 text-base">{{ $invoice->formatAmount($invoice->total_amount, 0) }}</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
                         </tfoot>
@@ -195,7 +219,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 font-mono text-xs {{ $payment->is_reversed ? 'text-gray-400 line-through' : 'text-gray-500' }}">{{ $payment->reference ?: '—' }}</td>
-                                <td class="px-5 py-3 text-right font-semibold {{ $payment->is_reversed ? 'line-through text-gray-400' : 'text-gray-900' }}">TZS {{ number_format($payment->amount, 0) }}</td>
+                                <td class="px-5 py-3 text-right font-semibold {{ $payment->is_reversed ? 'line-through text-gray-400' : 'text-gray-900' }}">{{ $invoice->currencySymbol() }} {{ number_format($payment->amount, 0) }}</td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
                                     @if(!$payment->is_reversed && !in_array($invoice->status, ['void','declined']))
                                         <button
@@ -213,7 +237,7 @@
                         <tfoot class="bg-gray-50 border-t border-gray-200">
                             <tr>
                                 <td colspan="3" class="px-5 py-2 text-right text-xs font-semibold text-gray-600">Total Paid (active)</td>
-                                <td class="px-5 py-2 text-right font-bold text-green-700">TZS {{ number_format($invoice->amount_paid, 0) }}</td>
+                                <td class="px-5 py-2 text-right font-bold text-green-700">{{ $invoice->formatAmount($invoice->amount_paid, 0) }}</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -268,18 +292,18 @@
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Items Subtotal</span>
-                        <span class="font-medium text-gray-800">TZS {{ number_format($invoice->subtotal, 0) }}</span>
+                        <span class="font-medium text-gray-800">{{ $invoice->formatAmount($invoice->subtotal, 0) }}</span>
                     </div>
                     @if($invoice->discount_amount > 0)
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Discount</span>
-                        <span class="font-medium text-green-700">&minus; TZS {{ number_format($invoice->discount_amount, 0) }}</span>
+                        <span class="font-medium text-green-700">&minus; {{ $invoice->formatAmount($invoice->discount_amount, 0) }}</span>
                     </div>
                     @endif
                     @if(!$invoice->is_zero_rated && $invoice->vat_amount > 0)
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">VAT ({{ $invoice->vat_rate }}%)</span>
-                        <span class="font-medium text-gray-800">TZS {{ number_format($invoice->vat_amount, 0) }}</span>
+                        <span class="font-medium text-gray-800">{{ $invoice->formatAmount($invoice->vat_amount, 0) }}</span>
                     </div>
                     @elseif($invoice->is_zero_rated)
                     <div class="flex justify-between text-sm">
@@ -289,16 +313,16 @@
                     @endif
                     <div class="flex justify-between text-sm border-t border-gray-100 pt-2">
                         <span class="font-semibold text-gray-700">Total</span>
-                        <span class="font-bold text-gray-900">TZS {{ number_format($invoice->total_amount, 0) }}</span>
+                        <span class="font-bold text-gray-900">{{ $invoice->formatAmount($invoice->total_amount, 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-500">Amount Paid</span>
-                        <span class="font-semibold text-green-700">TZS {{ number_format($invoice->amount_paid, 0) }}</span>
+                        <span class="font-semibold text-green-700">{{ $invoice->formatAmount($invoice->amount_paid, 0) }}</span>
                     </div>
                     <div class="flex justify-between text-sm border-t border-gray-200 pt-3 mt-2">
                         <span class="font-bold text-gray-800">Balance Due</span>
                         @if($invoice->balance_due > 0)
-                            <span class="font-bold text-xl" style="color:#dc2626;">TZS {{ number_format($invoice->balance_due, 0) }}</span>
+                            <span class="font-bold text-xl" style="color:#dc2626;">{{ $invoice->formatAmount($invoice->balance_due, 0) }}</span>
                         @else
                             <span class="font-bold text-xl text-green-700">PAID</span>
                         @endif
@@ -383,9 +407,9 @@
                     <input type="date" name="payment_date" value="{{ date('Y-m-d') }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount (TZS) <span style="color:#dc2626;">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
                     <input type="number" name="amount" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <p class="text-xs text-gray-400 mt-1">Balance due: TZS {{ number_format($invoice->balance_due, 0) }}</p>
+                    <p class="text-xs text-gray-400 mt-1">Balance due: {{ $invoice->formatAmount($invoice->balance_due, 0) }}</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span style="color:#dc2626;">*</span></label>
@@ -433,7 +457,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Invoice Total</span>
-                        <span class="font-semibold text-gray-900">TZS {{ number_format($invoice->total_amount, 0) }}</span>
+                        <span class="font-semibold text-gray-900">{{ $invoice->formatAmount($invoice->total_amount, 0) }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Due Date</span>
@@ -515,7 +539,7 @@
                         <input type="number" name="quantity" step="0.01" min="0.01" value="1" required oninput="calcAddSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit Price (TZS) <span style="color:#dc2626;">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit Price ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
                         <input type="number" name="unit_price" step="0.01" min="0" value="0" required oninput="calcAddSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
                 </div>
@@ -524,7 +548,7 @@
                     <input type="number" name="duration_days" min="0" placeholder="e.g. 5" oninput="calcAddSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div class="rounded-lg px-4 py-3 text-sm font-semibold text-right" style="background:#f9fafb;border:1px solid #e5e7eb;">
-                    Line Subtotal: TZS <span id="add-subtotal-preview">0</span>
+                    Line Subtotal: {{ $invoice->currencySymbol() }} <span id="add-subtotal-preview">0</span>
                 </div>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('add-item-modal').classList.add('hidden')" class="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
@@ -570,7 +594,7 @@
                         <input type="number" name="quantity" id="edit-item-quantity" step="0.01" min="0.01" required oninput="calcEditSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit Price (TZS) <span style="color:#dc2626;">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Unit Price ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
                         <input type="number" name="unit_price" id="edit-item-unit-price" step="0.01" min="0" required oninput="calcEditSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     </div>
                 </div>
@@ -579,7 +603,7 @@
                     <input type="number" name="duration_days" id="edit-item-duration" min="0" placeholder="e.g. 5" oninput="calcEditSubtotal()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div class="rounded-lg px-4 py-3 text-sm font-semibold text-right" style="background:#f9fafb;border:1px solid #e5e7eb;">
-                    Line Subtotal: TZS <span id="edit-subtotal-preview">0</span>
+                    Line Subtotal: {{ $invoice->currencySymbol() }} <span id="edit-subtotal-preview">0</span>
                 </div>
                 <div class="flex justify-end gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('edit-item-modal').classList.add('hidden')" class="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
@@ -601,7 +625,7 @@
             <form method="POST" action="{{ route('admin.invoices.discount.update', $invoice) }}" class="p-6 space-y-4">
                 @csrf @method('PATCH')
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Discount Amount (TZS) <span style="color:#dc2626;">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Discount Amount ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
                     <input type="number" name="discount_amount" step="0.01" min="0" value="{{ $invoice->discount_amount ?? 0 }}" required placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     <p class="text-xs text-gray-400 mt-1">Set to 0 to remove discount. Applied before VAT.</p>
                 </div>
@@ -661,7 +685,7 @@
                         <span class="text-gray-500">Invoice</span><span class="font-mono font-semibold">{{ $invoice->invoice_number }}</span>
                     </div>
                     <div class="flex justify-between mt-1">
-                        <span class="text-gray-500">Balance Due</span><span class="font-semibold text-red-600">TZS {{ number_format($invoice->balance_due, 0) }}</span>
+                        <span class="text-gray-500">Balance Due</span><span class="font-semibold text-red-600">{{ $invoice->formatAmount($invoice->balance_due, 0) }}</span>
                     </div>
                 </div>
                 <div class="flex justify-end gap-3 pt-2">

@@ -212,6 +212,12 @@
                         <td class="val"><span class="zero-rated">Zero Rated</span></td>
                     </tr>
                     @endif
+                    @if($invoice->currency === 'USD')
+                    <tr>
+                        <td class="lbl">Currency:</td>
+                        <td class="val">USD &mdash; Rate: {{ number_format($invoice->exchange_rate_to_tzs, 0) }} TZS</td>
+                    </tr>
+                    @endif
                 </table>
             </td>
         </tr>
@@ -225,7 +231,7 @@
                 <th class="right" style="width:8%;">Qty</th>
                 <th class="right" style="width:12%;">Unit Price</th>
                 <th class="right" style="width:10%;">Days</th>
-                <th class="right" style="width:15%;">Amount (TZS)</th>
+                <th class="right" style="width:15%;">Amount ({{ $invoice->currencySymbol() }})</th>
             </tr>
         </thead>
         <tbody>
@@ -253,7 +259,7 @@
         <table class="summary-table">
             <tr>
                 <td class="lbl">Subtotal:</td>
-                <td class="val">TZS {{ number_format($invoice->subtotal, 0) }}</td>
+                <td class="val">{{ $invoice->formatAmount($invoice->subtotal, 0) }}</td>
             </tr>
             @if($invoice->is_zero_rated)
             <tr>
@@ -263,21 +269,21 @@
             @else
             <tr>
                 <td class="lbl">VAT ({{ $invoice->vat_rate }}%):</td>
-                <td class="val">TZS {{ number_format($invoice->vat_amount, 0) }}</td>
+                <td class="val">{{ $invoice->formatAmount($invoice->vat_amount, 0) }}</td>
             </tr>
             @endif
             <tr class="grand-total">
                 <td style="padding:8px 8px; font-weight:bold; border-radius:0;">TOTAL:</td>
-                <td style="text-align:right; padding:8px 8px; font-size:9.5pt; border-radius:0;">TZS {{ number_format($invoice->total_amount, 0) }}</td>
+                <td style="text-align:right; padding:8px 8px; font-size:9.5pt; border-radius:0;">{{ $invoice->formatAmount($invoice->total_amount, 0) }}</td>
             </tr>
             @if($invoice->amount_paid > 0)
             <tr class="paid-amount">
                 <td class="lbl" style="padding-top:6px;">Amount Paid:</td>
-                <td class="val" style="padding-top:6px; color:#166534;">TZS {{ number_format($invoice->amount_paid, 0) }}</td>
+                <td class="val" style="padding-top:6px; color:#166534;">{{ $invoice->formatAmount($invoice->amount_paid, 0) }}</td>
             </tr>
             <tr class="balance-due">
                 <td class="lbl" style="font-weight:bold; color:#555;">Balance Due:</td>
-                <td class="val">TZS {{ number_format($invoice->balance_due, 0) }}</td>
+                <td class="val">{{ $invoice->formatAmount($invoice->balance_due, 0) }}</td>
             </tr>
             @endif
         </table>

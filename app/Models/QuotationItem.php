@@ -77,7 +77,8 @@ class QuotationItem extends Model
      */
     public function getFormattedSubtotalAttribute(): string
     {
-        return 'TZS ' . number_format($this->subtotal, 2);
+        $sym = $this->quotation?->currencySymbol() ?? 'TZS';
+        return $sym . ' ' . number_format($this->subtotal, 2);
     }
 
     public function getItemTypeFormattedAttribute(): string

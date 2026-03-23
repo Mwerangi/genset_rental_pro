@@ -142,6 +142,9 @@
                                 </td>
                                 <td class="py-3 px-4 text-right">
                                     <span class="font-semibold text-sm text-slate-900">{{ $booking->formatted_total }}</span>
+                                    @if($booking->currency === 'USD')
+                                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD</span>
+                                    @endif
                                 </td>
                                 <td class="py-3 px-4">
                                     <x-badge :color="$booking->status_color">{{ $booking->status_label }}</x-badge>

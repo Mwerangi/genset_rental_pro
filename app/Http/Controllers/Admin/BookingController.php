@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Genset;
 use App\Models\QuoteRequest;
@@ -84,8 +85,12 @@ class BookingController extends Controller
             'delivery_location'    => 'required|string|max:500',
             'pickup_location'      => 'nullable|string|max:500',
             'total_amount'         => 'required|numeric|min:0',
+            'currency'             => 'nullable|in:TZS,USD',
+            'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
             'notes'                => 'nullable|string',
         ]);
+
+        $currency = $validated['currency'] ?? 'TZS';
 
         $startDate = \Carbon\Carbon::parse($validated['rental_start_date']);
         $endDate   = $startDate->copy()->addDays((int) $validated['rental_duration_days']);
@@ -101,6 +106,8 @@ class BookingController extends Controller
             'delivery_location'    => $validated['delivery_location'],
             'pickup_location'      => $validated['pickup_location'] ?? null,
             'total_amount'         => $validated['total_amount'],
+            'currency'             => $currency,
+            'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
             'notes'                => $validated['notes'] ?? null,
             'created_by'           => auth()->id(),
         ]);
@@ -115,6 +122,15 @@ class BookingController extends Controller
             $booking->save();
         }
 
+        AppNotification::notify(
+            null,
+            'booking',
+            'New Booking: ' . $booking->booking_number,
+            ($booking->client?->display_name ?? $booking->customer_name) . ' — awaiting approval.',
+            route('admin.bookings.show', $booking),
+            'booking'
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' created successfully!');
@@ -128,6 +144,15 @@ class BookingController extends Controller
 
         $booking->approve(auth()->id());
 
+        AppNotification::notify(
+            $booking->created_by ?? null,
+            'booking',
+            'Booking Approved: ' . $booking->booking_number,
+            'Your booking has been approved and is ready for activation.',
+            route('admin.bookings.show', $booking),
+            'booking'
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' has been approved.');
@@ -140,6 +165,15 @@ class BookingController extends Controller
         }
 
         $booking->reject(auth()->id(), $request->input('reason'));
+
+        AppNotification::notify(
+            $booking->created_by ?? null,
+            'booking',
+            'Booking Rejected: ' . $booking->booking_number,
+            $request->input('reason') ? 'Reason: ' . $request->input('reason') : null,
+            route('admin.bookings.show', $booking),
+            'booking'
+        );
 
         return redirect()
             ->route('admin.bookings.show', $booking)
@@ -241,5 +275,62 @@ class BookingController extends Controller
             ->get();
 
         return view('admin.bookings.active-rentals', compact('rentals'));
+    }
+
+    public function edit(Booking $booking)
+    {
+        if (!in_array($booking->status, ['created', 'approved'])) {
+            return redirect()->route('admin.bookings.show', $booking)
+                ->with('error', 'Only bookings in Created or Approved status can be edited.');
+        }
+
+        $quoteRequests = QuoteRequest::whereNotIn('status', ['converted', 'rejected'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $gensets = Genset::where('status', 'available')->orderBy('asset_number')->get();
+
+        return view('admin.bookings.edit', compact('booking', 'quoteRequests', 'gensets'));
+    }
+
+    public function update(Request $request, Booking $booking)
+    {
+        if (!in_array($booking->status, ['created', 'approved'])) {
+            return back()->with('error', 'Only bookings in Created or Approved status can be edited.');
+        }
+
+        $validated = $request->validate([
+            'genset_type'          => 'required|string|max:100',
+            'rental_start_date'    => 'required|date',
+            'rental_duration_days' => 'required|integer|min:1',
+            'delivery_location'    => 'required|string|max:500',
+            'pickup_location'      => 'nullable|string|max:500',
+            'total_amount'         => 'required|numeric|min:0',
+            'currency'             => 'nullable|in:TZS,USD',
+            'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
+            'notes'                => 'nullable|string',
+        ]);
+
+        $currency = $validated['currency'] ?? $booking->currency ?? 'TZS';
+
+        $startDate = \Carbon\Carbon::parse($validated['rental_start_date']);
+        $endDate   = $startDate->copy()->addDays((int) $validated['rental_duration_days']);
+
+        $booking->update([
+            'genset_type'          => $validated['genset_type'],
+            'rental_start_date'    => $startDate,
+            'rental_end_date'      => $endDate,
+            'rental_duration_days' => $validated['rental_duration_days'],
+            'delivery_location'    => $validated['delivery_location'],
+            'pickup_location'      => $validated['pickup_location'] ?? null,
+            'total_amount'         => $validated['total_amount'],
+            'currency'             => $currency,
+            'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
+            'notes'                => $validated['notes'] ?? null,
+        ]);
+
+        return redirect()
+            ->route('admin.bookings.show', $booking)
+            ->with('success', 'Booking ' . $booking->booking_number . ' updated successfully.');
     }
 }

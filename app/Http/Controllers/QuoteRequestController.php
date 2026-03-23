@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\QuoteRequest;
+use App\Models\AppNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -37,6 +38,16 @@ class QuoteRequestController extends Controller
 
             // Create the quote request
             $quoteRequest = QuoteRequest::create($validated);
+
+            // Broadcast in-app notification to all admins
+            AppNotification::notify(
+                null,
+                'quote_request',
+                'New Quote Request: ' . $quoteRequest->request_number,
+                $quoteRequest->full_name . ' is requesting a quote for ' . $quoteRequest->rental_duration_days . ' day(s).',
+                route('admin.quote-requests.show', $quoteRequest),
+                'quote'
+            );
 
             // Send email notifications
             $this->sendNotifications($quoteRequest);

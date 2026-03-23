@@ -78,6 +78,44 @@ class TaxReportController extends Controller
     }
 
     /**
+     * Z-Report: daily sales summary for TRA compliance.
+     */
+    public function zReport(Request $request)
+    {
+        $date = $request->get('date', now()->toDateString());
+
+        $invoices = Invoice::whereDate('issue_date', $date)
+            ->with('client', 'items')
+            ->orderBy('invoice_number')
+            ->get();
+
+        $payments = InvoicePayment::with(['invoice.client'])
+            ->whereDate('payment_date', $date)
+            ->orderBy('payment_date')
+            ->get();
+
+        $summary = [
+            'invoice_count'  => $invoices->count(),
+            'total_subtotal' => $invoices->sum('subtotal'),
+            'total_vat'      => $invoices->sum('vat_amount'),
+            'total_amount'   => $invoices->sum('total_amount'),
+            'cash_received'  => $payments->where('payment_method', 'cash')->sum('amount'),
+            'bank_received'  => $payments->whereIn('payment_method', ['bank_transfer', 'cheque', 'mobile_money'])->sum('amount'),
+            'total_received' => $payments->sum('amount'),
+        ];
+
+        // Payment method breakdown
+        $byMethod = $payments->groupBy('payment_method')->map(fn($g) => [
+            'count'  => $g->count(),
+            'amount' => $g->sum('amount'),
+        ]);
+
+        return view('admin.accounting.tax-reports.z-report', compact(
+            'invoices', 'payments', 'summary', 'byMethod', 'date'
+        ));
+    }
+
+    /**
      * Trial Balance — all accounts with their debit/credit totals.
      */
     public function trialBalance(Request $request)

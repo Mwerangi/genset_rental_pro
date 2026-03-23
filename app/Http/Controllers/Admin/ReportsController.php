@@ -116,24 +116,30 @@ class ReportsController extends Controller
 
         $clientsList = Client::orderBy('company_name')->orderBy('full_name')->get(['id', 'company_name', 'full_name', 'email', 'phone']);
 
-        $client = null;
-        $lines  = collect();
-        $openingBalance = 0;
-        $totalInvoiced  = 0;
-        $totalPaid      = 0;
-        $closingBalance = 0;
+        $client  = null;
+        $lines   = collect();
+
+        // Per-currency opening balances, running totals, closing balances
+        $opening  = ['USD' => 0.0, 'TZS' => 0.0];
+        $invoiced = ['USD' => 0.0, 'TZS' => 0.0];
+        $paid     = ['USD' => 0.0, 'TZS' => 0.0];
+        $closing  = ['USD' => 0.0, 'TZS' => 0.0];
 
         if ($clientId) {
             $client = Client::findOrFail($clientId);
 
-            // Opening balance = balance of all unpaid invoices BEFORE $from date
+            // Opening balance per currency — unpaid invoices before the period
             $openingInvoices = Invoice::where('client_id', $clientId)
                 ->whereIn('status', ['sent', 'partially_paid', 'disputed', 'draft'])
                 ->where('issue_date', '<', $from)
                 ->get();
-            $openingBalance = $openingInvoices->sum(fn($i) => max(0, (float)$i->total_amount - (float)$i->amount_paid));
 
-            // All invoices in the period
+            foreach ($openingInvoices as $i) {
+                $ccy = $i->currency === 'USD' ? 'USD' : 'TZS';
+                $opening[$ccy] += max(0, (float)$i->total_amount - (float)$i->amount_paid);
+            }
+
+            // Period invoices
             $invoices = Invoice::with('payments')
                 ->where('client_id', $clientId)
                 ->whereBetween('issue_date', [$from, $to])
@@ -141,37 +147,46 @@ class ReportsController extends Controller
                 ->orderBy('invoice_number')
                 ->get();
 
-            $runningBalance = $openingBalance;
+            // Running balances start at opening balances
+            $running = ['USD' => $opening['USD'], 'TZS' => $opening['TZS']];
 
             foreach ($invoices as $inv) {
-                // Invoice line (debit)
-                $runningBalance += (float) $inv->total_amount;
-                $totalInvoiced  += (float) $inv->total_amount;
+                $ccy    = $inv->currency === 'USD' ? 'USD' : 'TZS';
+                $amount = (float)$inv->total_amount;
+
+                $running[$ccy]  += $amount;
+                $invoiced[$ccy] += $amount;
+
                 $lines->push([
                     'date'        => $inv->issue_date,
                     'type'        => 'invoice',
                     'reference'   => $inv->invoice_number,
                     'description' => 'Invoice',
-                    'debit'       => (float) $inv->total_amount,
-                    'credit'      => 0,
-                    'balance'     => $runningBalance,
+                    'currency'    => $ccy,
+                    'debit'       => $amount,
+                    'credit'      => 0.0,
+                    'balance_usd' => $running['USD'],
+                    'balance_tzs' => $running['TZS'],
                     'status'      => $inv->status,
                     'id'          => $inv->id,
                 ]);
 
-                // Payment lines (credit)
                 foreach ($inv->payments as $pmt) {
                     if ($pmt->payment_date->between($from, $to)) {
-                        $runningBalance -= (float) $pmt->amount;
-                        $totalPaid      += (float) $pmt->amount;
+                        $pmtAmt         = (float)$pmt->amount;
+                        $running[$ccy] -= $pmtAmt;
+                        $paid[$ccy]    += $pmtAmt;
+
                         $lines->push([
                             'date'        => $pmt->payment_date,
                             'type'        => 'payment',
                             'reference'   => $pmt->reference ?? 'PMT-' . $pmt->id,
                             'description' => 'Payment — ' . ucfirst(str_replace('_', ' ', $pmt->payment_method ?? '')),
-                            'debit'       => 0,
-                            'credit'      => (float) $pmt->amount,
-                            'balance'     => $runningBalance,
+                            'currency'    => $ccy,
+                            'debit'       => 0.0,
+                            'credit'      => $pmtAmt,
+                            'balance_usd' => $running['USD'],
+                            'balance_tzs' => $running['TZS'],
                             'status'      => null,
                             'id'          => null,
                         ]);
@@ -179,14 +194,15 @@ class ReportsController extends Controller
                 }
             }
 
-            // Sort all lines by date
             $lines = $lines->sortBy('date')->values();
-            $closingBalance = $openingBalance + $totalInvoiced - $totalPaid;
+
+            $closing['USD'] = $opening['USD'] + $invoiced['USD'] - $paid['USD'];
+            $closing['TZS'] = $opening['TZS'] + $invoiced['TZS'] - $paid['TZS'];
         }
 
         return view('admin.accounting.reports.statement', compact(
             'clientsList', 'client', 'lines',
-            'openingBalance', 'totalInvoiced', 'totalPaid', 'closingBalance',
+            'opening', 'invoiced', 'paid', 'closing',
             'from', 'to', 'clientId'
         ));
     }

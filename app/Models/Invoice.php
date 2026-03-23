@@ -10,6 +10,8 @@ class Invoice extends Model
 {
     protected $fillable = [
         'invoice_number',
+        'invoice_type',
+        'converted_from_id',
         'booking_id',
         'client_id',
         'quotation_id',
@@ -22,6 +24,8 @@ class Invoice extends Model
         'is_zero_rated',
         'vat_rate',
         'vat_amount',
+        'currency',
+        'exchange_rate_to_tzs',
         'total_amount',
         'amount_paid',
         'payment_terms',
@@ -34,17 +38,18 @@ class Invoice extends Model
     ];
 
     protected $casts = [
-        'issue_date'      => 'date',
-        'due_date'        => 'date',
-        'is_zero_rated'   => 'boolean',
-        'subtotal'        => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'vat_rate'        => 'decimal:2',
-        'vat_amount'      => 'decimal:2',
-        'total_amount'    => 'decimal:2',
-        'amount_paid'     => 'decimal:2',
-        'sent_at'         => 'datetime',
-        'void_at'         => 'datetime',
+        'issue_date'          => 'date',
+        'due_date'            => 'date',
+        'is_zero_rated'       => 'boolean',
+        'subtotal'            => 'decimal:2',
+        'discount_amount'     => 'decimal:2',
+        'vat_rate'            => 'decimal:2',
+        'vat_amount'          => 'decimal:2',
+        'exchange_rate_to_tzs'=> 'decimal:4',
+        'total_amount'        => 'decimal:2',
+        'amount_paid'         => 'decimal:2',
+        'sent_at'             => 'datetime',
+        'void_at'             => 'datetime',
     ];
 
     protected static function boot()
@@ -70,6 +75,25 @@ class Invoice extends Model
         $newNumber = $last ? ((int) substr($last->invoice_number, -4)) + 1 : 1;
 
         return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    public static function generateProformaNumber(): string
+    {
+        $year = date('Y');
+        $prefix = 'PRO-' . $year . '-';
+
+        $last = static::where('invoice_number', 'like', $prefix . '%')
+            ->orderBy('invoice_number', 'desc')
+            ->first();
+
+        $newNumber = $last ? ((int) substr($last->invoice_number, -4)) + 1 : 1;
+
+        return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
+    }
+
+    public function isProforma(): bool
+    {
+        return $this->invoice_type === 'proforma';
     }
 
     // ─── Relationships ──────────────────────────────────────────────
@@ -157,6 +181,29 @@ class Invoice extends Model
     public function getIsEditableAttribute(): bool
     {
         return in_array($this->status, ['draft', 'sent', 'partially_paid', 'disputed']);
+    }
+
+    // ─── Currency Helpers ─────────────────────────────────────────────
+
+    public function currencySymbol(): string
+    {
+        return $this->currency === 'USD' ? 'USD' : 'TZS';
+    }
+
+    public function formatAmount(float $amount, int $decimals = 2): string
+    {
+        return $this->currencySymbol() . ' ' . number_format($amount, $decimals);
+    }
+
+    /** Total converted to TZS for journal entries and reporting */
+    public function totalInTzs(): float
+    {
+        return round((float) $this->total_amount * (float) $this->exchange_rate_to_tzs, 2);
+    }
+
+    public function amountInTzs(float $amount): float
+    {
+        return round($amount * (float) $this->exchange_rate_to_tzs, 2);
     }
 
     // ─── Actions ─────────────────────────────────────────────────────

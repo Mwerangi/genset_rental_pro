@@ -123,11 +123,32 @@
                 <!-- Total Amount -->
                 <x-card>
                     <h2 class="text-lg font-semibold text-slate-900 mb-4">Total Amount</h2>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">Total (TZS) <span class="text-red-500">*</span></label>
-                        <x-input type="number" name="total_amount" value="{{ old('total_amount') }}" min="0" step="0.01" placeholder="0.00" class="w-full text-lg font-bold" />
-                        @error('total_amount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        <p class="text-xs text-slate-500 mt-2">Enter the agreed total for this booking. If coming from a quotation, this should match the quotation total.</p>
+                    <div x-data="{ currency: '{{ old('currency', 'TZS') }}' }" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency <span class="text-red-500">*</span></label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="currency" value="TZS" x-model="currency" class="text-red-600" {{ old('currency', 'TZS') === 'TZS' ? 'checked' : '' }}>
+                                    <span class="text-sm font-medium text-slate-700">TZS</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="currency" value="USD" x-model="currency" class="text-red-600" {{ old('currency') === 'USD' ? 'checked' : '' }}>
+                                    <span class="text-sm font-medium text-slate-700">USD</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div x-show="currency === 'USD'" x-cloak>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Exchange Rate (1 USD = ? TZS) <span class="text-red-500">*</span></label>
+                            <x-input type="number" name="exchange_rate_to_tzs" :value="old('exchange_rate_to_tzs')" step="0.0001" min="1" placeholder="e.g. 2700" />
+                            <p class="text-xs text-slate-500 mt-1">This rate will be locked on this booking.</p>
+                            @error('exchange_rate_to_tzs') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Total (<span x-text="currency"></span>) <span class="text-red-500">*</span></label>
+                            <x-input type="number" name="total_amount" value="{{ old('total_amount') }}" min="0" step="0.01" placeholder="0.00" class="w-full text-lg font-bold" />
+                            @error('total_amount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <p class="text-xs text-slate-500 mt-2">Enter the agreed total for this booking. If coming from a quotation, this should match the quotation total.</p>
+                        </div>
                     </div>
                 </x-card>
 

@@ -40,7 +40,7 @@
                     <div>
                         <p class="text-sm font-medium text-slate-600">Total Revenue</p>
                         <p class="text-2xl font-bold text-green-600 mt-1">{{ number_format($stats['total_value'] / 1000000, 1) }}M</p>
-                        <p class="text-xs text-slate-500 mt-1">TZS</p>
+                        <p class="text-xs text-slate-500 mt-1">TZS equiv.</p>
                     </div>
                     <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
                         <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -55,7 +55,7 @@
                     <div>
                         <p class="text-sm font-medium text-slate-600">This Month Revenue</p>
                         <p class="text-2xl font-bold text-slate-900 mt-1">{{ number_format($stats['month_value'] / 1000000, 1) }}M</p>
-                        <p class="text-xs text-slate-500 mt-1">TZS</p>
+                        <p class="text-xs text-slate-500 mt-1">TZS equiv.</p>
                     </div>
                     <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                         <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -118,7 +118,7 @@
 
                                         <!-- Unit Price -->
                                         <div>
-                                            <label class="block text-sm font-medium text-slate-700 mb-2">Unit Price (TZS)</label>
+                                            <label class="block text-sm font-medium text-slate-700 mb-2">Unit Price (<span x-text="currency"></span>)</label>
                                             <input 
                                                 type="number" 
                                                 x-model.number="item.unit_price" 
@@ -149,7 +149,7 @@
                                             <div class="w-full">
                                                 <label class="block text-sm font-medium text-slate-700 mb-2">Subtotal</label>
                                                 <div class="px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg text-slate-900 font-semibold">
-                                                    TZS <span x-text="formatNumber(calculateItemSubtotal(item))"></span>
+                                                    <span x-text="currency + ' ' + formatNumber(calculateItemSubtotal(item))"></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -229,16 +229,16 @@
                         <div class="space-y-3">
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-slate-600">Subtotal</span>
-                                <span class="font-semibold text-slate-900">TZS <span x-text="formatNumber(totals.subtotal)"></span></span>
+                                <span class="font-semibold text-slate-900"><span x-text="currency + ' ' + formatNumber(totals.subtotal)"></span></span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-slate-600">VAT (18%)</span>
-                                <span class="font-semibold text-slate-900">TZS <span x-text="formatNumber(totals.vat)"></span></span>
+                                <span class="font-semibold text-slate-900"><span x-text="currency + ' ' + formatNumber(totals.vat)"></span></span>
                             </div>
                             <div class="border-t border-slate-200 pt-3">
                                 <div class="flex items-center justify-between">
                                     <span class="font-semibold text-slate-900">Total Amount</span>
-                                    <span class="text-2xl font-bold text-red-600">TZS <span x-text="formatNumber(totals.total)"></span></span>
+                                    <span class="text-2xl font-bold text-red-600"><span x-text="currency + ' ' + formatNumber(totals.total)"></span></span>
                                 </div>
                             </div>
                         </div>
@@ -260,6 +260,29 @@
                             @error('valid_until')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        {{-- Currency --}}
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Currency <span class="text-red-600">*</span></label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="currency" value="TZS" x-model="currency" class="text-red-600" {{ old('currency','TZS') === 'TZS' ? 'checked' : '' }}>
+                                    <span class="text-sm font-medium text-slate-700">TZS — Tanzanian Shilling</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="currency" value="USD" x-model="currency" class="text-red-600" {{ old('currency') === 'USD' ? 'checked' : '' }}>
+                                    <span class="text-sm font-medium text-slate-700">USD — US Dollar</span>
+                                </label>
+                            </div>
+                            <div x-show="currency === 'USD'" x-cloak class="mt-3">
+                                <label class="block text-xs font-medium text-slate-600 mb-1">Exchange Rate (1 USD = ? TZS) <span class="text-red-600">*</span></label>
+                                <x-input type="number" name="exchange_rate_to_tzs" :value="old('exchange_rate_to_tzs')" step="0.0001" min="1" placeholder="e.g. 2650" />
+                                <p class="text-xs text-slate-500 mt-1">This rate will be locked on the quotation.</p>
+                                @error('exchange_rate_to_tzs')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
                         </div>
                     </x-card>
 
@@ -288,6 +311,7 @@
         function quotationBuilder() {
             return {
                 items: [],
+                currency: '{{ old('currency', 'TZS') }}',
                 totals: {
                     subtotal: 0,
                     vat: 0,

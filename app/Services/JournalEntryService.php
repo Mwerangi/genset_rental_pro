@@ -104,14 +104,22 @@ class JournalEntryService
     private function buildInvoiceJeLines(Invoice $invoice, bool $reverse = false): array
     {
         $invoice->loadMissing('items');
-        $vat   = (float) $invoice->vat_amount;
-        $total = (float) $invoice->total_amount;
+
+        // All JE amounts are in TZS (functional currency).
+        // For USD invoices, multiply by the locked exchange rate.
+        $rate  = (float) ($invoice->exchange_rate_to_tzs ?? 1.0);
+        $vat   = round((float) $invoice->vat_amount  * $rate, 2);
+        $total = round((float) $invoice->total_amount * $rate, 2);
+
+        $currencyNote = $invoice->currency !== 'TZS'
+            ? " [{$invoice->currency} @ {$rate}]"
+            : '';
 
         $deliveryRevenue = 0.0;
         $otherRevenue    = 0.0;
 
         foreach ($invoice->items as $item) {
-            $amt = (float) $item->subtotal;
+            $amt = round((float) $item->subtotal * $rate, 2);
             if ($item->item_type === 'delivery') {
                 $deliveryRevenue += $amt;
             } elseif (in_array($item->item_type, ['fuel', 'maintenance', 'other'])) {
@@ -127,31 +135,31 @@ class JournalEntryService
 
         $lines = [];
         $lines[] = ['account_code' => '1140', 'debit' => $total * $dr, 'credit' => $total * $cr,
-                    'description'  => ($reverse ? 'AR reversed — ' : 'AR — ') . $invoice->invoice_number];
+                    'description'  => ($reverse ? 'AR reversed — ' : 'AR — ') . $invoice->invoice_number . $currencyNote];
 
         if ($rentalRevenue > 0.005) {
             $lines[] = ['account_code' => '4100',
                         'debit'        => round($rentalRevenue, 2) * $cr,
                         'credit'       => round($rentalRevenue, 2) * $dr,
-                        'description'  => ($reverse ? 'Rental void — ' : 'Rental — ') . $invoice->invoice_number];
+                        'description'  => ($reverse ? 'Rental void — ' : 'Rental — ') . $invoice->invoice_number . $currencyNote];
         }
         if ($deliveryRevenue > 0.005) {
             $lines[] = ['account_code' => '4110',
                         'debit'        => round($deliveryRevenue, 2) * $cr,
                         'credit'       => round($deliveryRevenue, 2) * $dr,
-                        'description'  => ($reverse ? 'Delivery void — ' : 'Delivery — ') . $invoice->invoice_number];
+                        'description'  => ($reverse ? 'Delivery void — ' : 'Delivery — ') . $invoice->invoice_number . $currencyNote];
         }
         if ($otherRevenue > 0.005) {
             $lines[] = ['account_code' => '4120',
                         'debit'        => round($otherRevenue, 2) * $cr,
                         'credit'       => round($otherRevenue, 2) * $dr,
-                        'description'  => ($reverse ? 'Other void — ' : 'Other income — ') . $invoice->invoice_number];
+                        'description'  => ($reverse ? 'Other void — ' : 'Other income — ') . $invoice->invoice_number . $currencyNote];
         }
         if ($vat > 0) {
             $lines[] = ['account_code' => '2120',
                         'debit'        => $vat * $cr,
                         'credit'       => $vat * $dr,
-                        'description'  => ($reverse ? 'VAT reversed — ' : 'VAT — ') . $invoice->invoice_number];
+                        'description'  => ($reverse ? 'VAT reversed — ' : 'VAT — ') . $invoice->invoice_number . $currencyNote];
         }
 
         return $lines;
@@ -215,13 +223,21 @@ class JournalEntryService
         $ar = $this->account('1140');
         if (!$ar) return null;
 
+        // Amount in TZS (functional currency) — convert if invoice is USD
+        $invoice      = $payment->invoice;
+        $rate         = $invoice ? (float) ($invoice->exchange_rate_to_tzs ?? 1.0) : 1.0;
+        $amountInTzs  = round((float) $payment->amount * $rate, 2);
+        $currencyNote = ($invoice && $invoice->currency !== 'TZS')
+            ? " [{$invoice->currency} @ {$rate}]"
+            : '';
+
         $lines = [
-            ['account_code' => $bankCoa->code, 'debit' => (float) $payment->amount, 'credit' => 0,                          'description' => 'Receipt — ' . ($payment->receipt_number ?? '')],
-            ['account_code' => '1140',          'debit' => 0,                         'credit' => (float) $payment->amount, 'description' => 'AR settled — ' . ($payment->invoice->invoice_number ?? '')],
+            ['account_code' => $bankCoa->code, 'debit' => $amountInTzs, 'credit' => 0,              'description' => 'Receipt — ' . ($payment->receipt_number ?? '') . $currencyNote],
+            ['account_code' => '1140',          'debit' => 0,            'credit' => $amountInTzs,   'description' => 'AR settled — ' . ($invoice->invoice_number ?? $payment->invoice_id) . $currencyNote],
         ];
 
         $je = $this->createAndPost(
-            "Payment received on invoice " . ($payment->invoice->invoice_number ?? $payment->invoice_id),
+            "Payment received on invoice " . ($invoice->invoice_number ?? $payment->invoice_id),
             'payment',
             $payment->id,
             $lines,
@@ -230,8 +246,8 @@ class JournalEntryService
         );
 
         if ($je) {
-
-            BankAccount::where('id', $bankAccount->id)->increment('current_balance', (float) $payment->amount);
+            // Bank balance always stored in the account's own currency (TZS for TZS accounts)
+            BankAccount::where('id', $bankAccount->id)->increment('current_balance', $amountInTzs);
         }
 
         return $je;
@@ -682,6 +698,38 @@ class JournalEntryService
             ],
             $date,
             auth()->id()
+        );
+    }
+
+    // ─── ACCOUNT TRANSFER ─────────────────────────────────────────────
+
+    /**
+     * Internal transfer between two bank/cash accounts.
+     * DR destination COA account / CR source COA account.
+     */
+    public function onAccountTransfer(\App\Models\AccountTransfer $transfer): ?JournalEntry
+    {
+        $from = BankAccount::with('account')->find($transfer->from_bank_account_id);
+        $to   = BankAccount::with('account')->find($transfer->to_bank_account_id);
+
+        if (!$from?->account || !$to?->account) return null;
+
+        $amt  = (float) $transfer->amount;
+        $desc = $transfer->description
+            ? "Transfer: {$from->name} → {$to->name} — {$transfer->description}"
+            : "Transfer: {$from->name} → {$to->name}";
+
+        return $this->createAndPost(
+            $desc,
+            'account_transfer',
+            $transfer->id,
+            [
+                ['account_code' => $to->account->code,   'debit' => $amt, 'credit' => 0,   'description' => "Received from {$from->name}"],
+                ['account_code' => $from->account->code, 'debit' => 0,    'credit' => $amt, 'description' => "Transferred to {$to->name}"],
+            ],
+            $transfer->transfer_date->toDateString(),
+            auth()->id(),
+            $transfer->reference
         );
     }
 }
