@@ -147,151 +147,184 @@
 
         {{-- ── CREATE ROLE MODAL ────────────────────────────────────────────── --}}
         <div x-show="createOpen" x-cloak
-            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            class="fixed inset-0 z-50 overflow-y-auto"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100">
-            <div class="absolute inset-0 bg-black/40" @click="createOpen = false"></div>
-            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md z-10"
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 scale-95"
-                x-transition:enter-end="opacity-100 scale-100">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 class="text-base font-semibold text-gray-900">Add New Role</h3>
-                    <button @click="createOpen = false" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <form method="POST" action="{{ route('admin.roles.store') }}" class="px-6 py-5 space-y-4">
-                    @csrf
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Role Name <span class="text-red-500">*</span></label>
-                        <input type="text" name="label" id="create_label" required
-                            oninput="autoKey(this.value)"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500"
-                            placeholder="e.g. Senior Technician"
-                            value="{{ old('label') }}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Role Key
-                            <span class="text-gray-400 font-normal">(auto-generated, can edit)</span>
-                        </label>
-                        <input type="text" name="key" id="create_key"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-red-500 focus:border-red-500"
-                            placeholder="senior_technician"
-                            value="{{ old('key') }}">
-                        <p class="mt-1 text-xs text-gray-400">Lowercase letters, numbers, underscores only. Cannot be changed after creation.</p>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <input type="text" name="description"
-                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500"
-                            placeholder="Optional description"
-                            value="{{ old('description') }}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Badge Color <span class="text-red-500">*</span></label>
-                        <div class="grid grid-cols-5 gap-2">
-                            @foreach($colors as $colorClass => $colorName)
-                                <label class="relative cursor-pointer" title="{{ $colorName }}">
-                                    <input type="radio" name="badge_color" value="{{ $colorClass }}"
-                                        class="sr-only peer"
-                                        {{ old('badge_color', 'bg-gray-100 text-gray-700') === $colorClass ? 'checked' : '' }}>
-                                    <span class="flex items-center justify-center h-8 rounded-lg text-xs font-bold peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-gray-500 transition-all {{ $colorClass }}">
-                                        Aa
-                                    </span>
-                                </label>
-                            @endforeach
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/40" @click="createOpen = false"></div>
+                <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl z-10 flex flex-col max-h-[90vh]"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0 scale-95"
+                    x-transition:enter-end="opacity-100 scale-100">
+                    {{-- Fixed header --}}
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Add New Role</h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Fill in the details below to create a new role.</p>
                         </div>
-                    </div>
-                    <div class="flex items-center gap-3 pt-2">
-                        <label class="block text-sm font-medium text-gray-700 shrink-0">Sort Order</label>
-                        <input type="number" name="sort_order" min="0" value="{{ old('sort_order', 99) }}"
-                            class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
-                    </div>
-                    <div class="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                        <button type="button" @click="createOpen = false"
-                            class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit"
-                            class="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors">
-                            Create Role
+                        <button @click="createOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
-                </form>
+                    {{-- Scrollable body --}}
+                    <form method="POST" action="{{ route('admin.roles.store') }}" class="flex flex-col flex-1 overflow-hidden">
+                        @csrf
+                        <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+                            {{-- Row 1: Name + Sort Order --}}
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Role Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="label" id="create_label" required
+                                        oninput="autoKey(this.value)"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500"
+                                        placeholder="e.g. Senior Technician"
+                                        value="{{ old('label') }}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+                                    <input type="number" name="sort_order" min="0" value="{{ old('sort_order', 99) }}"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
+                                </div>
+                            </div>
+                            {{-- Row 2: Key + Description --}}
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Role Key <span class="text-gray-400 font-normal">(auto-generated)</span>
+                                    </label>
+                                    <input type="text" name="key" id="create_key"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:ring-red-500 focus:border-red-500"
+                                        placeholder="senior_technician"
+                                        value="{{ old('key') }}">
+                                    <p class="mt-1 text-xs text-gray-400">Lowercase, numbers, underscores. Cannot be changed later.</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <input type="text" name="description"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500"
+                                        placeholder="Optional description"
+                                        value="{{ old('description') }}">
+                                </div>
+                            </div>
+                            {{-- Row 3: Badge Color --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Badge Color <span class="text-red-500">*</span></label>
+                                <div class="grid grid-cols-9 gap-2">
+                                    @foreach($colors as $colorClass => $colorName)
+                                        <label class="relative cursor-pointer" title="{{ $colorName }}">
+                                            <input type="radio" name="badge_color" value="{{ $colorClass }}"
+                                                class="sr-only peer"
+                                                {{ old('badge_color', 'bg-gray-100 text-gray-700') === $colorClass ? 'checked' : '' }}>
+                                            <span class="flex items-center justify-center h-9 rounded-lg text-xs font-bold peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-gray-600 transition-all {{ $colorClass }}">
+                                                Aa
+                                            </span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        {{-- Fixed footer --}}
+                        <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50 rounded-b-2xl">
+                            <button type="button" @click="createOpen = false"
+                                class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                class="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors">
+                                Create Role
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
         {{-- ── EDIT ROLE MODAL ──────────────────────────────────────────────── --}}
         <div x-show="editRole !== null" x-cloak
-            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            class="fixed inset-0 z-50 overflow-y-auto"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"
             x-transition:enter-end="opacity-100">
-            <div class="absolute inset-0 bg-black/40" @click="editRole = null"></div>
-            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md z-10"
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 scale-95"
-                x-transition:enter-end="opacity-100 scale-100">
-                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 class="text-base font-semibold text-gray-900">Edit Role — <span x-text="editRole?.label" class="text-red-600"></span></h3>
-                    <button @click="editRole = null" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <template x-if="editRole">
-                    <form :action="'{{ url('admin/settings/roles') }}/' + editRole.id" method="POST" class="px-6 py-5 space-y-4">
-                        @csrf @method('PUT')
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/40" @click="editRole = null"></div>
+                <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl z-10 flex flex-col max-h-[90vh]"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="opacity-0 scale-95"
+                    x-transition:enter-end="opacity-100 scale-100">
+                    {{-- Fixed header --}}
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Role Name <span class="text-red-500">*</span></label>
-                            <input type="text" name="label" required
-                                :value="editRole.label"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
+                            <h3 class="text-base font-semibold text-gray-900">Edit Role — <span x-text="editRole?.label" class="text-red-600"></span></h3>
+                            <p class="text-xs text-gray-400 mt-0.5">Update the role details below.</p>
                         </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Key <span class="text-gray-400 font-normal">(read-only)</span></label>
-                            <input type="text" readonly :value="editRole.key"
-                                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 text-gray-500 cursor-not-allowed">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <input type="text" name="description" :value="editRole.description"
-                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Badge Color <span class="text-red-500">*</span></label>
-                            <div class="grid grid-cols-5 gap-2">
-                                @foreach($colors as $colorClass => $colorName)
-                                    <label class="relative cursor-pointer" title="{{ $colorName }}">
-                                        <input type="radio" name="badge_color" value="{{ $colorClass }}"
-                                            class="sr-only peer"
-                                            :checked="editRole.badge_color === '{{ $colorClass }}'">
-                                        <span class="flex items-center justify-center h-8 rounded-lg text-xs font-bold peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-gray-500 transition-all {{ $colorClass }}">
-                                            Aa
-                                        </span>
-                                    </label>
-                                @endforeach
+                        <button @click="editRole = null" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <template x-if="editRole">
+                        <form :action="'{{ url('admin/settings/roles') }}/' + editRole.id" method="POST" class="flex flex-col flex-1 overflow-hidden">
+                            @csrf @method('PUT')
+                            {{-- Scrollable body --}}
+                            <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+                                {{-- Row 1: Name + Sort Order --}}
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div class="col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Role Name <span class="text-red-500">*</span></label>
+                                        <input type="text" name="label" required
+                                            :value="editRole.label"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+                                        <input type="number" name="sort_order" min="0" :value="editRole.sort_order"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
+                                    </div>
+                                </div>
+                                {{-- Row 2: Key + Description --}}
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Key <span class="text-gray-400 font-normal">(read-only)</span></label>
+                                        <input type="text" readonly :value="editRole.key"
+                                            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono bg-gray-50 text-gray-500 cursor-not-allowed">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <input type="text" name="description" :value="editRole.description"
+                                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
+                                    </div>
+                                </div>
+                                {{-- Row 3: Badge Color --}}
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Badge Color <span class="text-red-500">*</span></label>
+                                    <div class="grid grid-cols-9 gap-2">
+                                        @foreach($colors as $colorClass => $colorName)
+                                            <label class="relative cursor-pointer" title="{{ $colorName }}">
+                                                <input type="radio" name="badge_color" value="{{ $colorClass }}"
+                                                    class="sr-only peer"
+                                                    :checked="editRole.badge_color === '{{ $colorClass }}'">
+                                                <span class="flex items-center justify-center h-9 rounded-lg text-xs font-bold peer-checked:ring-2 peer-checked:ring-offset-1 peer-checked:ring-gray-600 transition-all {{ $colorClass }}">
+                                                    Aa
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center gap-3 pt-2">
-                            <label class="block text-sm font-medium text-gray-700 shrink-0">Sort Order</label>
-                            <input type="number" name="sort_order" min="0" :value="editRole.sort_order"
-                                class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-red-500 focus:border-red-500">
-                        </div>
-                        <div class="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                            <button type="button" @click="editRole = null"
-                                class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                                Cancel
-                            </button>
-                            <button type="submit"
-                                class="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors">
-                                Save Changes
-                            </button>
-                        </div>
-                    </form>
-                </template>
+                            {{-- Fixed footer --}}
+                            <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50 rounded-b-2xl">
+                                <button type="button" @click="editRole = null"
+                                    class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">
+                                    Cancel
+                                </button>
+                                <button type="submit"
+                                    class="px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors">
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </template>
+                </div>
             </div>
         </div>
     </div>
