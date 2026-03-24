@@ -406,6 +406,7 @@
 
                     {{-- CREATED: Approve or Reject --}}
                     @if($booking->canBeApproved())
+                        @permission('approve_bookings')
                         <form method="POST" action="{{ route('admin.bookings.approve', $booking) }}">
                             @csrf
                             <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition" style="background:#16a34a;" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
@@ -416,6 +417,7 @@
                             class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm border border-red-300 text-red-600 hover:bg-red-50 transition">
                             ✕ Reject Booking
                         </button>
+                        @endpermission
                     @endif
 
                     {{-- APPROVED: Generate Invoice + Deploy --}}

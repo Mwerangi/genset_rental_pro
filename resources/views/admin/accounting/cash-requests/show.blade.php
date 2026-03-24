@@ -32,17 +32,23 @@
                 <button type="submit" class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">Delete</button>
             </form>
             @elseif($cashRequest->status === 'pending')
+            @permission('approve_cash_requests')
             <form method="POST" action="{{ route('admin.accounting.cash-requests.approve', $cashRequest) }}">
                 @csrf<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Approve</button>
             </form>
             <button onclick="document.getElementById('rejectModal').classList.remove('hidden')"
                     class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">Reject</button>
+            @endpermission
             @elseif($cashRequest->status === 'approved')
+            @permission('approve_cash_requests')
             <button onclick="document.getElementById('payModal').classList.remove('hidden')"
                     class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700">Disburse Cash</button>
+            @endpermission
             @elseif($cashRequest->status === 'paid')
+            @permission('approve_cash_requests')
             <button onclick="document.getElementById('retireModal').classList.remove('hidden')"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Retire / Reconcile</button>
+            @endpermission
             @elseif($cashRequest->status === 'rejected')
             <form method="POST" action="{{ route('admin.accounting.cash-requests.destroy', $cashRequest) }}"
                   onsubmit="return confirm('Delete this rejected request?')">

@@ -1,4 +1,5 @@
 <x-admin-layout>
+    @permission('manage_quotations')
     <!-- Accept Confirmation Modal -->
     <div
         x-data="{ open: false }"
@@ -103,6 +104,7 @@
             </form>
         </div>
     </div>
+    @endpermission
 
     <!-- Header with Back Button -->
     <div class="mb-6 flex items-center justify-between">
@@ -258,6 +260,7 @@
 
                     @if(in_array($quotation->status, ['draft', 'sent', 'viewed']))
                         <!-- Approve -->
+                        @permission('manage_quotations')
                         <button
                             type="button"
                             @click="$dispatch('open-accept-modal')"
@@ -280,6 +283,7 @@
                             </svg>
                             Reject Quotation
                         </button>
+                        @endpermission
                     @endif
 
                     @if($quotation->status === 'accepted')
