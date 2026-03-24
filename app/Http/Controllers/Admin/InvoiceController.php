@@ -8,13 +8,22 @@ use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Services\JournalEntryService;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 
 class InvoiceController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Managers who can manage invoices see all; view-only users see only their own
+        $seeAll = PermissionService::can($user, 'manage_invoices');
+
         $query = Invoice::with(['client', 'booking', 'createdBy'])->latest();
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -31,24 +40,29 @@ class InvoiceController extends Controller
 
         $invoices = $query->paginate(25);
 
+        $base = $seeAll ? Invoice::query() : Invoice::where('created_by', $user->id);
         $stats = [
-            'total'          => Invoice::count(),
-            'draft'          => Invoice::where('status', 'draft')->count(),
-            'sent'           => Invoice::where('status', 'sent')->count(),
-            'partially_paid' => Invoice::where('status', 'partially_paid')->count(),
-            'paid'           => Invoice::where('status', 'paid')->count(),
-            'overdue'        => Invoice::whereNotIn('status', ['paid', 'void', 'declined'])
+            'total'          => (clone $base)->count(),
+            'draft'          => (clone $base)->where('status', 'draft')->count(),
+            'sent'           => (clone $base)->where('status', 'sent')->count(),
+            'partially_paid' => (clone $base)->where('status', 'partially_paid')->count(),
+            'paid'           => (clone $base)->where('status', 'paid')->count(),
+            'overdue'        => (clone $base)->whereNotIn('status', ['paid', 'void', 'declined'])
                                     ->whereDate('due_date', '<', now())->count(),
-            'total_outstanding' => Invoice::whereNotIn('status', ['paid', 'void', 'declined'])
+            'total_outstanding' => (clone $base)->whereNotIn('status', ['paid', 'void', 'declined'])
                                         ->selectRaw('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)')
                                         ->value('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)') ?? 0,
         ];
 
-        return view('admin.invoices.index', compact('invoices', 'stats'));
+        return view('admin.invoices.index', compact('invoices', 'stats', 'seeAll'));
     }
 
     public function show(Invoice $invoice)
     {
+        $user = auth()->user();
+        if (!PermissionService::can($user, 'manage_invoices') && $invoice->created_by !== $user->id) {
+            abort(403, 'You do not have permission to view this invoice.');
+        }
         $invoice->load(['client', 'booking.genset', 'quotation', 'items', 'payments.recordedBy', 'createdBy']);
 
         return view('admin.invoices.show', compact('invoice'));

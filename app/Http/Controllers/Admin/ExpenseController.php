@@ -7,13 +7,23 @@ use App\Models\BankAccount;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Services\JournalEntryService;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 
 class ExpenseController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Accounting managers and approvers see all expenses; others see only their own
+        $seeAll = PermissionService::can($user, 'manage_accounting')
+               || PermissionService::can($user, 'approve_payments');
+
         $query = Expense::with(['category', 'bankAccount', 'createdBy'])->latest('expense_date');
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -39,16 +49,17 @@ class ExpenseController extends Controller
         $expenses   = $query->paginate(25)->withQueryString();
         $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
 
+        $base = $seeAll ? Expense::query() : Expense::where('created_by', $user->id);
         $stats = [
-            'total_this_month' => Expense::whereMonth('expense_date', now()->month)
-                                         ->whereYear('expense_date', now()->year)
-                                         ->whereNotIn('status', ['draft'])
-                                         ->sum('total_amount'),
-            'pending_approval' => Expense::where('status', 'draft')->count(),
-            'posted'           => Expense::where('status', 'posted')->count(),
+            'total_this_month' => (clone $base)->whereMonth('expense_date', now()->month)
+                                               ->whereYear('expense_date', now()->year)
+                                               ->whereNotIn('status', ['draft'])
+                                               ->sum('total_amount'),
+            'pending_approval' => (clone $base)->where('status', 'draft')->count(),
+            'posted'           => (clone $base)->where('status', 'posted')->count(),
         ];
 
-        return view('admin.accounting.expenses.index', compact('expenses', 'categories', 'stats'));
+        return view('admin.accounting.expenses.index', compact('expenses', 'categories', 'stats', 'seeAll'));
     }
 
     public function create()
@@ -88,6 +99,12 @@ class ExpenseController extends Controller
 
     public function show(Expense $expense)
     {
+        $user = auth()->user();
+        if (!PermissionService::can($user, 'manage_accounting')
+            && !PermissionService::can($user, 'approve_payments')
+            && $expense->created_by !== $user->id) {
+            abort(403, 'You do not have permission to view this expense.');
+        }
         $expense->load(['category', 'bankAccount', 'journalEntry.lines.account', 'createdBy', 'approvedBy']);
         return view('admin.accounting.expenses.show', compact('expense'));
     }

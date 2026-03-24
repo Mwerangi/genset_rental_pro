@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
 use App\Services\JournalEntryService;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -15,8 +16,16 @@ class SupplierPaymentController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Only full accounting managers see all supplier payments; others see only their own
+        $seeAll = PermissionService::can($user, 'manage_accounting');
+
         $query = SupplierPayment::with(['supplier', 'bankAccount', 'purchaseOrder', 'createdBy'])
                                  ->latest('payment_date');
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
 
         if ($request->filled('supplier_id')) {
             $query->where('supplier_id', $request->supplier_id);
@@ -39,12 +48,13 @@ class SupplierPaymentController extends Controller
         $payments  = $query->paginate(25)->withQueryString();
         $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
-        $monthTotal   = SupplierPayment::whereMonth('payment_date', now()->month)
-                                        ->whereYear('payment_date', now()->year)
-                                        ->sum('amount');
-        $allTimeTotal = SupplierPayment::sum('amount');
+        $base         = $seeAll ? SupplierPayment::query() : SupplierPayment::where('created_by', $user->id);
+        $monthTotal   = (clone $base)->whereMonth('payment_date', now()->month)
+                                     ->whereYear('payment_date', now()->year)
+                                     ->sum('amount');
+        $allTimeTotal = (clone $base)->sum('amount');
 
-        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'monthTotal', 'allTimeTotal'));
+        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'monthTotal', 'allTimeTotal', 'seeAll'));
     }
 
     public function create(Request $request)
@@ -109,6 +119,10 @@ class SupplierPaymentController extends Controller
 
     public function show(SupplierPayment $supplierPayment)
     {
+        $user = auth()->user();
+        if (!PermissionService::can($user, 'manage_accounting') && $supplierPayment->created_by !== $user->id) {
+            abort(403, 'You do not have permission to view this supplier payment.');
+        }
         $supplierPayment->load(['supplier', 'bankAccount', 'purchaseOrder', 'journalEntry.lines.account', 'createdBy', 'confirmedBy']);
         return view('admin.accounting.supplier-payments.show', compact('supplierPayment'));
     }

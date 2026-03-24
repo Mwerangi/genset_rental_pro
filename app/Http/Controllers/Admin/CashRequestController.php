@@ -9,6 +9,7 @@ use App\Models\CashRequest;
 use App\Models\CashRequestItem;
 use App\Models\ExpenseCategory;
 use App\Services\JournalEntryService;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,16 @@ class CashRequestController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Users with approve or full accounting access see ALL requests; others see only their own
+        $seeAll = PermissionService::can($user, 'approve_cash_requests')
+               || PermissionService::can($user, 'manage_accounting');
+
         $query = CashRequest::with(['requestedBy', 'approvedBy'])->latest();
+
+        if (!$seeAll) {
+            $query->where('requested_by', $user->id);
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -33,15 +43,16 @@ class CashRequestController extends Controller
 
         $requests = $query->paginate(25)->withQueryString();
 
+        $base = $seeAll ? CashRequest::query() : CashRequest::where('requested_by', $user->id);
         $stats = [
-            'pending'          => CashRequest::where('status', 'pending')->count(),
-            'paid_this_month'  => CashRequest::where('status', 'paid')
-                                              ->whereMonth('paid_at', now()->month)
-                                              ->sum('total_amount'),
-            'pending_retirement' => CashRequest::where('status', 'paid')->count(),
+            'pending'            => (clone $base)->where('status', 'pending')->count(),
+            'paid_this_month'    => (clone $base)->where('status', 'paid')
+                                                  ->whereMonth('paid_at', now()->month)
+                                                  ->sum('total_amount'),
+            'pending_retirement' => (clone $base)->where('status', 'paid')->count(),
         ];
 
-        return view('admin.accounting.cash-requests.index', compact('requests', 'stats'));
+        return view('admin.accounting.cash-requests.index', compact('requests', 'stats', 'seeAll'));
     }
 
     public function create()
@@ -90,6 +101,13 @@ class CashRequestController extends Controller
 
     public function show(CashRequest $cashRequest)
     {
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'approve_cash_requests')
+               || PermissionService::can($user, 'manage_accounting');
+        if (!$seeAll && $cashRequest->requested_by !== $user->id) {
+            abort(403, 'You do not have permission to view this cash request.');
+        }
+
         $cashRequest->load([
             'requestedBy', 'approvedBy', 'bankAccount',
             'items.expenseCategory.account',

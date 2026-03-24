@@ -7,13 +7,22 @@ use App\Models\Client;
 use App\Models\CreditNote;
 use App\Models\Invoice;
 use App\Services\JournalEntryService;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 
 class CreditNoteController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Full accounting managers see all credit notes; others see only ones they issued
+        $seeAll = PermissionService::can($user, 'manage_accounting');
+
         $query = CreditNote::with(['client', 'invoice', 'issuedBy'])->latest();
+
+        if (!$seeAll) {
+            $query->where('issued_by', $user->id);
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -34,13 +43,14 @@ class CreditNoteController extends Controller
         $creditNotes = $query->paginate(25)->withQueryString();
         $clients     = Client::orderBy('full_name')->get(['id', 'full_name', 'company_name']);
 
+        $base   = $seeAll ? CreditNote::query() : CreditNote::where('issued_by', $user->id);
         $totals = [];
         foreach (['draft', 'issued', 'applied', 'voided'] as $s) {
-            $totals[$s]            = CreditNote::where('status', $s)->count();
-            $totals[$s . '_amount'] = CreditNote::where('status', $s)->sum('total_amount');
+            $totals[$s]             = (clone $base)->where('status', $s)->count();
+            $totals[$s . '_amount'] = (clone $base)->where('status', $s)->sum('total_amount');
         }
 
-        return view('admin.accounting.credit-notes.index', compact('creditNotes', 'clients', 'totals'));
+        return view('admin.accounting.credit-notes.index', compact('creditNotes', 'clients', 'totals', 'seeAll'));
     }
 
     public function create(Request $request)
@@ -92,6 +102,10 @@ class CreditNoteController extends Controller
 
     public function show(CreditNote $creditNote)
     {
+        $user = auth()->user();
+        if (!PermissionService::can($user, 'manage_accounting') && $creditNote->issued_by !== $user->id) {
+            abort(403, 'You do not have permission to view this credit note.');
+        }
         $creditNote->load(['client', 'invoice', 'issuedBy', 'journalEntry.lines.account']);
         return view('admin.accounting.credit-notes.show', compact('creditNote'));
     }

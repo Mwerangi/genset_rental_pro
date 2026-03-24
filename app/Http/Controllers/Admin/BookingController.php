@@ -7,6 +7,7 @@ use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Genset;
 use App\Models\QuoteRequest;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +15,16 @@ class BookingController extends Controller
 {
     public function index(Request $request)
     {
+        $user   = auth()->user();
+        // Managers/approvers see all bookings; limited users see only their own created bookings
+        $seeAll = PermissionService::can($user, 'manage_bookings')
+               || PermissionService::can($user, 'approve_bookings');
+
         $query = Booking::with(['quoteRequest', 'createdBy', 'approvedBy'])->latest();
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -34,18 +44,26 @@ class BookingController extends Controller
 
         $bookings = $query->paginate(25);
 
+        $base = $seeAll ? Booking::query() : Booking::where('created_by', $user->id);
         $stats = [
-            'total'    => Booking::count(),
-            'created'  => Booking::where('status', 'created')->count(),
-            'approved' => Booking::where('status', 'approved')->count(),
-            'active'   => Booking::where('status', 'active')->count(),
+            'total'    => (clone $base)->count(),
+            'created'  => (clone $base)->where('status', 'created')->count(),
+            'approved' => (clone $base)->where('status', 'approved')->count(),
+            'active'   => (clone $base)->where('status', 'active')->count(),
         ];
 
-        return view('admin.bookings.index', compact('bookings', 'stats'));
+        return view('admin.bookings.index', compact('bookings', 'stats', 'seeAll'));
     }
 
     public function show(Booking $booking)
     {
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'manage_bookings')
+               || PermissionService::can($user, 'approve_bookings');
+        if (!$seeAll && $booking->created_by !== $user->id) {
+            abort(403, 'You do not have permission to view this booking.');
+        }
+
         $booking->load([
             'quoteRequest', 'quotation.items', 'client',
             'createdBy', 'approvedBy', 'activatedBy',

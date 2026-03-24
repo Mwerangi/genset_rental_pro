@@ -9,6 +9,7 @@ use App\Models\QuotationItem;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -20,9 +21,17 @@ class QuotationController extends Controller
     public function index(Request $request)
     {
         // "Created Quotations" only shows active (non-terminal) statuses
+        $user   = auth()->user();
+        // Only users who manage quotations see all; others see only their own
+        $seeAll = PermissionService::can($user, 'manage_quotations');
+
         $query = Quotation::with(['quoteRequest', 'createdBy'])
             ->whereIn('status', ['draft', 'sent', 'viewed'])
             ->latest();
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
 
         // Filter by status
         if ($request->filled('status') && $request->status !== 'all') {
@@ -248,6 +257,10 @@ class QuotationController extends Controller
      */
     public function show(Quotation $quotation)
     {
+        $user = auth()->user();
+        if (!PermissionService::can($user, 'manage_quotations') && $quotation->created_by !== $user->id) {
+            abort(403, 'You do not have permission to view this quotation.');
+        }
         $quotation->load(['quoteRequest', 'client', 'createdBy', 'items']);
         
         return view('admin.quotations.show', compact('quotation'));
