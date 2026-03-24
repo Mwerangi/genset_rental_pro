@@ -16,7 +16,7 @@ class CreditNoteController extends Controller
     {
         $user   = auth()->user();
         // Full accounting managers see all credit notes; others see only ones they issued
-        $seeAll = PermissionService::can($user, 'manage_accounting');
+        $seeAll = PermissionService::can($user, 'view_all_credit_notes');
 
         $query = CreditNote::with(['client', 'invoice', 'issuedBy'])->latest();
 
@@ -103,7 +103,7 @@ class CreditNoteController extends Controller
     public function show(CreditNote $creditNote)
     {
         $user = auth()->user();
-        if (!PermissionService::can($user, 'manage_accounting') && $creditNote->issued_by !== $user->id) {
+        if (!PermissionService::can($user, 'view_all_credit_notes') && $creditNote->issued_by !== $user->id) {
             abort(403, 'You do not have permission to view this credit note.');
         }
         $creditNote->load(['client', 'invoice', 'issuedBy', 'journalEntry.lines.account']);

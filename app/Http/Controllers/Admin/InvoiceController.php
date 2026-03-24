@@ -17,7 +17,7 @@ class InvoiceController extends Controller
     {
         $user   = auth()->user();
         // Managers who can manage invoices see all; view-only users see only their own
-        $seeAll = PermissionService::can($user, 'manage_invoices');
+        $seeAll = PermissionService::can($user, 'view_all_invoices');
 
         $query = Invoice::with(['client', 'booking', 'createdBy'])->latest();
 
@@ -60,7 +60,7 @@ class InvoiceController extends Controller
     public function show(Invoice $invoice)
     {
         $user = auth()->user();
-        if (!PermissionService::can($user, 'manage_invoices') && $invoice->created_by !== $user->id) {
+        if (!PermissionService::can($user, 'view_all_invoices') && $invoice->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this invoice.');
         }
         $invoice->load(['client', 'booking.genset', 'quotation', 'items', 'payments.recordedBy', 'createdBy']);

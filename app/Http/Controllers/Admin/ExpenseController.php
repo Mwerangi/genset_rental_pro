@@ -16,8 +16,7 @@ class ExpenseController extends Controller
     {
         $user   = auth()->user();
         // Accounting managers and approvers see all expenses; others see only their own
-        $seeAll = PermissionService::can($user, 'manage_accounting')
-               || PermissionService::can($user, 'approve_payments');
+        $seeAll = PermissionService::can($user, 'view_all_expenses');
 
         $query = Expense::with(['category', 'bankAccount', 'createdBy'])->latest('expense_date');
 
@@ -100,8 +99,7 @@ class ExpenseController extends Controller
     public function show(Expense $expense)
     {
         $user = auth()->user();
-        if (!PermissionService::can($user, 'manage_accounting')
-            && !PermissionService::can($user, 'approve_payments')
+        if (!PermissionService::can($user, 'view_all_expenses')
             && $expense->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this expense.');
         }

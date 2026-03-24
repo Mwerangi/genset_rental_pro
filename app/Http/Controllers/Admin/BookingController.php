@@ -17,8 +17,7 @@ class BookingController extends Controller
     {
         $user   = auth()->user();
         // Managers/approvers see all bookings; limited users see only their own created bookings
-        $seeAll = PermissionService::can($user, 'manage_bookings')
-               || PermissionService::can($user, 'approve_bookings');
+        $seeAll = PermissionService::can($user, 'view_all_bookings');
 
         $query = Booking::with(['quoteRequest', 'createdBy', 'approvedBy'])->latest();
 
@@ -58,8 +57,7 @@ class BookingController extends Controller
     public function show(Booking $booking)
     {
         $user   = auth()->user();
-        $seeAll = PermissionService::can($user, 'manage_bookings')
-               || PermissionService::can($user, 'approve_bookings');
+        $seeAll = PermissionService::can($user, 'view_all_bookings');
         if (!$seeAll && $booking->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this booking.');
         }

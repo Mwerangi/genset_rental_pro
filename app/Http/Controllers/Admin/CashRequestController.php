@@ -20,8 +20,7 @@ class CashRequestController extends Controller
     {
         $user   = auth()->user();
         // Users with approve or full accounting access see ALL requests; others see only their own
-        $seeAll = PermissionService::can($user, 'approve_cash_requests')
-               || PermissionService::can($user, 'manage_accounting');
+        $seeAll = PermissionService::can($user, 'view_all_cash_requests');
 
         $query = CashRequest::with(['requestedBy', 'approvedBy'])->latest();
 
@@ -102,8 +101,7 @@ class CashRequestController extends Controller
     public function show(CashRequest $cashRequest)
     {
         $user   = auth()->user();
-        $seeAll = PermissionService::can($user, 'approve_cash_requests')
-               || PermissionService::can($user, 'manage_accounting');
+        $seeAll = PermissionService::can($user, 'view_all_cash_requests');
         if (!$seeAll && $cashRequest->requested_by !== $user->id) {
             abort(403, 'You do not have permission to view this cash request.');
         }

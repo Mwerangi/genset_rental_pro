@@ -18,7 +18,7 @@ class SupplierPaymentController extends Controller
     {
         $user   = auth()->user();
         // Only full accounting managers see all supplier payments; others see only their own
-        $seeAll = PermissionService::can($user, 'manage_accounting');
+        $seeAll = PermissionService::can($user, 'view_all_supplier_payments');
 
         $query = SupplierPayment::with(['supplier', 'bankAccount', 'purchaseOrder', 'createdBy'])
                                  ->latest('payment_date');
@@ -120,7 +120,7 @@ class SupplierPaymentController extends Controller
     public function show(SupplierPayment $supplierPayment)
     {
         $user = auth()->user();
-        if (!PermissionService::can($user, 'manage_accounting') && $supplierPayment->created_by !== $user->id) {
+        if (!PermissionService::can($user, 'view_all_supplier_payments') && $supplierPayment->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this supplier payment.');
         }
         $supplierPayment->load(['supplier', 'bankAccount', 'purchaseOrder', 'journalEntry.lines.account', 'createdBy', 'confirmedBy']);
