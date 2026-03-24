@@ -66,7 +66,6 @@
                 </div>
             </div>
         </div>
-
         <!-- Mobile Menu (Hidden by default) -->
         <div id="mobileMenu" class="hidden md:hidden bg-black">
             <div class="px-4 pt-2 pb-4 space-y-2">

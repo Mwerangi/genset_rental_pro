@@ -294,6 +294,60 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/accounting/reports/payables', [ReportsController::class, 'payables'])->name('accounting.reports.payables');
         Route::get('/accounting/reports/profit-loss', [ReportsController::class, 'profitLoss'])->name('accounting.reports.profit-loss');
         Route::get('/accounting/reports/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
+
+        // ── New Reporting Module ──────────────────────────────────────────────
+        // Sales
+        Route::get('/reports/sales/funnel', [ReportsController::class, 'salesFunnel'])->name('reports.sales.funnel');
+        Route::get('/reports/sales/revenue-by-client', [ReportsController::class, 'revenueByClient'])->name('reports.sales.revenue-by-client');
+        Route::get('/reports/sales/pipeline', [ReportsController::class, 'salesPipeline'])->name('reports.sales.pipeline');
+        // Fleet
+        Route::get('/reports/fleet/utilization', [ReportsController::class, 'fleetUtilization'])->name('reports.fleet.utilization');
+        Route::get('/reports/fleet/revenue-by-genset', [ReportsController::class, 'revenueByGenset'])->name('reports.fleet.revenue-by-genset');
+        Route::get('/reports/fleet/bookings', [ReportsController::class, 'bookingSummary'])->name('reports.fleet.bookings');
+        Route::get('/reports/fleet/bookings/export', [ReportsController::class, 'bookingSummaryExport'])->name('reports.fleet.bookings.export');
+        Route::get('/reports/fleet/fuel', [ReportsController::class, 'fuelConsumption'])->name('reports.fleet.fuel');
+        Route::get('/reports/fleet/maintenance', [ReportsController::class, 'maintenanceCosts'])->name('reports.fleet.maintenance');
+        Route::get('/reports/fleet/overdue-service', [ReportsController::class, 'overdueServicing'])->name('reports.fleet.overdue-service');
+        // Invoicing
+        Route::get('/reports/invoices/revenue-by-period', [ReportsController::class, 'revenueByPeriod'])->name('reports.invoices.revenue-by-period');
+        Route::get('/reports/invoices/payment-methods', [ReportsController::class, 'paymentMethods'])->name('reports.invoices.payment-methods');
+        Route::get('/reports/invoices/outstanding', [ReportsController::class, 'outstandingInvoices'])->name('reports.invoices.outstanding');
+        // Expenses
+        Route::get('/reports/expenses/by-category', [ReportsController::class, 'expensesByCategory'])->name('reports.expenses.by-category');
+        Route::get('/reports/expenses/by-period', [ReportsController::class, 'expensesByPeriod'])->name('reports.expenses.by-period');
+        Route::get('/reports/expenses/petty-cash', [ReportsController::class, 'pettyCashSummary'])->name('reports.expenses.petty-cash');
+        Route::get('/reports/expenses/gross-margin', [ReportsController::class, 'grossMargin'])->name('reports.expenses.gross-margin');
+        // Procurement
+        Route::get('/reports/procurement/supplier-payments', [ReportsController::class, 'supplierPaymentHistory'])->name('reports.procurement.supplier-payments');
+        Route::get('/reports/procurement/purchase-orders', [ReportsController::class, 'purchaseOrderSummary'])->name('reports.procurement.purchase-orders');
+        // Inventory
+        Route::get('/reports/inventory/stock-levels', [ReportsController::class, 'stockLevels'])->name('reports.inventory.stock-levels');
+        Route::get('/reports/inventory/movements', [ReportsController::class, 'stockMovements'])->name('reports.inventory.movements');
+        Route::get('/reports/inventory/valuation', [ReportsController::class, 'inventoryValuation'])->name('reports.inventory.valuation');
+        // Accounting
+        Route::get('/reports/accounting/general-ledger', [ReportsController::class, 'generalLedger'])->name('reports.accounting.general-ledger');
+
+        // ── Export Routes ─────────────────────────────────────────────────────
+        Route::get('/reports/sales/revenue-by-client/export', [ReportsController::class, 'revenueByClientExport'])->name('reports.sales.revenue-by-client.export');
+        Route::get('/reports/sales/pipeline/export', [ReportsController::class, 'salesPipelineExport'])->name('reports.sales.pipeline.export');
+        Route::get('/reports/fleet/fuel/export', [ReportsController::class, 'fuelConsumptionExport'])->name('reports.fleet.fuel.export');
+        Route::get('/reports/fleet/maintenance/export', [ReportsController::class, 'maintenanceCostsExport'])->name('reports.fleet.maintenance.export');
+        Route::get('/reports/fleet/overdue-service/export', [ReportsController::class, 'overdueServicingExport'])->name('reports.fleet.overdue-service.export');
+        Route::get('/reports/invoices/revenue-by-period/export', [ReportsController::class, 'revenueByPeriodExport'])->name('reports.invoices.revenue-by-period.export');
+        Route::get('/reports/invoices/payment-methods/export', [ReportsController::class, 'paymentMethodsExport'])->name('reports.invoices.payment-methods.export');
+        Route::get('/reports/invoices/outstanding/export', [ReportsController::class, 'outstandingInvoicesExport'])->name('reports.invoices.outstanding.export');
+        Route::get('/reports/expenses/by-category/export', [ReportsController::class, 'expensesByCategoryExport'])->name('reports.expenses.by-category.export');
+        Route::get('/reports/expenses/by-period/export', [ReportsController::class, 'expensesByPeriodExport'])->name('reports.expenses.by-period.export');
+        Route::get('/reports/expenses/petty-cash/export', [ReportsController::class, 'pettyCashSummaryExport'])->name('reports.expenses.petty-cash.export');
+        Route::get('/reports/expenses/gross-margin/export', [ReportsController::class, 'grossMarginExport'])->name('reports.expenses.gross-margin.export');
+        Route::get('/reports/procurement/supplier-payments/export', [ReportsController::class, 'supplierPaymentHistoryExport'])->name('reports.procurement.supplier-payments.export');
+        Route::get('/reports/procurement/purchase-orders/export', [ReportsController::class, 'purchaseOrderSummaryExport'])->name('reports.procurement.purchase-orders.export');
+        Route::get('/reports/inventory/stock-levels/export', [ReportsController::class, 'stockLevelsExport'])->name('reports.inventory.stock-levels.export');
+        Route::get('/reports/inventory/movements/export', [ReportsController::class, 'stockMovementsExport'])->name('reports.inventory.movements.export');
+        Route::get('/reports/inventory/valuation/export', [ReportsController::class, 'inventoryValuationExport'])->name('reports.inventory.valuation.export');
+        Route::get('/reports/accounting/general-ledger/export', [ReportsController::class, 'generalLedgerExport'])->name('reports.accounting.general-ledger.export');
+        Route::get('/reports/executive-summary', [ReportsController::class, 'executiveSummary'])->name('reports.executive-summary');
+        Route::get('/reports/executive-summary/export', [ReportsController::class, 'executiveSummaryExport'])->name('reports.executive-summary.export');
     });
 
     // ─── USER MANAGEMENT ─────────────────────────────────────────────────────
