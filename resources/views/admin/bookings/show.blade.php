@@ -145,6 +145,29 @@
                                 <a href="{{ route('admin.clients.show', $booking->client) }}" class="text-red-600 hover:underline font-medium">{{ $booking->client->company_name ?? $booking->client->name }}</a>
                             </p>
                         </div>
+                    @elseif($booking->customer_name)
+                        <div>
+                            <p class="text-sm font-medium text-slate-600">Customer</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->customer_name }}</p>
+                        </div>
+                        @if($booking->company_name)
+                        <div>
+                            <p class="text-sm font-medium text-slate-600">Company</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->company_name }}</p>
+                        </div>
+                        @endif
+                        @if($booking->customer_email)
+                        <div>
+                            <p class="text-sm font-medium text-slate-600">Email</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->customer_email }}</p>
+                        </div>
+                        @endif
+                        @if($booking->customer_phone)
+                        <div>
+                            <p class="text-sm font-medium text-slate-600">Phone</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->customer_phone }}</p>
+                        </div>
+                        @endif
                     @endif
 
                     <div>
@@ -625,6 +648,12 @@
                                 {{ $booking->client->company_name ?? $booking->client->name }}
                             </a>
                         </div>
+                    @elseif($booking->customer_name)
+                        <div>
+                            <p class="font-medium text-slate-500">Customer</p>
+                            <p class="text-slate-900 font-medium mt-1">{{ $booking->customer_name }}</p>
+                            @if($booking->company_name)<p class="text-slate-500 text-sm">{{ $booking->company_name }}</p>@endif
+                        </div>
                     @endif
                 </div>
             </x-card>
@@ -737,7 +766,7 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">Client</span>
-                        <span class="font-medium text-gray-800">{{ $booking->client?->company_name ?? $booking->client?->name ?? $booking->quoteRequest?->full_name ?? '—' }}</span>
+                        <span class="font-medium text-gray-800">{{ $booking->client?->company_name ?? $booking->client?->name ?? $booking->quoteRequest?->full_name ?? $booking->company_name ?? $booking->customer_name ?? '—' }}</span>
                     </div>
                     @if($booking->quotation)
                     <div class="flex justify-between">

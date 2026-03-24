@@ -125,12 +125,17 @@
                                     @if($booking->quoteRequest)
                                         <p class="font-medium text-slate-900 text-sm">{{ $booking->quoteRequest->full_name }}</p>
                                         <p class="text-xs text-slate-500">{{ $booking->quoteRequest->company_name ?? $booking->quoteRequest->email }}</p>
+                                    @elseif($booking->client)
+                                        <p class="font-medium text-slate-900 text-sm">{{ $booking->client->company_name ?? $booking->client->name }}</p>
+                                    @elseif($booking->customer_name)
+                                        <p class="font-medium text-slate-900 text-sm">{{ $booking->customer_name }}</p>
+                                        <p class="text-xs text-slate-500">{{ $booking->company_name ?? $booking->customer_email ?? '' }}</p>
                                     @else
                                         <span class="text-slate-400 text-sm">—</span>
                                     @endif
                                 </td>
                                 <td class="py-3 px-4 text-sm text-slate-700">
-                                    {{ $booking->quoteRequest?->genset_type_formatted ?? '—' }}
+                                    {{ $booking->quoteRequest?->genset_type_formatted ?? $booking->genset_type ?? '—' }}
                                 </td>
                                 <td class="py-3 px-4">
                                     @if($booking->rental_start_date)

@@ -6,36 +6,78 @@
         @open-accept-modal.window="open = true"
         x-show="open"
         x-cloak
-        class="fixed inset-0 z-50 flex items-center justify-center"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
     >
         <div class="absolute inset-0 bg-black/50" @click="open = false"></div>
-        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6" @click.stop>
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 p-6 overflow-y-auto max-h-[90vh]" @click.stop>
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-slate-900">Accept Quotation</h3>
+                <h3 class="text-lg font-semibold text-slate-900">Accept Quotation &amp; Create Booking</h3>
                 <button @click="open = false" class="text-slate-400 hover:text-slate-600 transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
-            <div class="flex gap-3 mb-5">
-                <div class="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-slate-900">Accept {{ $quotation->quotation_number }}?</p>
-                    <p class="text-sm text-slate-500 mt-1">This will mark the quotation as accepted and automatically create a booking. This action cannot be undone.</p>
-                </div>
-            </div>
+            <p class="text-sm text-slate-500 mb-5">Fill in the rental details below. These will be used to create the booking for <span class="font-semibold text-slate-700">{{ $quotation->quotation_number }}</span>.</p>
             <form method="POST" action="{{ route('admin.quotations.approve', $quotation) }}">
                 @csrf
-                <div class="flex gap-3">
-                    <button type="submit" class="flex-1 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition font-semibold">
-                        Yes, Accept &amp; Create Booking
+                <div class="space-y-4">
+                    <!-- Genset -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Generator <span class="text-red-500">*</span></label>
+                        @if($availableGensets->isEmpty())
+                            <div class="w-full px-3 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm text-amber-700 font-medium">
+                                No generators are currently available. Please make one available before approving.
+                            </div>
+                            {{-- Hidden input so form still submits but button will be disabled --}}
+                            <input type="hidden" name="genset_id" value="">
+                        @else
+                            <select name="genset_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="">Select available generator...</option>
+                                @foreach($availableGensets as $genset)
+                                    <option value="{{ $genset->id }}">
+                                        {{ $genset->asset_number }} — {{ $genset->name ?? $genset->type }}
+                                        {{ $genset->kva_rating ? '(' . $genset->kva_rating . ' KVA)' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
+                    </div>
+                    <!-- Dates -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Start Date <span class="text-red-500">*</span></label>
+                            <input type="date" name="rental_start_date" required
+                                value="{{ $quotation->quoteRequest?->rental_start_date?->format('Y-m-d') ?? '' }}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Duration (days) <span class="text-red-500">*</span></label>
+                            <input type="number" name="rental_duration_days" required min="1" placeholder="30"
+                                value="{{ $quotation->quoteRequest?->rental_duration_days ?? $quotation->items->where('item_type', 'genset_rental')->first()?->duration_days ?? '' }}"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                    </div>
+                    <!-- Delivery Location -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Delivery Location <span class="text-red-500">*</span></label>
+                        <input type="text" name="delivery_location" required placeholder="e.g. Dar Es Salaam Port, Gate 3"
+                            value="{{ $quotation->quoteRequest?->delivery_location ?? '' }}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <!-- Pickup Location -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Pickup Location <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="text" name="pickup_location" placeholder="Same as delivery or specify..."
+                            value="{{ $quotation->quoteRequest?->pickup_location ?? '' }}"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                </div>
+                <div class="flex gap-3 mt-6">
+                    <button type="submit" {{ $availableGensets->isEmpty() ? 'disabled' : '' }} class="flex-1 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 transition font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        Accept &amp; Create Booking
                     </button>
-                    <button type="button" @click="open = false" class="flex-1 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition font-medium">
+                    <button type="button" @click="open = false" class="flex-1 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition font-medium text-sm">
                         Cancel
                     </button>
                 </div>
@@ -137,7 +179,10 @@
             <!-- Customer Information -->
             @if($quotation->quoteRequest)
                 <x-card>
-                    <h2 class="text-lg font-semibold text-slate-900 mb-4">Customer Information</h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-slate-900">Customer Information</h2>
+                        <x-badge color="blue">From Request: {{ $quotation->quoteRequest->request_number }}</x-badge>
+                    </div>
                     <div class="grid grid-cols-2 gap-6">
                         <div>
                             <p class="text-sm font-medium text-slate-600 mb-1">Full Name</p>
@@ -154,6 +199,28 @@
                         <div>
                             <p class="text-sm font-medium text-slate-600 mb-1">Company Name</p>
                             <p class="text-slate-900">{{ $quotation->quoteRequest->company_name ?? '-' }}</p>
+                        </div>
+                    </div>
+                </x-card>
+            @elseif($quotation->customer_name)
+                <x-card>
+                    <h2 class="text-lg font-semibold text-slate-900 mb-4">Customer Information</h2>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Full Name</p>
+                            <p class="text-slate-900">{{ $quotation->customer_name }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Email</p>
+                            <p class="text-slate-900">{{ $quotation->customer_email ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Phone Number</p>
+                            <p class="text-slate-900">{{ $quotation->customer_phone ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Company Name</p>
+                            <p class="text-slate-900">{{ $quotation->company_name ?? '-' }}</p>
                         </div>
                     </div>
                 </x-card>

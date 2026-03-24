@@ -99,7 +99,12 @@
                 <p class="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-3">Amount</p>
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between"><span class="text-gray-500">Subtotal</span><span class="font-semibold">Tsh {{ number_format($expense->amount, 0) }}</span></div>
-                    @if($expense->vat_amount > 0)
+                    @if($expense->is_zero_rated)
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500">VAT</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Zero-rated</span>
+                    </div>
+                    @elseif($expense->vat_amount > 0)
                     <div class="flex justify-between"><span class="text-gray-500">VAT</span><span>Tsh {{ number_format($expense->vat_amount, 0) }}</span></div>
                     @endif
                     <div class="flex justify-between border-t border-gray-100 pt-2"><span class="font-semibold text-gray-800">Total</span><span class="font-bold text-gray-900 text-base">Tsh {{ number_format($expense->total_amount, 0) }}</span></div>

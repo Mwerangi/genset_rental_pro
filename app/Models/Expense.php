@@ -9,7 +9,7 @@ class Expense extends Model
 {
     protected $fillable = [
         'expense_number', 'expense_category_id', 'bank_account_id',
-        'description', 'amount', 'vat_amount', 'total_amount',
+        'description', 'amount', 'vat_amount', 'is_zero_rated', 'total_amount',
         'expense_date', 'reference', 'attachment',
         'source_type', 'source_id', 'journal_entry_id',
         'status', 'created_by', 'approved_by', 'approved_at',

@@ -29,6 +29,7 @@ class Booking extends Model
         'customer_name',
         'customer_email',
         'customer_phone',
+        'company_name',
         'created_by',
         'approved_by',
         'approved_at',

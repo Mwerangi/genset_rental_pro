@@ -33,18 +33,29 @@ class SupplierController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'           => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'phone'          => 'nullable|string|max:50',
-            'email'          => 'nullable|email|max:255',
-            'address'        => 'nullable|string|max:500',
-            'city'           => 'nullable|string|max:100',
-            'notes'          => 'nullable|string',
+            'name'                 => 'required|string|max:255',
+            'category'             => 'nullable|in:fuel,parts,services,equipment,other',
+            'contact_person'       => 'nullable|string|max:255',
+            'phone'                => 'nullable|string|max:50',
+            'phone_alt'            => 'nullable|string|max:50',
+            'email'                => 'nullable|email|max:255',
+            'website'              => 'nullable|url|max:255',
+            'address'              => 'nullable|string|max:500',
+            'city'                 => 'nullable|string|max:100',
+            'country'              => 'nullable|string|max:100',
+            'tin_number'           => 'nullable|string|max:100',
+            'vrn_number'           => 'nullable|string|max:100',
+            'payment_terms'        => 'nullable|string|max:100',
+            'currency'             => 'nullable|in:TZS,USD',
+            'bank_name'            => 'nullable|string|max:255',
+            'bank_account_name'    => 'nullable|string|max:255',
+            'bank_account_number'  => 'nullable|string|max:100',
+            'notes'                => 'nullable|string',
         ]);
 
         $supplier = Supplier::create($data);
 
-        return redirect()->route('admin.suppliers.index')
+        return redirect()->route('admin.suppliers.show', $supplier)
             ->with('success', $supplier->name . ' added as supplier.');
     }
 
@@ -53,12 +64,14 @@ class SupplierController extends Controller
         $supplier->load([
             'purchaseOrders' => fn($q) => $q->latest()->limit(10),
             'purchaseOrders.items',
+            'payments' => fn($q) => $q->latest()->limit(8),
         ]);
 
         $stats = [
-            'total_orders'   => $supplier->purchaseOrders()->count(),
-            'pending_orders' => $supplier->purchaseOrders()->whereIn('status', ['draft', 'sent'])->count(),
-            'received_orders'=> $supplier->purchaseOrders()->where('status', 'received')->count(),
+            'total_orders'    => $supplier->purchaseOrders()->count(),
+            'pending_orders'  => $supplier->purchaseOrders()->whereIn('status', ['draft', 'sent'])->count(),
+            'received_orders' => $supplier->purchaseOrders()->where('status', 'received')->count(),
+            'total_paid'      => $supplier->payments()->sum('amount'),
         ];
 
         return view('admin.inventory.suppliers.show', compact('supplier', 'stats'));
@@ -72,20 +85,31 @@ class SupplierController extends Controller
     public function update(Request $request, Supplier $supplier)
     {
         $data = $request->validate([
-            'name'           => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'phone'          => 'nullable|string|max:50',
-            'email'          => 'nullable|email|max:255',
-            'address'        => 'nullable|string|max:500',
-            'city'           => 'nullable|string|max:100',
-            'notes'          => 'nullable|string',
-            'is_active'      => 'nullable|boolean',
+            'name'                 => 'required|string|max:255',
+            'category'             => 'nullable|in:fuel,parts,services,equipment,other',
+            'contact_person'       => 'nullable|string|max:255',
+            'phone'                => 'nullable|string|max:50',
+            'phone_alt'            => 'nullable|string|max:50',
+            'email'                => 'nullable|email|max:255',
+            'website'              => 'nullable|url|max:255',
+            'address'              => 'nullable|string|max:500',
+            'city'                 => 'nullable|string|max:100',
+            'country'              => 'nullable|string|max:100',
+            'tin_number'           => 'nullable|string|max:100',
+            'vrn_number'           => 'nullable|string|max:100',
+            'payment_terms'        => 'nullable|string|max:100',
+            'currency'             => 'nullable|in:TZS,USD',
+            'bank_name'            => 'nullable|string|max:255',
+            'bank_account_name'    => 'nullable|string|max:255',
+            'bank_account_number'  => 'nullable|string|max:100',
+            'notes'                => 'nullable|string',
+            'is_active'            => 'nullable|boolean',
         ]);
 
         $data['is_active'] = $request->boolean('is_active', true);
         $supplier->update($data);
 
-        return redirect()->route('admin.suppliers.index')
+        return redirect()->route('admin.suppliers.show', $supplier)
             ->with('success', 'Supplier updated.');
     }
 }

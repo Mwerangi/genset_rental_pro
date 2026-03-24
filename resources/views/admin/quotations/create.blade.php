@@ -17,18 +17,16 @@
 
 
 
-        <form method="POST" action="{{ route('admin.quotations.store') }}" class="space-y-6">
+        <form method="POST" action="{{ route('admin.quotations.store') }}" class="space-y-6" x-data="{ quoteRequestId: '{{ $quoteRequest?->id ?? '' }}' }">
             @csrf
-            
-            @if($quoteRequest)
-                <input type="hidden" name="quote_request_id" value="{{ $quoteRequest->id }}">
-            @endif
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Content -->
                 <div class="lg:col-span-2 space-y-6">
-                    <!-- Customer Information (if from quote request) -->
+                    <!-- Customer Information -->
                     @if($quoteRequest)
+                        {{-- Linked from a quote request: show read-only info --}}
+                        <input type="hidden" name="quote_request_id" value="{{ $quoteRequest->id }}">
                         <x-card>
                             <div class="flex items-center justify-between mb-4">
                                 <h2 class="text-lg font-semibold text-slate-900">Customer Information</h2>
@@ -50,6 +48,52 @@
                                 <div>
                                     <p class="text-slate-600">Company</p>
                                     <p class="font-medium text-slate-900">{{ $quoteRequest->company_name ?? '-' }}</p>
+                                </div>
+                            </div>
+                        </x-card>
+                    @else
+                        {{-- No quote request: allow selecting one OR entering customer info directly --}}
+                        <x-card>
+                            <h2 class="text-lg font-semibold text-slate-900 mb-1">Linked Quote Request</h2>
+                            <p class="text-sm text-slate-500 mb-4">Optionally link to an existing quote request, or fill in customer details manually below.</p>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Quote Request (Optional)</label>
+                                <select
+                                    name="quote_request_id"
+                                    x-model="quoteRequestId"
+                                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                >
+                                    <option value="">— No quote request linked —</option>
+                                    @foreach(\App\Models\QuoteRequest::whereNotIn('status', ['converted','rejected'])->orderBy('created_at','desc')->get() as $qr)
+                                        <option value="{{ $qr->id }}" {{ old('quote_request_id') == $qr->id ? 'selected' : '' }}>
+                                            {{ $qr->request_number }} — {{ $qr->full_name }}{{ $qr->company_name ? ' (' . $qr->company_name . ')' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </x-card>
+
+                        {{-- Direct customer fields — visible only when no quote request selected --}}
+                        <x-card x-show="!quoteRequestId" x-transition>
+                            <h2 class="text-lg font-semibold text-slate-900 mb-4">Customer Information</h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Full Name <span class="text-red-500">*</span></label>
+                                    <x-input type="text" name="customer_name" value="{{ old('customer_name') }}" placeholder="John Mwangi" class="w-full" />
+                                    @error('customer_name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Email <span class="text-red-500">*</span></label>
+                                    <x-input type="email" name="customer_email" value="{{ old('customer_email') }}" placeholder="john@company.co.tz" class="w-full" />
+                                    @error('customer_email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                                    <x-input type="text" name="customer_phone" value="{{ old('customer_phone') }}" placeholder="+255 7xx xxx xxx" class="w-full" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">Company</label>
+                                    <x-input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Company Ltd." class="w-full" />
                                 </div>
                             </div>
                         </x-card>

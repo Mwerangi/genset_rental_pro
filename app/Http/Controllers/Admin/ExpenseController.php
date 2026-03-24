@@ -77,12 +77,17 @@ class ExpenseController extends Controller
             'bank_account_id'     => 'required|exists:bank_accounts,id',
             'description'         => 'required|string|max:500',
             'amount'              => 'required|numeric|min:0.01',
+            'is_zero_rated'       => 'nullable|boolean',
             'vat_amount'          => 'nullable|numeric|min:0',
             'expense_date'        => 'required|date',
             'reference'           => 'nullable|string|max:100',
             'attachment'          => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:4096',
         ]);
 
+        $data['is_zero_rated'] = $request->boolean('is_zero_rated');
+        if ($data['is_zero_rated']) {
+            $data['vat_amount'] = 0;
+        }
         $data['total_amount'] = $data['amount'] + ($data['vat_amount'] ?? 0);
         $data['status']       = 'draft';
         $data['created_by']   = auth()->id();

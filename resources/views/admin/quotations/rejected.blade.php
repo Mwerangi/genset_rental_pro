@@ -84,7 +84,10 @@
                                 <td class="py-3 px-4">
                                     @if($quotation->quoteRequest)
                                         <p class="font-medium text-slate-900 text-sm">{{ $quotation->quoteRequest->full_name }}</p>
-                                        <p class="text-xs text-slate-500">{{ $quotation->quoteRequest->email }}</p>
+                                        <p class="text-xs text-slate-500">{{ $quotation->quoteRequest->company_name ?? $quotation->quoteRequest->email }}</p>
+                                    @elseif($quotation->customer_name)
+                                        <p class="font-medium text-slate-900 text-sm">{{ $quotation->customer_name }}</p>
+                                        <p class="text-xs text-slate-500">{{ $quotation->company_name ?? $quotation->customer_email ?? '' }}</p>
                                     @else
                                         <span class="text-slate-400 text-sm">—</span>
                                     @endif

@@ -175,7 +175,11 @@ class QuotationController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'quote_request_id' => 'nullable|exists:quote_requests,id',
+            'quote_request_id'  => 'nullable|exists:quote_requests,id',
+            'customer_name'     => 'required_without:quote_request_id|nullable|string|max:255',
+            'customer_email'    => 'required_without:quote_request_id|nullable|email|max:255',
+            'customer_phone'    => 'nullable|string|max:50',
+            'company_name'      => 'nullable|string|max:255',
             'valid_until' => 'required|date|after:today',
             'currency' => 'required|in:TZS,USD',
             'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
@@ -194,7 +198,11 @@ class QuotationController extends Controller
         try {
             // Create quotation
             $quotation = Quotation::create([
-                'quote_request_id'     => $validated['quote_request_id'],
+                'quote_request_id'     => $validated['quote_request_id'] ?? null,
+                'customer_name'        => !($validated['quote_request_id'] ?? null) ? ($validated['customer_name'] ?? null) : null,
+                'customer_email'       => !($validated['quote_request_id'] ?? null) ? ($validated['customer_email'] ?? null) : null,
+                'customer_phone'       => !($validated['quote_request_id'] ?? null) ? ($validated['customer_phone'] ?? null) : null,
+                'company_name'         => !($validated['quote_request_id'] ?? null) ? ($validated['company_name'] ?? null) : null,
                 'valid_until'          => $validated['valid_until'],
                 'currency'             => $validated['currency'],
                 'exchange_rate_to_tzs' => $validated['currency'] === 'USD'
@@ -273,8 +281,12 @@ class QuotationController extends Controller
             abort(403, 'You do not have permission to view this quotation.');
         }
         $quotation->load(['quoteRequest', 'client', 'createdBy', 'items']);
-        
-        return view('admin.quotations.show', compact('quotation'));
+
+        $availableGensets = \App\Models\Genset::where('status', 'available')
+            ->orderBy('asset_number')
+            ->get();
+
+        return view('admin.quotations.show', compact('quotation', 'availableGensets'));
     }
 
     /**
@@ -383,67 +395,86 @@ class QuotationController extends Controller
     /**
      * Approve (mark as accepted) a quotation and create a Booking
      */
-    public function approve(Quotation $quotation)
+    public function approve(Quotation $quotation, Request $request)
     {
         if (!in_array($quotation->status, ['draft', 'sent', 'viewed'])) {
             return back()->with('error', 'Only active quotations can be approved.');
         }
 
-        $quotation->load('quoteRequest');
+        $request->validate([
+            'genset_id'            => 'required|exists:gensets,id',
+            'rental_start_date'    => 'required|date',
+            'rental_duration_days' => 'required|integer|min:1',
+            'delivery_location'    => 'required|string|max:500',
+            'pickup_location'      => 'nullable|string|max:500',
+        ]);
+
+        $genset = \App\Models\Genset::where('id', $request->genset_id)
+            ->where('status', 'available')
+            ->firstOrFail();
+
+        $quotation->load(['quoteRequest', 'items']);
         $quotation->markAsAccepted();
 
         $qr = $quotation->quoteRequest;
 
         // ── Step A: Find or create a Client record ────────────────────────────
         $client = null;
-        if ($qr) {
-            $client = Client::where('email', $qr->email)->first();
+        $clientEmail = $qr?->email ?? $quotation->customer_email;
+
+        if ($clientEmail) {
+            $client = Client::where('email', $clientEmail)->first();
 
             if (!$client) {
                 $client = Client::create([
-                    'full_name'        => $qr->full_name,
-                    'company_name'     => $qr->company_name,
-                    'email'            => $qr->email,
-                    'phone'            => $qr->phone,
-                    'source'           => 'quote_request',
-                    'quote_request_id' => $qr->id,
+                    'full_name'        => $qr?->full_name ?? $quotation->customer_name,
+                    'company_name'     => $qr?->company_name ?? $quotation->company_name,
+                    'email'            => $clientEmail,
+                    'phone'            => $qr?->phone ?? $quotation->customer_phone,
+                    'source'           => $qr ? 'quote_request' : 'manual',
+                    'quote_request_id' => $qr?->id,
                     'created_by'       => auth()->id(),
                 ]);
 
-                // Auto-create primary contact
                 ClientContact::create([
-                    'client_id'            => $client->id,
-                    'name'                 => $qr->full_name,
-                    'email'                => $qr->email,
-                    'phone'                => $qr->phone,
-                    'is_primary'           => true,
+                    'client_id'              => $client->id,
+                    'name'                   => $qr?->full_name ?? $quotation->customer_name,
+                    'email'                  => $clientEmail,
+                    'phone'                  => $qr?->phone ?? $quotation->customer_phone,
+                    'is_primary'             => true,
                     'can_authorize_bookings' => true,
-                    'can_receive_invoices' => true,
+                    'can_receive_invoices'   => true,
                 ]);
             }
 
-            // Link client back to the quote request
-            $qr->update(['client_id' => $client->id, 'status' => 'converted']);
+            if ($qr) {
+                $qr->update(['client_id' => $client->id, 'status' => 'converted']);
+            }
         }
 
         // ── Step B: Create the Booking ────────────────────────────────────────
+        $startDate = \Carbon\Carbon::parse($request->rental_start_date);
+        $endDate   = $startDate->copy()->addDays((int) $request->rental_duration_days);
+
         $booking = Booking::create([
             'client_id'            => $client?->id,
             'quote_request_id'     => $quotation->quote_request_id,
             'quotation_id'         => $quotation->id,
+            'genset_id'            => $genset->id,
             'status'               => 'created',
-            'genset_type'          => $qr?->genset_type,
-            'rental_start_date'    => $qr?->rental_start_date,
-            'rental_end_date'      => $qr ? $qr->rental_start_date->addDays($qr->rental_duration_days) : null,
-            'rental_duration_days' => $qr?->rental_duration_days,
-            'delivery_location'    => $qr?->delivery_location,
-            'pickup_location'      => $qr?->pickup_location,
+            'genset_type'          => $genset->type,
+            'rental_start_date'    => $startDate,
+            'rental_end_date'      => $endDate,
+            'rental_duration_days' => (int) $request->rental_duration_days,
+            'delivery_location'    => $request->delivery_location,
+            'pickup_location'      => $request->pickup_location,
             'total_amount'         => $quotation->total_amount,
             'currency'             => $quotation->currency ?? 'TZS',
             'exchange_rate_to_tzs' => $quotation->exchange_rate_to_tzs ?? 1.0,
-            'customer_name'        => $qr?->full_name,
-            'customer_email'       => $qr?->email,
-            'customer_phone'       => $qr?->phone,
+            'customer_name'        => $qr?->full_name ?? $quotation->customer_name,
+            'customer_email'       => $qr?->email ?? $quotation->customer_email,
+            'customer_phone'       => $qr?->phone ?? $quotation->customer_phone,
+            'company_name'         => $qr?->company_name ?? $quotation->company_name,
             'created_by'           => auth()->id(),
         ]);
 

@@ -71,8 +71,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ── Sales Pipeline — Quotations ───────────────────────────────────────────
     Route::middleware('permission:view_quotations')->group(function () {
         Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
-        Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
-        Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
         Route::get('/quotations/approved', [QuotationController::class, 'approved'])->name('quotations.approved');
         Route::get('/quotations/rejected', [QuotationController::class, 'rejected'])->name('quotations.rejected');
         Route::middleware('permission:manage_quotations')->group(function () {
@@ -83,13 +81,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
             Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
         });
+        Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
+        Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
     });
 
     // ── Bookings ──────────────────────────────────────────────────────────────
     Route::middleware('permission:view_bookings')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
-        Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
         Route::middleware('permission:manage_bookings')->group(function () {
             Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
             Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
@@ -107,6 +106,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/bookings/{booking}/approve', [BookingController::class, 'approve'])->name('bookings.approve');
             Route::post('/bookings/{booking}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
         });
+        Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
     });
 
     // ── Invoices ──────────────────────────────────────────────────────────────
@@ -133,7 +133,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ── Clients (CRM) ────────────────────────────────────────────────────────
     Route::middleware('permission:view_clients')->group(function () {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::middleware('permission:manage_clients')->group(function () {
             Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
             Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
@@ -144,12 +143,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/clients/{client}/addresses', [ClientController::class, 'storeAddress'])->name('clients.addresses.store');
             Route::delete('/clients/{client}/addresses/{address}', [ClientController::class, 'destroyAddress'])->name('clients.addresses.destroy');
         });
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     });
 
     // ── Fleet — Gensets, Deliveries, Maintenance ─────────────────────────────
     Route::middleware('permission:view_fleet')->group(function () {
         Route::get('/gensets', [GensetController::class, 'index'])->name('gensets.index');
-        Route::get('/gensets/{genset}', [GensetController::class, 'show'])->name('gensets.show');
         Route::middleware('permission:manage_fleet')->group(function () {
             Route::get('/gensets/create', [GensetController::class, 'create'])->name('gensets.create');
             Route::post('/gensets', [GensetController::class, 'store'])->name('gensets.store');
@@ -158,6 +157,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::delete('/gensets/{genset}', [GensetController::class, 'destroy'])->name('gensets.destroy');
             Route::post('/gensets/{genset}/status', [GensetController::class, 'updateStatus'])->name('gensets.status');
         });
+        Route::get('/gensets/{genset}', [GensetController::class, 'show'])->name('gensets.show');
 
         // ── Fleet — Deliveries ────────────────────────────────────────────────
         Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
@@ -171,7 +171,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
 
         // ── Fleet — Maintenance ───────────────────────────────────────────────
         Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
-        Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
         Route::middleware('permission:manage_maintenance')->group(function () {
             Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
             Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
@@ -182,16 +181,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
             Route::post('/maintenance/{maintenance}/cancel', [MaintenanceController::class, 'cancel'])->name('maintenance.cancel');
         });
+        Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
     });
     // ── Inventory ─────────────────────────────────────────────────────────────
     Route::middleware('permission:view_inventory')->group(function () {
         Route::get('/inventory/categories', [InventoryCategoryController::class, 'index'])->name('inventory.categories.index');
         Route::get('/inventory/items', [InventoryItemController::class, 'index'])->name('inventory.items.index');
-        Route::get('/inventory/items/{item}', [InventoryItemController::class, 'show'])->name('inventory.items.show');
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-        Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
         Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
-        Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
         Route::middleware('permission:manage_inventory')->group(function () {
             Route::post('/inventory/categories', [InventoryCategoryController::class, 'store'])->name('inventory.categories.store');
             Route::put('/inventory/categories/{category}', [InventoryCategoryController::class, 'update'])->name('inventory.categories.update');
@@ -215,6 +212,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
             Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
         });
+        Route::get('/inventory/items/{item}', [InventoryItemController::class, 'show'])->name('inventory.items.show');
+        Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
+        Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
     });
 
     // ── Fuel Logs ─────────────────────────────────────────────────────────────
@@ -231,9 +231,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Chart of Accounts & Bank Accounts (core infrastructure — full accounting access)
     Route::middleware('permission:view_accounting')->group(function () {
         Route::get('/accounting/accounts', [AccountController::class, 'index'])->name('accounting.accounts.index');
-        Route::get('/accounting/accounts/{account}', [AccountController::class, 'show'])->name('accounting.accounts.show');
         Route::get('/accounting/bank-accounts', [BankAccountController::class, 'index'])->name('accounting.bank-accounts.index');
-        Route::get('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'show'])->name('accounting.bank-accounts.show');
         Route::middleware('permission:manage_accounting')->group(function () {
             Route::get('/accounting/accounts/create', [AccountController::class, 'create'])->name('accounting.accounts.create');
             Route::post('/accounting/accounts', [AccountController::class, 'store'])->name('accounting.accounts.store');
@@ -254,18 +252,20 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::put('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'update'])->name('accounting.expense-categories.update');
             Route::delete('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'destroy'])->name('accounting.expense-categories.destroy');
         });
+        Route::get('/accounting/accounts/{account}', [AccountController::class, 'show'])->name('accounting.accounts.show');
+        Route::get('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'show'])->name('accounting.bank-accounts.show');
     });
 
     // Journal Entries — full accounting OR dedicated view/manage access
     Route::middleware('permission:view_accounting|view_journal_entries')->group(function () {
         Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
-        Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
         Route::middleware('permission:view_accounting|manage_accounting')->group(function () {
             Route::get('/accounting/journal-entries/create', [JournalEntryController::class, 'create'])->name('accounting.journal-entries.create');
             Route::post('/accounting/journal-entries', [JournalEntryController::class, 'store'])->name('accounting.journal-entries.store');
             Route::post('/accounting/journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])->name('accounting.journal-entries.post');
             Route::post('/accounting/journal-entries/{journalEntry}/reverse', [JournalEntryController::class, 'reverse'])->name('accounting.journal-entries.reverse');
         });
+        Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
     });
 
     // Expenses — full accounting OR targeted view_expenses access

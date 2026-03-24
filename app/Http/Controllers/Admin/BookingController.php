@@ -126,18 +126,12 @@ class BookingController extends Controller
             'currency'             => $currency,
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
             'notes'                => $validated['notes'] ?? null,
+            'customer_name'        => !$validated['quote_request_id'] ? ($validated['customer_name'] ?? null) : null,
+            'customer_email'       => !$validated['quote_request_id'] ? ($validated['customer_email'] ?? null) : null,
+            'customer_phone'       => !$validated['quote_request_id'] ? ($validated['customer_phone'] ?? null) : null,
+            'company_name'         => !$validated['quote_request_id'] ? ($validated['company_name'] ?? null) : null,
             'created_by'           => auth()->id(),
         ]);
-
-        // If no prospect linked, store customer info in notes header
-        if (!$validated['quote_request_id'] && $validated['customer_name']) {
-            $booking->notes = "Customer: {$validated['customer_name']}" .
-                ($validated['customer_email'] ? "\nEmail: {$validated['customer_email']}" : '') .
-                ($validated['customer_phone'] ? "\nPhone: {$validated['customer_phone']}" : '') .
-                ($validated['company_name'] ? "\nCompany: {$validated['company_name']}" : '') .
-                ($validated['notes'] ? "\n\n" . $validated['notes'] : '');
-            $booking->save();
-        }
 
         AppNotification::notify(
             null,

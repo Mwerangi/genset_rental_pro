@@ -1,7 +1,17 @@
 <x-admin-layout>
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-slate-900">Created Quotations</h1>
-        <p class="text-slate-600 mt-1">Manage all quotations generated in the system</p>
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Created Quotations</h1>
+            <p class="text-slate-600 mt-1">Manage all quotations generated in the system</p>
+        </div>
+        @permission('manage_quotations')
+        <a href="{{ route('admin.quotations.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            New Quotation
+        </a>
+        @endpermission
     </div>
 
     <!-- Stats Cards -->
@@ -135,12 +145,14 @@
     <x-card>
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-slate-900">All Quotations</h2>
-            <a href="{{ route('admin.quotations.create') }}" class="text-red-600 hover:text-red-700 font-medium text-sm flex items-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            @permission('manage_quotations')
+            <a href="{{ route('admin.quotations.create') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 </svg>
                 New Quotation
             </a>
+            @endpermission
         </div>
 
         @if($quotations->count() > 0)
@@ -167,10 +179,15 @@
                                     @if($quotation->quoteRequest)
                                         <div>
                                             <p class="font-medium text-slate-900">{{ $quotation->quoteRequest->full_name }}</p>
-                                            <p class="text-sm text-slate-600">{{ $quotation->quoteRequest->email }}</p>
+                                            <p class="text-sm text-slate-600">{{ $quotation->quoteRequest->company_name ?? $quotation->quoteRequest->email }}</p>
+                                        </div>
+                                    @elseif($quotation->customer_name)
+                                        <div>
+                                            <p class="font-medium text-slate-900">{{ $quotation->customer_name }}</p>
+                                            <p class="text-sm text-slate-600">{{ $quotation->company_name ?? $quotation->customer_email ?? '' }}</p>
                                         </div>
                                     @else
-                                        <span class="text-slate-500">-</span>
+                                        <span class="text-slate-400">—</span>
                                     @endif
                                 </td>
                                 <td class="py-3 px-4">
