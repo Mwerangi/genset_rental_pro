@@ -8,6 +8,7 @@ use App\Models\BankAccount;
 use App\Models\CashRequest;
 use App\Models\CashRequestItem;
 use App\Models\ExpenseCategory;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
@@ -74,7 +75,7 @@ class CashRequestController extends Controller
             'notes'                 => 'nullable|string',
         ]);
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use ($request, &$cr) {
             $totalAmount = collect($request->items)->sum('estimated_amount');
 
             $cr = CashRequest::create([
@@ -93,6 +94,12 @@ class CashRequestController extends Controller
                 ]);
             }
         });
+
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Created cash request' . ($cr ? ' ' . $cr->request_number : ''),
+            CashRequest::class, $cr?->id
+        );
 
         return redirect()->route('admin.accounting.cash-requests.index')
                          ->with('success', 'Cash request submitted as draft.');
@@ -140,6 +147,12 @@ class CashRequestController extends Controller
             'cash'
         );
 
+        UserActivityLog::record(
+            auth()->id(), 'submitted',
+            'Submitted cash request ' . $cashRequest->request_number . ' for approval',
+            CashRequest::class, $cashRequest->id
+        );
+
         return back()->with('success', 'Cash request submitted for approval.');
     }
 
@@ -169,6 +182,12 @@ class CashRequestController extends Controller
             'cash'
         );
 
+        UserActivityLog::record(
+            auth()->id(), 'approved',
+            'Approved cash request ' . $cashRequest->request_number,
+            CashRequest::class, $cashRequest->id
+        );
+
         return back()->with('success', 'Cash request approved.');
     }
 
@@ -193,6 +212,12 @@ class CashRequestController extends Controller
             'Reason: ' . $request->reason,
             route('admin.accounting.cash-requests.show', $cashRequest),
             'cash'
+        );
+
+        UserActivityLog::record(
+            auth()->id(), 'rejected',
+            'Rejected cash request ' . $cashRequest->request_number . ': ' . $request->reason,
+            CashRequest::class, $cashRequest->id
         );
 
         return back()->with('success', 'Cash request rejected.');
@@ -223,6 +248,12 @@ class CashRequestController extends Controller
                            ->decrement('current_balance', (float) $cashRequest->total_amount);
             }
         });
+
+        UserActivityLog::record(
+            auth()->id(), 'disbursed',
+            'Disbursed cash request ' . $cashRequest->request_number . ' (TZS ' . number_format($cashRequest->total_amount, 0) . ')',
+            CashRequest::class, $cashRequest->id
+        );
 
         return back()->with('success', 'Cash disbursed successfully.');
     }
@@ -286,6 +317,12 @@ class CashRequestController extends Controller
             }
         });
 
+        UserActivityLog::record(
+            auth()->id(), 'retired',
+            'Retired cash request ' . $cashRequest->request_number,
+            CashRequest::class, $cashRequest->id
+        );
+
         return back()->with(
             $jePosted ? 'success' : 'warning',
             $jePosted
@@ -348,6 +385,12 @@ class CashRequestController extends Controller
             }
         });
 
+        UserActivityLog::record(
+            auth()->id(), 'updated',
+            'Updated cash request ' . $cashRequest->request_number,
+            CashRequest::class, $cashRequest->id
+        );
+
         return redirect()->route('admin.accounting.cash-requests.show', $cashRequest)
                          ->with('success', 'Cash request updated.');
     }
@@ -359,8 +402,16 @@ class CashRequestController extends Controller
             return back()->with('error', 'Only draft or rejected requests can be deleted.');
         }
 
+        $number = $cashRequest->request_number;
+        $cashRequestId = $cashRequest->id;
         $cashRequest->items()->delete();
         $cashRequest->delete();
+
+        UserActivityLog::record(
+            auth()->id(), 'deleted',
+            'Deleted cash request ' . $number,
+            CashRequest::class, $cashRequestId
+        );
 
         return redirect()->route('admin.accounting.cash-requests.index')
                          ->with('success', 'Cash request deleted.');

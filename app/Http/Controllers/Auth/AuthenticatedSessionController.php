@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
+use App\Models\UserActivityLog;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -77,6 +78,12 @@ class AuthenticatedSessionController extends Controller
                 'last_login_at'   => now(),
                 'last_login_ip'   => $request->ip(),
             ]);
+
+            UserActivityLog::record(
+                $user->id, 'login',
+                'Logged in from ' . $request->ip(),
+                User::class, $user->id
+            );
         }
 
         $request->session()->regenerate();
@@ -89,6 +96,14 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        if (auth()->check()) {
+            UserActivityLog::record(
+                auth()->id(), 'logout',
+                'Logged out',
+                User::class, auth()->id()
+            );
+        }
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
@@ -90,7 +91,13 @@ class ExpenseController extends Controller
             $data['attachment'] = $request->file('attachment')->store('expenses', 'public');
         }
 
-        Expense::create($data);
+        $expense = Expense::create($data);
+
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Created expense ' . $expense->expense_number,
+            Expense::class, $expense->id
+        );
 
         return redirect()->route('admin.accounting.expenses.index')
                          ->with('success', 'Expense saved as draft.');
@@ -119,6 +126,12 @@ class ExpenseController extends Controller
             'approved_at' => now(),
         ]);
 
+        UserActivityLog::record(
+            auth()->id(), 'approved',
+            'Approved expense ' . $expense->expense_number,
+            Expense::class, $expense->id
+        );
+
         return back()->with('success', 'Expense approved.');
     }
 
@@ -134,6 +147,12 @@ class ExpenseController extends Controller
             return back()->with('error', 'Could not post — check Chart of Accounts is seeded and expense category has a linked ledger account.');
         }
 
+        UserActivityLog::record(
+            auth()->id(), 'posted',
+            'Posted expense ' . $expense->expense_number . ' (JE: ' . $je->entry_number . ')',
+            Expense::class, $expense->id
+        );
+
         return back()->with('success', "Expense posted. Journal entry {$je->entry_number} created.");
     }
 
@@ -143,7 +162,15 @@ class ExpenseController extends Controller
             return back()->with('error', 'Posted expenses cannot be deleted. Reverse the journal entry instead.');
         }
 
+        $number = $expense->expense_number;
+        $expenseId = $expense->id;
         $expense->delete();
+
+        UserActivityLog::record(
+            auth()->id(), 'deleted',
+            'Deleted expense ' . $number,
+            Expense::class, $expenseId
+        );
 
         return redirect()->route('admin.accounting.expenses.index')
                          ->with('success', 'Expense deleted.');

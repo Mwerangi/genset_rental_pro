@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\CreditNoteController;
 use App\Http\Controllers\Admin\TaxReportController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\QuoteRequestController as PublicQuoteRequestController;
 use Illuminate\Support\Facades\Route;
@@ -412,6 +413,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/settings/roles', [\App\Http\Controllers\Admin\RoleController::class, 'store'])->name('roles.store');
         Route::put('/settings/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'update'])->name('roles.update');
         Route::delete('/settings/roles/{role}', [\App\Http\Controllers\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
+    });
+
+    // ─── AUDIT TRAIL ──────────────────────────────────────────────────────────
+    Route::middleware('permission:view_audit_trail')->group(function () {
+        Route::get('/settings/audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
     });
 
     // Notifications are already registered above (always accessible)

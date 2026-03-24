@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
@@ -145,6 +146,12 @@ class InvoiceController extends Controller
         // Link invoice to booking
         $booking->update(['invoice_id' => $invoice->id]);
 
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Generated invoice ' . $invoice->invoice_number . ' for booking ' . $booking->booking_number,
+            Invoice::class, $invoice->id
+        );
+
         return redirect()
             ->route('admin.invoices.show', $invoice)
             ->with('success', 'Invoice ' . $invoice->invoice_number . ' generated successfully.');
@@ -194,6 +201,12 @@ class InvoiceController extends Controller
             ? 'Payment recorded — invoice is now FULLY PAID!'
             : 'Payment of ' . $sym . ' ' . number_format($validated['amount'], 0) . ' recorded. Balance: ' . $sym . ' ' . number_format($invoice->balance_due, 0);
 
+        UserActivityLog::record(
+            auth()->id(), 'payment_recorded',
+            'Recorded payment of ' . $sym . ' ' . number_format($validated['amount'], 0) . ' on invoice ' . $invoice->invoice_number,
+            Invoice::class, $invoice->id
+        );
+
         return redirect()
             ->route('admin.invoices.show', $invoice)
             ->with('success', $msg);
@@ -228,6 +241,12 @@ class InvoiceController extends Controller
         // Auto-post AR / Revenue / VAT journal entry
         app(JournalEntryService::class)->onInvoiceSent($invoice);
 
+        UserActivityLog::record(
+            auth()->id(), 'invoiced',
+            'Marked invoice ' . $invoice->invoice_number . ' as sent',
+            Invoice::class, $invoice->id
+        );
+
         return back()->with('success', 'Invoice marked as sent.');
     }
 
@@ -251,6 +270,12 @@ class InvoiceController extends Controller
         if ($wasPosted) {
             app(JournalEntryService::class)->onInvoiceVoided($invoice);
         }
+
+        UserActivityLog::record(
+            auth()->id(), 'voided',
+            'Voided invoice ' . $invoice->invoice_number . ($validated['void_reason'] ?? '' ? ': ' . $validated['void_reason'] : ''),
+            Invoice::class, $invoice->id
+        );
 
         return redirect()
             ->route('admin.invoices.show', $invoice)
@@ -425,6 +450,12 @@ class InvoiceController extends Controller
 
         $invoice->recalculatePayments();
 
+        UserActivityLog::record(
+            auth()->id(), 'payment_reversed',
+            'Reversed a payment on invoice ' . $invoice->invoice_number,
+            Invoice::class, $invoice->id
+        );
+
         return back()->with('success', 'Payment reversed. Balance updated.');
     }
 
@@ -459,6 +490,12 @@ class InvoiceController extends Controller
 
         // Auto-post bad debt: DR Bad Debt Expense / CR Accounts Receivable
         app(JournalEntryService::class)->onInvoiceWrittenOff($invoice);
+
+        UserActivityLog::record(
+            auth()->id(), 'voided',
+            'Wrote off invoice ' . $invoice->invoice_number,
+            Invoice::class, $invoice->id
+        );
 
         return back()->with('success', 'Invoice written off.');
     }

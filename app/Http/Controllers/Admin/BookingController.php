@@ -7,6 +7,7 @@ use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Genset;
 use App\Models\QuoteRequest;
+use App\Models\UserActivityLog;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,12 @@ class BookingController extends Controller
             'booking'
         );
 
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Created booking ' . $booking->booking_number,
+            Booking::class, $booking->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' created successfully!');
@@ -169,6 +176,12 @@ class BookingController extends Controller
             'booking'
         );
 
+        UserActivityLog::record(
+            auth()->id(), 'approved',
+            'Approved booking ' . $booking->booking_number,
+            Booking::class, $booking->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' has been approved.');
@@ -189,6 +202,12 @@ class BookingController extends Controller
             $request->input('reason') ? 'Reason: ' . $request->input('reason') : null,
             route('admin.bookings.show', $booking),
             'booking'
+        );
+
+        UserActivityLog::record(
+            auth()->id(), 'rejected',
+            'Rejected booking ' . $booking->booking_number . ($request->input('reason') ? ': ' . $request->input('reason') : ''),
+            Booking::class, $booking->id
         );
 
         return redirect()
@@ -214,6 +233,12 @@ class BookingController extends Controller
 
         $booking->activate(auth()->id(), $genset->id);
 
+        UserActivityLog::record(
+            auth()->id(), 'activated',
+            'Activated booking ' . $booking->booking_number . ' — genset ' . $genset->asset_number . ' deployed',
+            Booking::class, $booking->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', $genset->asset_number . ' deployed — booking is now active!');
@@ -226,6 +251,12 @@ class BookingController extends Controller
         }
 
         $booking->markReturned(auth()->id());
+
+        UserActivityLog::record(
+            auth()->id(), 'returned',
+            'Marked booking ' . $booking->booking_number . ' as returned',
+            Booking::class, $booking->id
+        );
 
         return redirect()
             ->route('admin.bookings.show', $booking)
@@ -244,6 +275,12 @@ class BookingController extends Controller
 
         $booking->markInvoiced(auth()->id(), $validated['invoice_number'] ?? null);
 
+        UserActivityLog::record(
+            auth()->id(), 'invoiced',
+            'Marked booking ' . $booking->booking_number . ' as invoiced',
+            Booking::class, $booking->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' has been invoiced.');
@@ -261,6 +298,12 @@ class BookingController extends Controller
 
         $booking->markPaid(auth()->id(), $validated['payment_reference'] ?? null);
 
+        UserActivityLog::record(
+            auth()->id(), 'paid',
+            'Marked booking ' . $booking->booking_number . ' as paid',
+            Booking::class, $booking->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Booking ' . $booking->booking_number . ' has been marked as paid!');
@@ -277,6 +320,12 @@ class BookingController extends Controller
         ]);
 
         $booking->cancel(auth()->id(), $validated['reason'] ?? null);
+
+        UserActivityLog::record(
+            auth()->id(), 'cancelled',
+            'Cancelled booking ' . $booking->booking_number . ($validated['reason'] ? ': ' . $validated['reason'] : ''),
+            Booking::class, $booking->id
+        );
 
         return redirect()
             ->route('admin.bookings.show', $booking)
@@ -344,6 +393,12 @@ class BookingController extends Controller
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
             'notes'                => $validated['notes'] ?? null,
         ]);
+
+        UserActivityLog::record(
+            auth()->id(), 'updated',
+            'Updated booking ' . $booking->booking_number,
+            Booking::class, $booking->id
+        );
 
         return redirect()
             ->route('admin.bookings.show', $booking)

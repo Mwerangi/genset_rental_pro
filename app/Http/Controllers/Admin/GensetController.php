@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\Genset;
 use App\Models\Booking;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
 
@@ -97,6 +98,12 @@ class GensetController extends Controller
             }
         }
 
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Registered genset ' . $genset->asset_number . ' (' . $genset->name . ')',
+            Genset::class, $genset->id
+        );
+
         return redirect()
             ->route('admin.gensets.show', $genset)
             ->with('success', 'Genset ' . $genset->asset_number . ' created successfully.');
@@ -154,6 +161,12 @@ class GensetController extends Controller
 
         $genset->update($validated);
 
+        UserActivityLog::record(
+            auth()->id(), 'updated',
+            'Updated genset ' . $genset->asset_number . ' (' . $genset->name . ')',
+            Genset::class, $genset->id
+        );
+
         return redirect()
             ->route('admin.gensets.show', $genset)
             ->with('success', 'Genset updated successfully.');
@@ -165,11 +178,19 @@ class GensetController extends Controller
             return back()->with('error', 'Cannot delete a genset that is currently on rent.');
         }
 
+        $assetNumber = $genset->asset_number;
+        $gensetId = $genset->id;
         $genset->delete();
+
+        UserActivityLog::record(
+            auth()->id(), 'deleted',
+            'Deleted genset ' . $assetNumber,
+            Genset::class, $gensetId
+        );
 
         return redirect()
             ->route('admin.gensets.index')
-            ->with('success', 'Genset ' . $genset->asset_number . ' deleted.');
+            ->with('success', 'Genset ' . $assetNumber . ' deleted.');
     }
 
     public function updateStatus(Request $request, Genset $genset)
@@ -179,6 +200,12 @@ class GensetController extends Controller
         ]);
 
         $genset->update(['status' => $validated['status']]);
+
+        UserActivityLog::record(
+            auth()->id(), 'status_changed',
+            'Changed genset ' . $genset->asset_number . ' status to ' . $validated['status'],
+            Genset::class, $genset->id
+        );
 
         return back()->with('success', 'Status updated to ' . $genset->fresh()->status_label . '.');
     }

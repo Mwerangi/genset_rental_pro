@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\CreditNote;
 use App\Models\Invoice;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
@@ -94,7 +95,13 @@ class CreditNoteController extends Controller
         $data['status']       = 'draft';
         $data['issued_by']    = auth()->id();
 
-        CreditNote::create($data);
+        $creditNote = CreditNote::create($data);
+
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Created credit note ' . $creditNote->cn_number . ' for ' . ($creditNote->client?->name ?? 'client'),
+            CreditNote::class, $creditNote->id
+        );
 
         return redirect()->route('admin.accounting.credit-notes.index')
                          ->with('success', 'Credit note saved as draft.');
@@ -133,6 +140,12 @@ class CreditNoteController extends Controller
             $creditNote->update(['status' => 'applied']);
         }
 
+        UserActivityLog::record(
+            auth()->id(), 'issued',
+            'Issued credit note ' . $creditNote->cn_number . ($je ? ' (JE: ' . $je->entry_number . ')' : ''),
+            CreditNote::class, $creditNote->id
+        );
+
         return back()->with('success', 'Credit note issued' . ($je ? " (JE: {$je->entry_number})." : '.'));
     }
 
@@ -149,6 +162,12 @@ class CreditNoteController extends Controller
         }
 
         $creditNote->update(['status' => 'voided']);
+
+        UserActivityLog::record(
+            auth()->id(), 'voided',
+            'Voided credit note ' . $creditNote->cn_number,
+            CreditNote::class, $creditNote->id
+        );
 
         return back()->with('success', 'Credit note voided.');
     }

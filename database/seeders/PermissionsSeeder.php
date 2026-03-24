@@ -72,6 +72,7 @@ class PermissionsSeeder extends Seeder
         // ── System ────────────────────────────────────────────────────
         'manage_users'             => ['Manage Users',                'System',          1],
         'manage_permissions'       => ['Manage Role Permissions',     'System',          2],
+        'view_audit_trail'         => ['View Audit Trail',            'System',          3],
     ];
 
     /**
@@ -98,6 +99,7 @@ class PermissionsSeeder extends Seeder
             'view_credit_notes', 'view_all_credit_notes',
             'view_reports',
             'manage_users',
+            'view_audit_trail',
             // manage_permissions intentionally excluded for admin
         ],
 

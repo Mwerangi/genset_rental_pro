@@ -9,6 +9,7 @@ use App\Models\QuotationItem;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\UserActivityLog;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -235,11 +236,21 @@ class QuotationController extends Controller
 
             if ($request->has('send')) {
                 // TODO: Send email notification
+                UserActivityLog::record(
+                    auth()->id(), 'created',
+                    'Created quotation ' . $quotation->quotation_number . ' (sent)',
+                    Quotation::class, $quotation->id
+                );
                 return redirect()
                     ->route('admin.quotations.show', $quotation)
                     ->with('success', 'Quotation created and sent successfully!');
             }
 
+            UserActivityLog::record(
+                auth()->id(), 'created',
+                'Created quotation ' . $quotation->quotation_number . ' (draft)',
+                Quotation::class, $quotation->id
+            );
             return redirect()
                 ->route('admin.quotations.show', $quotation)
                 ->with('success', 'Quotation saved as draft successfully!');
@@ -351,6 +362,12 @@ class QuotationController extends Controller
 
             DB::commit();
 
+            UserActivityLog::record(
+                auth()->id(), 'updated',
+                'Updated quotation ' . $quotation->quotation_number,
+                Quotation::class, $quotation->id
+            );
+
             return redirect()
                 ->route('admin.quotations.show', $quotation)
                 ->with('success', 'Quotation updated successfully!');
@@ -430,6 +447,12 @@ class QuotationController extends Controller
             'created_by'           => auth()->id(),
         ]);
 
+        UserActivityLog::record(
+            auth()->id(), 'approved',
+            'Approved quotation ' . $quotation->quotation_number . ' — created booking ' . $booking->booking_number,
+            Quotation::class, $quotation->id
+        );
+
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with('success', 'Quotation accepted! Booking ' . $booking->booking_number . ' has been created.' . ($client ? ' Client ' . $client->client_number . ' created.' : ''));
@@ -454,6 +477,12 @@ class QuotationController extends Controller
         if ($quotation->quoteRequest && $quotation->quoteRequest->status === 'converted') {
             $quotation->quoteRequest->update(['status' => 'reviewed']);
         }
+
+        UserActivityLog::record(
+            auth()->id(), 'rejected',
+            'Rejected quotation ' . $quotation->quotation_number . ': ' . $request->rejection_reason,
+            Quotation::class, $quotation->id
+        );
 
         return redirect()
             ->route('admin.quotations.show', $quotation)

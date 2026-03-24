@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\ClientContact;
 use App\Models\ClientAddress;
+use App\Models\UserActivityLog;
 use Illuminate\Http\Request;
 
 class ClientController extends Controller
@@ -115,6 +116,12 @@ class ClientController extends Controller
             ]);
         }
 
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Added client ' . $client->client_number . ' (' . ($client->company_name ?: $client->full_name) . ')',
+            Client::class, $client->id
+        );
+
         return redirect()
             ->route('admin.clients.show', $client)
             ->with('success', 'Client ' . $client->client_number . ' created successfully.');
@@ -165,6 +172,12 @@ class ClientController extends Controller
         ]);
 
         $client->update($validated);
+
+        UserActivityLog::record(
+            auth()->id(), 'updated',
+            'Updated client ' . $client->client_number . ' (' . ($client->company_name ?: $client->full_name) . ')',
+            Client::class, $client->id
+        );
 
         return redirect()
             ->route('admin.clients.show', $client)

@@ -7,6 +7,7 @@ use App\Models\BankAccount;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Models\SupplierPayment;
+use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
@@ -113,6 +114,12 @@ class SupplierPaymentController extends Controller
             $payment->update(['journal_entry_id' => $je->id]);
         }
 
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Recorded supplier payment ' . $payment->payment_number . ' to ' . $payment->supplier?->name,
+            SupplierPayment::class, $payment->id
+        );
+
         return redirect()->route('admin.accounting.supplier-payments.show', $payment)
                          ->with('success', 'Supplier payment recorded' . ($je ? " and posted (JE: {$je->entry_number})." : '.'));
     }
@@ -149,6 +156,12 @@ class SupplierPaymentController extends Controller
             'confirmed_at'    => now(),
             'remittance_path' => $remittancePath,
         ]);
+
+        UserActivityLog::record(
+            auth()->id(), 'confirmed',
+            'Confirmed supplier payment ' . $supplierPayment->payment_number,
+            SupplierPayment::class, $supplierPayment->id
+        );
 
         return back()->with('success', 'Payment confirmed successfully.');
     }
