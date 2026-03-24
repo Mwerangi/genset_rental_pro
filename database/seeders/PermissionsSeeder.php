@@ -49,9 +49,15 @@ class PermissionsSeeder extends Seeder
         'manage_invoices'          => ['Manage Invoices & Payments',  'Invoicing',       2],
 
         // ── Accounting ────────────────────────────────────────────────
-        'view_accounting'          => ['View Accounting Records',     'Accounting',      1],
-        'manage_accounting'        => ['Manage Accounting Records',   'Accounting',      2],
+        'view_accounting'          => ['View Accounting (Chart of Accounts & Bank Accounts)', 'Accounting', 1],
+        'manage_accounting'        => ['Manage Chart of Accounts & Journal Entries',  'Accounting', 2],
         'approve_payments'         => ['Approve Expenses & Payments', 'Accounting',      3],
+        'view_cash_requests'       => ['View / Submit Cash Requests', 'Accounting',      4],
+        'approve_cash_requests'    => ['Approve / Pay Cash Requests', 'Accounting',      5],
+        'view_expenses'            => ['View Expenses',               'Accounting',      6],
+        'view_journal_entries'     => ['View Journal Entries',        'Accounting',      8],
+        'view_supplier_payments'   => ['View Supplier Payments',      'Accounting',      9],
+        'view_credit_notes'        => ['View Credit Notes',           'Accounting',     10],
 
         // ── Reports ───────────────────────────────────────────────────
         'view_reports'             => ['View Reports & Tax Documents', 'Reports',        1],
@@ -78,6 +84,8 @@ class PermissionsSeeder extends Seeder
             'view_inventory', 'manage_inventory', 'manage_suppliers', 'manage_purchase_orders',
             'view_invoices', 'manage_invoices',
             'view_accounting', 'manage_accounting', 'approve_payments',
+            'view_cash_requests', 'approve_cash_requests',
+            'view_expenses', 'view_journal_entries', 'view_supplier_payments', 'view_credit_notes',
             'view_reports',
             'manage_users',
             // manage_permissions intentionally excluded for admin
@@ -90,6 +98,8 @@ class PermissionsSeeder extends Seeder
             'view_inventory',
             'view_invoices', 'manage_invoices',
             'view_accounting', 'manage_accounting', 'approve_payments',
+            'view_cash_requests', 'approve_cash_requests',
+            'view_expenses', 'view_journal_entries', 'view_supplier_payments', 'view_credit_notes',
             'view_reports',
         ],
 
@@ -103,6 +113,7 @@ class PermissionsSeeder extends Seeder
             'view_inventory', 'manage_inventory', 'manage_suppliers', 'manage_purchase_orders',
             'view_invoices',
             'view_accounting',
+            'view_cash_requests', 'view_expenses',
             'view_reports',
         ],
 
@@ -113,6 +124,7 @@ class PermissionsSeeder extends Seeder
             'view_clients', 'manage_clients',
             'view_fleet',
             'view_invoices',
+            'view_cash_requests',
             'view_reports',
         ],
 
@@ -120,18 +132,21 @@ class PermissionsSeeder extends Seeder
             'view_bookings',
             'view_fleet', 'manage_deliveries',
             'view_fuel_logs', 'manage_fuel_logs',
+            'view_cash_requests',
         ],
 
         'driver' => [
             'view_bookings',
             'view_fleet',
             'view_fuel_logs', 'manage_fuel_logs',
+            'view_cash_requests',
         ],
 
         'technician' => [
             'view_fleet', 'manage_maintenance',
             'view_inventory',
             'view_fuel_logs',
+            'view_cash_requests',
         ],
 
         'accountant' => [
@@ -140,6 +155,8 @@ class PermissionsSeeder extends Seeder
             'view_inventory',
             'view_invoices', 'manage_invoices',
             'view_accounting', 'manage_accounting', 'approve_payments',
+            'view_cash_requests', 'approve_cash_requests',
+            'view_expenses', 'view_journal_entries', 'view_supplier_payments', 'view_credit_notes',
             'view_reports',
         ],
 
@@ -147,6 +164,7 @@ class PermissionsSeeder extends Seeder
             'view_bookings',
             'view_fleet',
             'view_fuel_logs',
+            'view_cash_requests',
         ],
     ];
 
@@ -162,17 +180,15 @@ class PermissionsSeeder extends Seeder
 
         $allPermissionNames = array_keys($this->permissions);
 
-        // 2. Seed role → permission mappings (skip if already has any assignments)
+        // 2. Seed role → permission mappings (additive — safe to run multiple times)
         foreach ($this->rolePermissions as $role => $perms) {
-            // Skip roles that already have custom permissions set in DB
-            if (RolePermission::where('role', $role)->exists()) {
-                continue;
-            }
-
             $toInsert = ($perms === '*') ? $allPermissionNames : $perms;
 
             foreach ($toInsert as $perm) {
-                RolePermission::create(['role' => $role, 'permission_name' => $perm]);
+                RolePermission::firstOrCreate([
+                    'role'            => $role,
+                    'permission_name' => $perm,
+                ]);
             }
         }
     }

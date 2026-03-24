@@ -31,8 +31,19 @@ class CheckPermission
             return $next($request);
         }
 
-        foreach ($permissions as $permission) {
-            if (! PermissionService::can($user, $permission)) {
+        // Each argument is AND-checked. Within a single argument, | means OR (any one satisfies).
+        // e.g. permission:view_accounting|view_cash_requests,approve_something
+        //   = (view_accounting OR view_cash_requests) AND (approve_something)
+        foreach ($permissions as $permGroup) {
+            $anyOf  = array_map('trim', explode('|', $permGroup));
+            $passed = false;
+            foreach ($anyOf as $perm) {
+                if (PermissionService::can($user, $perm)) {
+                    $passed = true;
+                    break;
+                }
+            }
+            if (! $passed) {
                 abort(403, 'You do not have permission to access this page.');
             }
         }

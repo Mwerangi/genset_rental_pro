@@ -243,7 +243,7 @@
                     @endpermission
 
                     {{-- Accounting --}}
-                    @permission('view_accounting', 'view_invoices', 'view_reports')
+                    @permission('view_accounting', 'view_invoices', 'view_cash_requests', 'view_expenses', 'view_journal_entries', 'view_supplier_payments', 'view_credit_notes', 'approve_cash_requests')
                     @php
                         $totalInvoices   = \App\Models\Invoice::count();
                         $awaitingPayment = \App\Models\Invoice::whereIn('status', ['draft','sent','partially_paid'])->count();
@@ -261,6 +261,7 @@
                              class="nav-dd absolute top-full left-1/2 -translate-x-1/2 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                             <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Operations</p>
                             {{-- Invoices sub-dropdown --}}
+                            @permission('view_invoices')
                             <div class="relative">
                                 <button @click="invoicesOpen = !invoicesOpen" class="{{ request()->routeIs('admin.invoices.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} w-full flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                     <span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Invoices</span>
@@ -287,21 +288,33 @@
                                     <a href="{{ route('admin.invoices.index', ['status' => 'paid']) }}" class="{{ request()->routeIs('admin.invoices.index') && request('status') === 'paid' ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">Paid</a>
                                 </div>
                             </div>
+                            @endpermission
+                            @permission('view_accounting', 'view_expenses')
                             <a href="{{ route('admin.accounting.expenses.index') }}" class="{{ request()->routeIs('admin.accounting.expenses.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>Expenses
                             </a>
+                            @endpermission
+                            @permission('view_accounting', 'view_cash_requests', 'approve_cash_requests')
                             <a href="{{ route('admin.accounting.cash-requests.index') }}" class="{{ request()->routeIs('admin.accounting.cash-requests.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>Cash Requests
                             </a>
+                            @endpermission
+                            @permission('view_accounting', 'view_supplier_payments')
                             <a href="{{ route('admin.accounting.supplier-payments.index') }}" class="{{ request()->routeIs('admin.accounting.supplier-payments.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Supplier Payments
                             </a>
+                            @endpermission
+                            @permission('view_accounting', 'view_credit_notes')
                             <a href="{{ route('admin.accounting.credit-notes.index') }}" class="{{ request()->routeIs('admin.accounting.credit-notes.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>Credit Notes
                             </a>
+                            @endpermission
+                            @permission('view_accounting', 'view_journal_entries')
                             <a href="{{ route('admin.accounting.journal-entries.index') }}" class="{{ request()->routeIs('admin.accounting.journal-entries.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>Journal Entries
                             </a>
+                            @endpermission
+                            @permission('view_accounting')
                             <div class="nav-divider my-0.5 border-t border-gray-100"></div>
                             <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Reports &amp; Setup</p>
                             <a href="{{ route('admin.accounting.tax-reports.vat') }}" class="{{ request()->routeIs('admin.accounting.tax-reports.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">Tax Reports</a>
@@ -310,6 +323,7 @@
                             <a href="{{ route('admin.accounting.reports.payables') }}" class="{{ request()->routeIs('admin.accounting.reports.payables') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">Payables Register</a>
                             <a href="{{ route('admin.accounting.accounts.index') }}" class="{{ request()->routeIs('admin.accounting.accounts.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">Chart of Accounts</a>
                             <a href="{{ route('admin.accounting.bank-accounts.index') }}" class="{{ request()->routeIs('admin.accounting.bank-accounts.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">Cash &amp; Bank Accounts</a>
+                            @endpermission
                         </div>
                     </div>
                     @endpermission

@@ -61,226 +61,264 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/quote-requests', [QuoteRequestController::class, 'index'])->name('quote-requests.index');
         Route::get('/quote-requests/export', [QuoteRequestController::class, 'export'])->name('quote-requests.export');
         Route::get('/quote-requests/{quoteRequest}', [QuoteRequestController::class, 'show'])->name('quote-requests.show');
-        Route::post('/quote-requests/{quoteRequest}/mark-as-reviewed', [QuoteRequestController::class, 'markAsReviewed'])->name('quote-requests.mark-as-reviewed');
-        Route::post('/quote-requests/{quoteRequest}/reject', [QuoteRequestController::class, 'reject'])->name('quote-requests.reject');
+        Route::middleware('permission:manage_quote_requests')->group(function () {
+            Route::post('/quote-requests/{quoteRequest}/mark-as-reviewed', [QuoteRequestController::class, 'markAsReviewed'])->name('quote-requests.mark-as-reviewed');
+            Route::post('/quote-requests/{quoteRequest}/reject', [QuoteRequestController::class, 'reject'])->name('quote-requests.reject');
+        });
     });
 
     // ── Sales Pipeline — Quotations ───────────────────────────────────────────
     Route::middleware('permission:view_quotations')->group(function () {
         Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
-        Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
-        Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
         Route::get('/quotations/{quotation}', [QuotationController::class, 'show'])->name('quotations.show');
-        Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
-        Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->name('quotations.update');
         Route::get('/quotations/{quotation}/pdf', [QuotationController::class, 'downloadPdf'])->name('quotations.download-pdf');
         Route::get('/quotations/approved', [QuotationController::class, 'approved'])->name('quotations.approved');
         Route::get('/quotations/rejected', [QuotationController::class, 'rejected'])->name('quotations.rejected');
-        Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
-        Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
+        Route::middleware('permission:manage_quotations')->group(function () {
+            Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
+            Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');
+            Route::get('/quotations/{quotation}/edit', [QuotationController::class, 'edit'])->name('quotations.edit');
+            Route::put('/quotations/{quotation}', [QuotationController::class, 'update'])->name('quotations.update');
+            Route::post('/quotations/{quotation}/approve', [QuotationController::class, 'approve'])->name('quotations.approve');
+            Route::post('/quotations/{quotation}/reject', [QuotationController::class, 'reject'])->name('quotations.reject');
+        });
     });
 
     // ── Bookings ──────────────────────────────────────────────────────────────
     Route::middleware('permission:view_bookings')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
-        Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
-        Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
         Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('bookings.show');
-        Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
-        Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
-        Route::post('/bookings/{booking}/approve', [BookingController::class, 'approve'])->name('bookings.approve');
-        Route::post('/bookings/{booking}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
-        Route::post('/bookings/{booking}/activate', [BookingController::class, 'activate'])->name('bookings.activate');
-        Route::post('/bookings/{booking}/return', [BookingController::class, 'markReturned'])->name('bookings.return');
-        Route::post('/bookings/{booking}/invoice', [BookingController::class, 'markInvoiced'])->name('bookings.invoice');
-        Route::post('/bookings/{booking}/mark-paid', [BookingController::class, 'markPaid'])->name('bookings.mark-paid');
-        Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
-        Route::post('/bookings/{booking}/generate-invoice', [InvoiceController::class, 'generate'])->name('bookings.generate-invoice');
-        Route::post('/bookings/{booking}/generate-proforma', [InvoiceController::class, 'generateProforma'])->name('bookings.generate-proforma');
+        Route::middleware('permission:manage_bookings')->group(function () {
+            Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
+            Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
+            Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
+            Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
+            Route::post('/bookings/{booking}/activate', [BookingController::class, 'activate'])->name('bookings.activate');
+            Route::post('/bookings/{booking}/return', [BookingController::class, 'markReturned'])->name('bookings.return');
+            Route::post('/bookings/{booking}/invoice', [BookingController::class, 'markInvoiced'])->name('bookings.invoice');
+            Route::post('/bookings/{booking}/mark-paid', [BookingController::class, 'markPaid'])->name('bookings.mark-paid');
+            Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+            Route::post('/bookings/{booking}/generate-invoice', [InvoiceController::class, 'generate'])->name('bookings.generate-invoice');
+            Route::post('/bookings/{booking}/generate-proforma', [InvoiceController::class, 'generateProforma'])->name('bookings.generate-proforma');
+        });
+        Route::middleware('permission:approve_bookings')->group(function () {
+            Route::post('/bookings/{booking}/approve', [BookingController::class, 'approve'])->name('bookings.approve');
+            Route::post('/bookings/{booking}/reject', [BookingController::class, 'reject'])->name('bookings.reject');
+        });
     });
 
     // ── Invoices ──────────────────────────────────────────────────────────────
     Route::middleware('permission:view_invoices')->group(function () {
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
-        Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
-        Route::delete('/invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'deletePayment'])->name('invoices.payments.delete');
-        Route::post('/invoices/{invoice}/mark-sent', [InvoiceController::class, 'markSent'])->name('invoices.mark-sent');
-        Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
         Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
-        Route::post('/invoices/{invoice}/convert-proforma', [InvoiceController::class, 'convertProforma'])->name('invoices.convert-proforma');
-        Route::post('/invoices/{invoice}/items', [InvoiceController::class, 'storeItem'])->name('invoices.items.store');
-        Route::put('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'updateItem'])->name('invoices.items.update');
-        Route::delete('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'deleteItem'])->name('invoices.items.delete');
-        Route::patch('/invoices/{invoice}/discount', [InvoiceController::class, 'updateDiscount'])->name('invoices.discount.update');
-        Route::post('/invoices/{invoice}/payments/{payment}/reverse', [InvoiceController::class, 'reversePayment'])->name('invoices.payments.reverse');
-        Route::post('/invoices/{invoice}/dispute', [InvoiceController::class, 'dispute'])->name('invoices.dispute');
-        Route::post('/invoices/{invoice}/write-off', [InvoiceController::class, 'writeOff'])->name('invoices.write-off');
+        Route::middleware('permission:manage_invoices')->group(function () {
+            Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('invoices.payments.store');
+            Route::delete('/invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'deletePayment'])->name('invoices.payments.delete');
+            Route::post('/invoices/{invoice}/mark-sent', [InvoiceController::class, 'markSent'])->name('invoices.mark-sent');
+            Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('invoices.void');
+            Route::post('/invoices/{invoice}/convert-proforma', [InvoiceController::class, 'convertProforma'])->name('invoices.convert-proforma');
+            Route::post('/invoices/{invoice}/items', [InvoiceController::class, 'storeItem'])->name('invoices.items.store');
+            Route::put('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'updateItem'])->name('invoices.items.update');
+            Route::delete('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'deleteItem'])->name('invoices.items.delete');
+            Route::patch('/invoices/{invoice}/discount', [InvoiceController::class, 'updateDiscount'])->name('invoices.discount.update');
+            Route::post('/invoices/{invoice}/payments/{payment}/reverse', [InvoiceController::class, 'reversePayment'])->name('invoices.payments.reverse');
+            Route::post('/invoices/{invoice}/dispute', [InvoiceController::class, 'dispute'])->name('invoices.dispute');
+            Route::post('/invoices/{invoice}/write-off', [InvoiceController::class, 'writeOff'])->name('invoices.write-off');
+        });
     });
 
     // ── Clients (CRM) ────────────────────────────────────────────────────────
     Route::middleware('permission:view_clients')->group(function () {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
-        Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
-        Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
         Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
-        Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
-        Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
-        Route::post('/clients/{client}/contacts', [ClientController::class, 'storeContact'])->name('clients.contacts.store');
-        Route::delete('/clients/{client}/contacts/{contact}', [ClientController::class, 'destroyContact'])->name('clients.contacts.destroy');
-        Route::post('/clients/{client}/addresses', [ClientController::class, 'storeAddress'])->name('clients.addresses.store');
-        Route::delete('/clients/{client}/addresses/{address}', [ClientController::class, 'destroyAddress'])->name('clients.addresses.destroy');
+        Route::middleware('permission:manage_clients')->group(function () {
+            Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
+            Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+            Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
+            Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
+            Route::post('/clients/{client}/contacts', [ClientController::class, 'storeContact'])->name('clients.contacts.store');
+            Route::delete('/clients/{client}/contacts/{contact}', [ClientController::class, 'destroyContact'])->name('clients.contacts.destroy');
+            Route::post('/clients/{client}/addresses', [ClientController::class, 'storeAddress'])->name('clients.addresses.store');
+            Route::delete('/clients/{client}/addresses/{address}', [ClientController::class, 'destroyAddress'])->name('clients.addresses.destroy');
+        });
     });
 
-    // ── Fleet — Gensets ───────────────────────────────────────────────────────
+    // ── Fleet — Gensets, Deliveries, Maintenance ─────────────────────────────
     Route::middleware('permission:view_fleet')->group(function () {
         Route::get('/gensets', [GensetController::class, 'index'])->name('gensets.index');
-        Route::get('/gensets/create', [GensetController::class, 'create'])->name('gensets.create');
-        Route::post('/gensets', [GensetController::class, 'store'])->name('gensets.store');
-    Route::get('/gensets/{genset}', [GensetController::class, 'show'])->name('gensets.show');
-        Route::get('/gensets/{genset}/edit', [GensetController::class, 'edit'])->name('gensets.edit');
-        Route::put('/gensets/{genset}', [GensetController::class, 'update'])->name('gensets.update');
-        Route::delete('/gensets/{genset}', [GensetController::class, 'destroy'])->name('gensets.destroy');
-        Route::post('/gensets/{genset}/status', [GensetController::class, 'updateStatus'])->name('gensets.status');
+        Route::get('/gensets/{genset}', [GensetController::class, 'show'])->name('gensets.show');
+        Route::middleware('permission:manage_fleet')->group(function () {
+            Route::get('/gensets/create', [GensetController::class, 'create'])->name('gensets.create');
+            Route::post('/gensets', [GensetController::class, 'store'])->name('gensets.store');
+            Route::get('/gensets/{genset}/edit', [GensetController::class, 'edit'])->name('gensets.edit');
+            Route::put('/gensets/{genset}', [GensetController::class, 'update'])->name('gensets.update');
+            Route::delete('/gensets/{genset}', [GensetController::class, 'destroy'])->name('gensets.destroy');
+            Route::post('/gensets/{genset}/status', [GensetController::class, 'updateStatus'])->name('gensets.status');
+        });
 
         // ── Fleet — Deliveries ────────────────────────────────────────────────
         Route::get('/deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
-        Route::post('/deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
         Route::get('/deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
-        Route::post('/deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
-        Route::post('/deliveries/{delivery}/complete', [DeliveryController::class, 'complete'])->name('deliveries.complete');
-        Route::post('/deliveries/{delivery}/fail', [DeliveryController::class, 'fail'])->name('deliveries.fail');
+        Route::middleware('permission:manage_deliveries')->group(function () {
+            Route::post('/deliveries', [DeliveryController::class, 'store'])->name('deliveries.store');
+            Route::post('/deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
+            Route::post('/deliveries/{delivery}/complete', [DeliveryController::class, 'complete'])->name('deliveries.complete');
+            Route::post('/deliveries/{delivery}/fail', [DeliveryController::class, 'fail'])->name('deliveries.fail');
+        });
 
         // ── Fleet — Maintenance ───────────────────────────────────────────────
         Route::get('/maintenance', [MaintenanceController::class, 'index'])->name('maintenance.index');
-        Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
-        Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
         Route::get('/maintenance/{maintenance}', [MaintenanceController::class, 'show'])->name('maintenance.show');
-        Route::get('/maintenance/{maintenance}/edit', [MaintenanceController::class, 'edit'])->name('maintenance.edit');
-        Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
-        Route::delete('/maintenance/{maintenance}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
-        Route::post('/maintenance/{maintenance}/start', [MaintenanceController::class, 'start'])->name('maintenance.start');
-        Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
-        Route::post('/maintenance/{maintenance}/cancel', [MaintenanceController::class, 'cancel'])->name('maintenance.cancel');
+        Route::middleware('permission:manage_maintenance')->group(function () {
+            Route::get('/maintenance/create', [MaintenanceController::class, 'create'])->name('maintenance.create');
+            Route::post('/maintenance', [MaintenanceController::class, 'store'])->name('maintenance.store');
+            Route::get('/maintenance/{maintenance}/edit', [MaintenanceController::class, 'edit'])->name('maintenance.edit');
+            Route::put('/maintenance/{maintenance}', [MaintenanceController::class, 'update'])->name('maintenance.update');
+            Route::delete('/maintenance/{maintenance}', [MaintenanceController::class, 'destroy'])->name('maintenance.destroy');
+            Route::post('/maintenance/{maintenance}/start', [MaintenanceController::class, 'start'])->name('maintenance.start');
+            Route::post('/maintenance/{maintenance}/complete', [MaintenanceController::class, 'complete'])->name('maintenance.complete');
+            Route::post('/maintenance/{maintenance}/cancel', [MaintenanceController::class, 'cancel'])->name('maintenance.cancel');
+        });
     });
     // ── Inventory ─────────────────────────────────────────────────────────────
     Route::middleware('permission:view_inventory')->group(function () {
         Route::get('/inventory/categories', [InventoryCategoryController::class, 'index'])->name('inventory.categories.index');
-        Route::post('/inventory/categories', [InventoryCategoryController::class, 'store'])->name('inventory.categories.store');
-        Route::put('/inventory/categories/{category}', [InventoryCategoryController::class, 'update'])->name('inventory.categories.update');
-        Route::delete('/inventory/categories/{category}', [InventoryCategoryController::class, 'destroy'])->name('inventory.categories.destroy');
-
         Route::get('/inventory/items', [InventoryItemController::class, 'index'])->name('inventory.items.index');
-        Route::get('/inventory/items/create', [InventoryItemController::class, 'create'])->name('inventory.items.create');
-        Route::post('/inventory/items', [InventoryItemController::class, 'store'])->name('inventory.items.store');
         Route::get('/inventory/items/{item}', [InventoryItemController::class, 'show'])->name('inventory.items.show');
-        Route::get('/inventory/items/{item}/edit', [InventoryItemController::class, 'edit'])->name('inventory.items.edit');
-        Route::put('/inventory/items/{item}', [InventoryItemController::class, 'update'])->name('inventory.items.update');
-        Route::post('/inventory/items/{item}/adjust', [InventoryItemController::class, 'adjust'])->name('inventory.items.adjust');
-
         Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers.index');
-        Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
-        Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
         Route::get('/suppliers/{supplier}', [SupplierController::class, 'show'])->name('suppliers.show');
-        Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
-        Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
-
         Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->name('purchase-orders.index');
-        Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
-        Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
         Route::get('/purchase-orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('purchase-orders.show');
-        Route::post('/purchase-orders/{purchaseOrder}/send', [PurchaseOrderController::class, 'send'])->name('purchase-orders.send');
-        Route::post('/purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
-        Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+        Route::middleware('permission:manage_inventory')->group(function () {
+            Route::post('/inventory/categories', [InventoryCategoryController::class, 'store'])->name('inventory.categories.store');
+            Route::put('/inventory/categories/{category}', [InventoryCategoryController::class, 'update'])->name('inventory.categories.update');
+            Route::delete('/inventory/categories/{category}', [InventoryCategoryController::class, 'destroy'])->name('inventory.categories.destroy');
+            Route::get('/inventory/items/create', [InventoryItemController::class, 'create'])->name('inventory.items.create');
+            Route::post('/inventory/items', [InventoryItemController::class, 'store'])->name('inventory.items.store');
+            Route::get('/inventory/items/{item}/edit', [InventoryItemController::class, 'edit'])->name('inventory.items.edit');
+            Route::put('/inventory/items/{item}', [InventoryItemController::class, 'update'])->name('inventory.items.update');
+            Route::post('/inventory/items/{item}/adjust', [InventoryItemController::class, 'adjust'])->name('inventory.items.adjust');
+        });
+        Route::middleware('permission:manage_suppliers')->group(function () {
+            Route::get('/suppliers/create', [SupplierController::class, 'create'])->name('suppliers.create');
+            Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit');
+            Route::put('/suppliers/{supplier}', [SupplierController::class, 'update'])->name('suppliers.update');
+        });
+        Route::middleware('permission:manage_purchase_orders')->group(function () {
+            Route::get('/purchase-orders/create', [PurchaseOrderController::class, 'create'])->name('purchase-orders.create');
+            Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->name('purchase-orders.store');
+            Route::post('/purchase-orders/{purchaseOrder}/send', [PurchaseOrderController::class, 'send'])->name('purchase-orders.send');
+            Route::post('/purchase-orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('purchase-orders.receive');
+            Route::post('/purchase-orders/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('purchase-orders.cancel');
+        });
     });
 
     // ── Fuel Logs ─────────────────────────────────────────────────────────────
     Route::middleware('permission:view_fuel_logs')->group(function () {
         Route::get('/fuel-logs', [FuelLogController::class, 'index'])->name('fuel-logs.index');
-        Route::post('/fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
         Route::get('/fuel-logs/genset/{genset}', [FuelLogController::class, 'gensetLogs'])->name('fuel-logs.genset');
+        Route::middleware('permission:manage_fuel_logs')->group(function () {
+            Route::post('/fuel-logs', [FuelLogController::class, 'store'])->name('fuel-logs.store');
+        });
     });
 
     // ─── ACCOUNTING MODULE ────────────────────────────────────────────────────
+
+    // Chart of Accounts & Bank Accounts (core infrastructure — full accounting access)
     Route::middleware('permission:view_accounting')->group(function () {
-        // Chart of Accounts
-    Route::get('/accounting/accounts', [AccountController::class, 'index'])->name('accounting.accounts.index');
-    Route::get('/accounting/accounts/create', [AccountController::class, 'create'])->name('accounting.accounts.create');
-    Route::post('/accounting/accounts', [AccountController::class, 'store'])->name('accounting.accounts.store');
-    Route::get('/accounting/accounts/{account}', [AccountController::class, 'show'])->name('accounting.accounts.show');
-    Route::get('/accounting/accounts/{account}/edit', [AccountController::class, 'edit'])->name('accounting.accounts.edit');
-    Route::put('/accounting/accounts/{account}', [AccountController::class, 'update'])->name('accounting.accounts.update');
-    Route::delete('/accounting/accounts/{account}', [AccountController::class, 'destroy'])->name('accounting.accounts.destroy');
+        Route::get('/accounting/accounts', [AccountController::class, 'index'])->name('accounting.accounts.index');
+        Route::get('/accounting/accounts/{account}', [AccountController::class, 'show'])->name('accounting.accounts.show');
+        Route::get('/accounting/bank-accounts', [BankAccountController::class, 'index'])->name('accounting.bank-accounts.index');
+        Route::get('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'show'])->name('accounting.bank-accounts.show');
+        Route::middleware('permission:manage_accounting')->group(function () {
+            Route::get('/accounting/accounts/create', [AccountController::class, 'create'])->name('accounting.accounts.create');
+            Route::post('/accounting/accounts', [AccountController::class, 'store'])->name('accounting.accounts.store');
+            Route::get('/accounting/accounts/{account}/edit', [AccountController::class, 'edit'])->name('accounting.accounts.edit');
+            Route::put('/accounting/accounts/{account}', [AccountController::class, 'update'])->name('accounting.accounts.update');
+            Route::delete('/accounting/accounts/{account}', [AccountController::class, 'destroy'])->name('accounting.accounts.destroy');
+            Route::get('/accounting/bank-accounts/create', [BankAccountController::class, 'create'])->name('accounting.bank-accounts.create');
+            Route::post('/accounting/bank-accounts', [BankAccountController::class, 'store'])->name('accounting.bank-accounts.store');
+            Route::get('/accounting/bank-accounts/{bankAccount}/edit', [BankAccountController::class, 'edit'])->name('accounting.bank-accounts.edit');
+            Route::put('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])->name('accounting.bank-accounts.update');
+            Route::delete('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'destroy'])->name('accounting.bank-accounts.destroy');
+            Route::post('/accounting/account-transfers', [AccountTransferController::class, 'store'])->name('accounting.account-transfers.store');
+            // Expense Categories (admin setup)
+            Route::get('/accounting/expense-categories', [ExpenseCategoryController::class, 'index'])->name('accounting.expense-categories.index');
+            Route::get('/accounting/expense-categories/create', [ExpenseCategoryController::class, 'create'])->name('accounting.expense-categories.create');
+            Route::post('/accounting/expense-categories', [ExpenseCategoryController::class, 'store'])->name('accounting.expense-categories.store');
+            Route::get('/accounting/expense-categories/{expenseCategory}/edit', [ExpenseCategoryController::class, 'edit'])->name('accounting.expense-categories.edit');
+            Route::put('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'update'])->name('accounting.expense-categories.update');
+            Route::delete('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'destroy'])->name('accounting.expense-categories.destroy');
+        });
+    });
 
-    // Bank Accounts
-    Route::get('/accounting/bank-accounts', [BankAccountController::class, 'index'])->name('accounting.bank-accounts.index');
-    Route::get('/accounting/bank-accounts/create', [BankAccountController::class, 'create'])->name('accounting.bank-accounts.create');
-    Route::post('/accounting/bank-accounts', [BankAccountController::class, 'store'])->name('accounting.bank-accounts.store');
-    Route::get('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'show'])->name('accounting.bank-accounts.show');
-    Route::get('/accounting/bank-accounts/{bankAccount}/edit', [BankAccountController::class, 'edit'])->name('accounting.bank-accounts.edit');
-    Route::put('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])->name('accounting.bank-accounts.update');
-    Route::delete('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'destroy'])->name('accounting.bank-accounts.destroy');
+    // Journal Entries — full accounting OR dedicated view/manage access
+    Route::middleware('permission:view_accounting|view_journal_entries')->group(function () {
+        Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
+        Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
+        Route::middleware('permission:view_accounting|manage_accounting')->group(function () {
+            Route::get('/accounting/journal-entries/create', [JournalEntryController::class, 'create'])->name('accounting.journal-entries.create');
+            Route::post('/accounting/journal-entries', [JournalEntryController::class, 'store'])->name('accounting.journal-entries.store');
+            Route::post('/accounting/journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])->name('accounting.journal-entries.post');
+            Route::post('/accounting/journal-entries/{journalEntry}/reverse', [JournalEntryController::class, 'reverse'])->name('accounting.journal-entries.reverse');
+        });
+    });
 
-    // Account Transfers (between bank/cash accounts)
-    Route::post('/accounting/account-transfers', [AccountTransferController::class, 'store'])->name('accounting.account-transfers.store');
+    // Expenses — full accounting OR targeted view_expenses access
+    Route::middleware('permission:view_accounting|view_expenses')->group(function () {
+        Route::get('/accounting/expenses', [ExpenseController::class, 'index'])->name('accounting.expenses.index');
+        Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])->name('accounting.expenses.create');
+        Route::post('/accounting/expenses', [ExpenseController::class, 'store'])->name('accounting.expenses.store');
+        Route::get('/accounting/expenses/{expense}', [ExpenseController::class, 'show'])->name('accounting.expenses.show');
+        Route::delete('/accounting/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('accounting.expenses.destroy');
+        Route::middleware('permission:view_accounting|approve_payments')->group(function () {
+            Route::post('/accounting/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('accounting.expenses.approve');
+            Route::post('/accounting/expenses/{expense}/post', [ExpenseController::class, 'post'])->name('accounting.expenses.post');
+        });
+    });
 
-    // Journal Entries
-    Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
-    Route::get('/accounting/journal-entries/create', [JournalEntryController::class, 'create'])->name('accounting.journal-entries.create');
-    Route::post('/accounting/journal-entries', [JournalEntryController::class, 'store'])->name('accounting.journal-entries.store');
-    Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
-    Route::post('/accounting/journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])->name('accounting.journal-entries.post');
-    Route::post('/accounting/journal-entries/{journalEntry}/reverse', [JournalEntryController::class, 'reverse'])->name('accounting.journal-entries.reverse');
+    // Supplier Payments — full accounting OR targeted view_supplier_payments
+    Route::middleware('permission:view_accounting|view_supplier_payments')->group(function () {
+        Route::get('/accounting/supplier-payments', [SupplierPaymentController::class, 'index'])->name('accounting.supplier-payments.index');
+        Route::get('/accounting/supplier-payments/create', [SupplierPaymentController::class, 'create'])->name('accounting.supplier-payments.create');
+        Route::post('/accounting/supplier-payments', [SupplierPaymentController::class, 'store'])->name('accounting.supplier-payments.store');
+        Route::get('/accounting/supplier-payments/{supplierPayment}', [SupplierPaymentController::class, 'show'])->name('accounting.supplier-payments.show');
+        Route::post('/accounting/supplier-payments/{supplierPayment}/confirm', [SupplierPaymentController::class, 'confirm'])->name('accounting.supplier-payments.confirm');
+        Route::get('/accounting/supplier-payments/{supplierPayment}/remittance', [SupplierPaymentController::class, 'serveRemittance'])->name('accounting.supplier-payments.remittance');
+    });
 
-    // Expenses
-    Route::get('/accounting/expenses', [ExpenseController::class, 'index'])->name('accounting.expenses.index');
-    Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])->name('accounting.expenses.create');
-    Route::post('/accounting/expenses', [ExpenseController::class, 'store'])->name('accounting.expenses.store');
-    Route::get('/accounting/expenses/{expense}', [ExpenseController::class, 'show'])->name('accounting.expenses.show');
-    Route::post('/accounting/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('accounting.expenses.approve');
-    Route::post('/accounting/expenses/{expense}/post', [ExpenseController::class, 'post'])->name('accounting.expenses.post');
-    Route::delete('/accounting/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('accounting.expenses.destroy');
+    // Cash Requests (Petty Cash) — self-service: view_cash_requests lets staff submit requests
+    Route::middleware('permission:view_accounting|view_cash_requests')->group(function () {
+        Route::get('/accounting/cash-requests', [CashRequestController::class, 'index'])->name('accounting.cash-requests.index');
+        Route::get('/accounting/cash-requests/create', [CashRequestController::class, 'create'])->name('accounting.cash-requests.create');
+        Route::post('/accounting/cash-requests', [CashRequestController::class, 'store'])->name('accounting.cash-requests.store');
+        Route::get('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'show'])->name('accounting.cash-requests.show');
+        Route::get('/accounting/cash-requests/{cashRequest}/edit', [CashRequestController::class, 'edit'])->name('accounting.cash-requests.edit');
+        Route::put('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'update'])->name('accounting.cash-requests.update');
+        Route::delete('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'destroy'])->name('accounting.cash-requests.destroy');
+        Route::post('/accounting/cash-requests/{cashRequest}/submit', [CashRequestController::class, 'submit'])->name('accounting.cash-requests.submit');
+        Route::get('/accounting/cash-requests/{cashRequest}/receipt/{item}', [CashRequestController::class, 'downloadReceipt'])->name('accounting.cash-requests.receipt');
+        // Approval actions require approve_cash_requests (or full view_accounting)
+        Route::middleware('permission:view_accounting|approve_cash_requests')->group(function () {
+            Route::post('/accounting/cash-requests/{cashRequest}/approve', [CashRequestController::class, 'approve'])->name('accounting.cash-requests.approve');
+            Route::post('/accounting/cash-requests/{cashRequest}/reject', [CashRequestController::class, 'reject'])->name('accounting.cash-requests.reject');
+            Route::post('/accounting/cash-requests/{cashRequest}/pay', [CashRequestController::class, 'pay'])->name('accounting.cash-requests.pay');
+            Route::post('/accounting/cash-requests/{cashRequest}/retire', [CashRequestController::class, 'retire'])->name('accounting.cash-requests.retire');
+        });
+    });
 
-    // Expense Categories
-    Route::get('/accounting/expense-categories', [ExpenseCategoryController::class, 'index'])->name('accounting.expense-categories.index');
-    Route::get('/accounting/expense-categories/create', [ExpenseCategoryController::class, 'create'])->name('accounting.expense-categories.create');
-    Route::post('/accounting/expense-categories', [ExpenseCategoryController::class, 'store'])->name('accounting.expense-categories.store');
-    Route::get('/accounting/expense-categories/{expenseCategory}/edit', [ExpenseCategoryController::class, 'edit'])->name('accounting.expense-categories.edit');
-    Route::put('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'update'])->name('accounting.expense-categories.update');
-    Route::delete('/accounting/expense-categories/{expenseCategory}', [ExpenseCategoryController::class, 'destroy'])->name('accounting.expense-categories.destroy');
-
-    // Supplier Payments (AP)
-    Route::get('/accounting/supplier-payments', [SupplierPaymentController::class, 'index'])->name('accounting.supplier-payments.index');
-    Route::get('/accounting/supplier-payments/create', [SupplierPaymentController::class, 'create'])->name('accounting.supplier-payments.create');
-    Route::post('/accounting/supplier-payments', [SupplierPaymentController::class, 'store'])->name('accounting.supplier-payments.store');
-    Route::get('/accounting/supplier-payments/{supplierPayment}', [SupplierPaymentController::class, 'show'])->name('accounting.supplier-payments.show');
-    Route::post('/accounting/supplier-payments/{supplierPayment}/confirm', [SupplierPaymentController::class, 'confirm'])->name('accounting.supplier-payments.confirm');
-    Route::get('/accounting/supplier-payments/{supplierPayment}/remittance', [SupplierPaymentController::class, 'serveRemittance'])->name('accounting.supplier-payments.remittance');
-
-    // Cash Requests (Petty Cash)
-    Route::get('/accounting/cash-requests', [CashRequestController::class, 'index'])->name('accounting.cash-requests.index');
-    Route::get('/accounting/cash-requests/create', [CashRequestController::class, 'create'])->name('accounting.cash-requests.create');
-    Route::post('/accounting/cash-requests', [CashRequestController::class, 'store'])->name('accounting.cash-requests.store');
-    Route::get('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'show'])->name('accounting.cash-requests.show');
-    Route::get('/accounting/cash-requests/{cashRequest}/edit', [CashRequestController::class, 'edit'])->name('accounting.cash-requests.edit');
-    Route::put('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'update'])->name('accounting.cash-requests.update');
-    Route::delete('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'destroy'])->name('accounting.cash-requests.destroy');
-    Route::post('/accounting/cash-requests/{cashRequest}/submit', [CashRequestController::class, 'submit'])->name('accounting.cash-requests.submit');
-    Route::post('/accounting/cash-requests/{cashRequest}/approve', [CashRequestController::class, 'approve'])->name('accounting.cash-requests.approve');
-    Route::post('/accounting/cash-requests/{cashRequest}/reject', [CashRequestController::class, 'reject'])->name('accounting.cash-requests.reject');
-    Route::post('/accounting/cash-requests/{cashRequest}/pay', [CashRequestController::class, 'pay'])->name('accounting.cash-requests.pay');
-    Route::post('/accounting/cash-requests/{cashRequest}/retire', [CashRequestController::class, 'retire'])->name('accounting.cash-requests.retire');
-    Route::get('/accounting/cash-requests/{cashRequest}/receipt/{item}', [CashRequestController::class, 'downloadReceipt'])->name('accounting.cash-requests.receipt');
-
-    // Credit Notes
-    Route::get('/accounting/credit-notes', [CreditNoteController::class, 'index'])->name('accounting.credit-notes.index');
-    Route::get('/accounting/credit-notes/create', [CreditNoteController::class, 'create'])->name('accounting.credit-notes.create');
-    Route::post('/accounting/credit-notes', [CreditNoteController::class, 'store'])->name('accounting.credit-notes.store');
-    Route::get('/accounting/credit-notes/{creditNote}', [CreditNoteController::class, 'show'])->name('accounting.credit-notes.show');
-    Route::post('/accounting/credit-notes/{creditNote}/issue', [CreditNoteController::class, 'issue'])->name('accounting.credit-notes.issue');
-    Route::post('/accounting/credit-notes/{creditNote}/void', [CreditNoteController::class, 'void'])->name('accounting.credit-notes.void');
-    }); // end view_accounting
+    // Credit Notes — full accounting OR targeted view_credit_notes
+    Route::middleware('permission:view_accounting|view_credit_notes')->group(function () {
+        Route::get('/accounting/credit-notes', [CreditNoteController::class, 'index'])->name('accounting.credit-notes.index');
+        Route::get('/accounting/credit-notes/create', [CreditNoteController::class, 'create'])->name('accounting.credit-notes.create');
+        Route::post('/accounting/credit-notes', [CreditNoteController::class, 'store'])->name('accounting.credit-notes.store');
+        Route::get('/accounting/credit-notes/{creditNote}', [CreditNoteController::class, 'show'])->name('accounting.credit-notes.show');
+        Route::post('/accounting/credit-notes/{creditNote}/issue', [CreditNoteController::class, 'issue'])->name('accounting.credit-notes.issue');
+        Route::post('/accounting/credit-notes/{creditNote}/void', [CreditNoteController::class, 'void'])->name('accounting.credit-notes.void');
+    });
 
     // ── Reports (Tax + Financial) ─────────────────────────────────────────────
     Route::middleware('permission:view_reports')->group(function () {
