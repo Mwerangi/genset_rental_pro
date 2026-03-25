@@ -1,5 +1,5 @@
 <x-admin-layout>
-    @permission('manage_quotations')
+    @permission('approve_quotations')
     <!-- Accept Confirmation Modal -->
     <div
         x-data="{ open: false }"
@@ -327,7 +327,7 @@
 
                     @if(in_array($quotation->status, ['draft', 'sent', 'viewed']))
                         <!-- Approve -->
-                        @permission('manage_quotations')
+                        @permission('approve_quotations')
                         <button
                             type="button"
                             @click="$dispatch('open-accept-modal')"

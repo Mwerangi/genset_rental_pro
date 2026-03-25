@@ -16,8 +16,7 @@
             </div>
         </div>
         <div class="flex gap-2">
-            @if($creditNote->status === 'draft')
-            @permission('manage_invoices')
+            @permission('issue_credit_notes')
             <form method="POST" action="{{ route('admin.accounting.credit-notes.issue', $creditNote) }}">
                 @csrf
                 <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -27,7 +26,7 @@
             </form>
             @endpermission
             @elseif($creditNote->status === 'issued')
-            @permission('manage_invoices')
+            @permission('void_credit_notes')
             <form method="POST" action="{{ route('admin.accounting.credit-notes.void', $creditNote) }}">
                 @csrf
                 <button type="submit" class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50"

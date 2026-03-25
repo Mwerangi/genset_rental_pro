@@ -20,6 +20,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '1150', 'name' => 'Inventory Asset',                'type' => 'asset',     'sub_type' => 'current_asset',  'normal_balance' => 'debit',  'is_system' => true,  'parent_code' => '1100'],
             ['code' => '1160', 'name' => 'Staff Advances',                 'type' => 'asset',     'sub_type' => 'current_asset',  'normal_balance' => 'debit',  'is_system' => true,  'parent_code' => '1100'],
             ['code' => '1170', 'name' => 'Prepaid Expenses',               'type' => 'asset',     'sub_type' => 'current_asset',  'normal_balance' => 'debit',  'is_system' => false, 'parent_code' => '1100'],
+            ['code' => '1180', 'name' => 'VAT Input (Recoverable)',         'type' => 'asset',     'sub_type' => 'current_asset',  'normal_balance' => 'debit',  'is_system' => true,  'parent_code' => '1100'],
             ['code' => '1200', 'name' => 'Fixed Assets',                   'type' => 'asset',     'sub_type' => 'fixed_asset',    'normal_balance' => 'debit',  'is_system' => false, 'parent_code' => '1000'],
             ['code' => '1210', 'name' => 'Generator Fleet — Cost',         'type' => 'asset',     'sub_type' => 'fixed_asset',    'normal_balance' => 'debit',  'is_system' => false, 'parent_code' => '1200'],
             ['code' => '1220', 'name' => 'Vehicles',                       'type' => 'asset',     'sub_type' => 'fixed_asset',    'normal_balance' => 'debit',  'is_system' => false, 'parent_code' => '1200'],

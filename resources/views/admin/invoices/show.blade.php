@@ -51,20 +51,26 @@
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
-                @permission('manage_invoices')
                 @if($invoice->status === 'draft')
+                    @permission('send_invoices')
                     <button onclick="document.getElementById('mark-sent-modal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border" style="border-color:#2563eb;color:#2563eb;">Mark as Sent</button>
+                    @endpermission
                 @endif
                 @if(!in_array($invoice->status, ['void','paid','written_off','declined']))
+                    @permission('write_off_invoices')
                     <button onclick="document.getElementById('dispute-modal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border border-amber-400 text-amber-700 hover:bg-amber-50">Dispute</button>
+                    @endpermission
                 @endif
                 @if($invoice->status === 'disputed')
+                    @permission('write_off_invoices')
                     <button onclick="document.getElementById('writeoff-modal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-400 text-gray-600 hover:bg-gray-50">Write Off</button>
+                    @endpermission
                 @endif
                 @if(!in_array($invoice->status, ['void','paid','written_off']))
+                    @permission('void_invoices')
                     <button onclick="document.getElementById('void-modal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-600 hover:bg-gray-50">Void</button>
+                    @endpermission
                 @endif
-                @endpermission
                 <a href="{{ route('admin.invoices.pdf', $invoice) }}" target="_blank" class="px-4 py-2 rounded-lg text-sm font-semibold text-white flex items-center gap-2" style="background:#dc2626;">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     Download PDF
@@ -192,7 +198,7 @@
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 class="font-semibold text-gray-800">Payment History</h2>
                     @if(!in_array($invoice->status, ['void','declined','written_off','paid']))
-                        @permission('manage_invoices')
+                        @permission('record_invoice_payment')
                         <button onclick="document.getElementById('payment-modal').classList.remove('hidden')" class="text-sm px-3 py-1.5 rounded-lg font-semibold text-white" style="background:#dc2626;">
                             + Record Payment
                         </button>
@@ -226,7 +232,7 @@
                                 <td class="px-5 py-3 text-right font-semibold {{ $payment->is_reversed ? 'line-through text-gray-400' : 'text-gray-900' }}">{{ $invoice->currencySymbol() }} {{ number_format($payment->amount, 0) }}</td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
                                     @if(!$payment->is_reversed && !in_array($invoice->status, ['void','declined']))
-                                        @permission('manage_invoices')
+                                        @permission('record_invoice_payment')
                                         <button
                                             onclick="openReverseModal({{ $payment->id }})"
                                             class="text-xs px-2 py-1 rounded border border-amber-300 text-amber-700 hover:bg-amber-50" title="Reverse this payment">

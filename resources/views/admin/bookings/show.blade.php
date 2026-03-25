@@ -427,6 +427,22 @@
                 </div>
                 <div class="px-5 py-4 space-y-3">
 
+                    {{-- EDIT: available for created and approved --}}
+                    @if(in_array($booking->status, ['created', 'approved']))
+                        @permission('edit_bookings')
+                        <a href="{{ route('admin.bookings.edit', $booking) }}"
+                           class="block w-full px-4 py-2.5 rounded-lg text-center font-semibold text-sm transition"
+                           style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;"
+                           onmouseover="this.style.background='#e5e7eb'"
+                           onmouseout="this.style.background='#f3f4f6'">
+                            ✏️ Edit Booking
+                            @if($booking->status === 'approved')
+                                <span class="block text-xs font-normal" style="color:#b45309;">Will require re-approval</span>
+                            @endif
+                        </a>
+                        @endpermission
+                    @endif
+
                     {{-- CREATED: Approve or Reject --}}
                     @if($booking->canBeApproved())
                         @permission('approve_bookings')
@@ -443,8 +459,21 @@
                         @endpermission
                     @endif
 
+                    {{-- CONTRACT: Download for approved and beyond --}}
+                    @if(in_array($booking->status, ['approved', 'active', 'returned', 'paid']))
+                        <a href="{{ route('admin.bookings.contract', $booking) }}"
+                           target="_blank"
+                           class="block w-full px-4 py-2.5 rounded-lg text-center font-semibold text-sm text-white transition"
+                           style="background:#1d4ed8;"
+                           onmouseover="this.style.background='#1e40af'"
+                           onmouseout="this.style.background='#1d4ed8'">
+                            📋 Download Contract
+                        </a>
+                    @endif
+
                     {{-- APPROVED: Generate Invoice + Deploy --}}
                     @if($booking->canBeActivated())
+                        @permission('create_invoices')
                         @if(!$booking->invoice_id)
                             <button type="button" onclick="document.getElementById('modal-generate-invoice').classList.remove('hidden')" class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition" style="background:#ea580c;" onmouseover="this.style.background='#c2410c'" onmouseout="this.style.background='#ea580c'">
                                 📄 Generate Invoice
@@ -454,14 +483,18 @@
                                 📄 View Invoice
                             </a>
                         @endif
+                        @endpermission
+                        @permission('activate_bookings')
                         <button type="button" onclick="document.getElementById('modal-deploy').classList.remove('hidden')"
                             class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition" style="background:#dc2626;" onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
                             ⚡ Deploy Genset — Mark Active
                         </button>
+                        @endpermission
                     @endif
 
                     {{-- ACTIVE: Generate or View Invoice + Mark Returned --}}
                     @if($booking->canBeMarkedReturned())
+                        @permission('create_invoices')
                         @if($booking->invoice_id)
                             <a href="{{ route('admin.invoices.show', $booking->invoice) }}" class="block w-full px-4 py-2.5 rounded-lg text-center font-semibold text-sm" style="background:#fef9c3;color:#854d0e;border:1px solid #fcd34d;">
                                 📄 View Invoice
@@ -471,16 +504,20 @@
                                 📄 Generate Invoice
                             </button>
                         @endif
+                        @endpermission
+                        @permission('return_bookings')
                         <form method="POST" action="{{ route('admin.bookings.return', $booking) }}">
                             @csrf
                             <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm text-white transition" style="background:#9333ea;" onmouseover="this.style.background='#7e22ce'" onmouseout="this.style.background='#9333ea'">
                                 ↩ Mark as Returned
                             </button>
                         </form>
+                        @endpermission
                     @endif
 
                     {{-- RETURNED: View or Generate Invoice --}}
                     @if($booking->status === 'returned')
+                        @permission('create_invoices')
                         @if($booking->invoice_id)
                             <a href="{{ route('admin.invoices.show', $booking->invoice) }}" class="block w-full px-4 py-2.5 rounded-lg text-center font-semibold text-sm" style="background:#fef9c3;color:#854d0e;border:1px solid #fcd34d;">
                                 📄 View Invoice
@@ -490,6 +527,7 @@
                                 📄 Generate Invoice
                             </button>
                         @endif
+                        @endpermission
                     @endif
 
                     {{-- INVOICED: Mark Paid --}}
@@ -513,12 +551,14 @@
                     @endif
 
                     {{-- Cancel (available for created/approved/active) --}}
+                    @permission('cancel_bookings')
                     @if($booking->canBeCancelled())
                         <button type="button" onclick="document.getElementById('modal-cancel').classList.remove('hidden')"
                             class="w-full px-4 py-2.5 rounded-lg font-semibold text-sm border border-gray-300 text-gray-600 hover:bg-gray-50 transition">
                             Cancel Booking
                         </button>
                     @endif
+                    @endpermission
 
                     {{-- Static links --}}
                     @if($booking->quoteRequest)

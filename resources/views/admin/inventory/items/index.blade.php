@@ -6,10 +6,12 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ route('admin.inventory.categories.index') }}" class="px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">Categories</a>
+            @permission('create_inventory_items')
             <a href="{{ route('admin.inventory.items.create') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 Add Item
             </a>
+            @endpermission
         </div>
     </div>
 
@@ -53,7 +55,9 @@
         @if($items->isEmpty())
             <div class="px-6 py-16 text-center text-gray-400">
                 <p class="text-sm">No items found.</p>
+                @permission('create_inventory_items')
                 <a href="{{ route('admin.inventory.items.create') }}" class="mt-2 inline-block text-sm text-red-600 hover:underline">Add first item</a>
+                @endpermission
             </div>
         @else
             <table class="w-full text-sm">

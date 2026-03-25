@@ -5,10 +5,12 @@
             <h1 class="text-2xl font-bold text-gray-900">Fleet Management</h1>
             <p class="text-gray-500 mt-1">All generators in the Milele Power fleet</p>
         </div>
+        @permission('create_gensets')
         <a href="{{ route('admin.gensets.create') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition" style="background:#dc2626;" onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             Add Genset
         </a>
+        @endpermission
     </div>
 
 
@@ -75,7 +77,9 @@
             <div class="text-center py-16">
                 <svg class="w-16 h-16 mx-auto text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 <p class="text-gray-500 font-medium">No gensets found</p>
+                @permission('create_gensets')
                 <a href="{{ route('admin.gensets.create') }}" class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;">Add your first genset</a>
+                @endpermission
             </div>
         @else
             <table class="w-full text-sm">

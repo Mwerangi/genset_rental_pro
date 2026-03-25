@@ -173,9 +173,9 @@
                     @endpermission
 
                     {{-- Fleet --}}
-                    @permission('view_fleet')
+                    @permission('view_fleet', 'view_maintenance', 'view_deliveries')
                     <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" @keydown.escape="open = false" class="{{ request()->routeIs('admin.gensets.*') || request()->routeIs('admin.maintenance.*') ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-600 hover:bg-gray-50' }} flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap">
+                        <button @click="open = !open" @keydown.escape="open = false" class="{{ request()->routeIs('admin.gensets.*') || request()->routeIs('admin.maintenance.*') || request()->routeIs('admin.deliveries.*') ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-600 hover:bg-gray-50' }} flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                             Fleet
                             <svg class="w-3 h-3 ml-0.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -184,14 +184,23 @@
                              x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                              class="nav-dd absolute top-full left-1/2 -translate-x-1/2 mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                             @php $totalGensets = \App\Models\Genset::count(); $activeMaintenance = \App\Models\MaintenanceRecord::whereIn('status',['scheduled','in_progress'])->count(); @endphp
+                            @permission('view_fleet')
                             <a href="{{ route('admin.gensets.index') }}" class="{{ request()->routeIs('admin.gensets.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                 <span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Generators</span>
                                 @if($totalGensets > 0)<span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-600 text-white">{{ $totalGensets }}</span>@endif
                             </a>
+                            @endpermission
+                            @permission('view_deliveries')
+                            <a href="{{ route('admin.deliveries.index') }}" class="{{ request()->routeIs('admin.deliveries.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>Deliveries
+                            </a>
+                            @endpermission
+                            @permission('view_maintenance')
                             <a href="{{ route('admin.maintenance.index') }}" class="{{ request()->routeIs('admin.maintenance.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                 <span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Maintenance</span>
                                 @if($activeMaintenance > 0)<span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-600 text-white">{{ $activeMaintenance }}</span>@endif
                             </a>
+                            @endpermission
                         </div>
                     </div>
                     @endpermission
@@ -206,7 +215,7 @@
                     @endpermission
 
                     {{-- Inventory --}}
-                    @permission('view_inventory', 'view_fuel_logs')
+                    @permission('view_inventory', 'view_fuel_logs', 'view_suppliers', 'view_purchase_orders')
                     @php
                         $lowStockItems = \App\Models\InventoryItem::where('is_active', true)->whereColumn('current_stock', '<=', 'min_stock_level')->where('min_stock_level', '>', 0)->count();
                         $pendingPOs = \App\Models\PurchaseOrder::whereIn('status', ['draft', 'sent', 'partial'])->count();
@@ -221,23 +230,31 @@
                         <div x-show="open" @click.away="open = false" x-cloak
                              x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                              class="nav-dd absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                            @permission('view_inventory')
                             <a href="{{ route('admin.inventory.items.index') }}" class="{{ request()->routeIs('admin.inventory.items.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                 <span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Stock Items</span>
                                 @if($lowStockItems > 0)<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">{{ $lowStockItems }} low</span>@endif
                             </a>
+                            <a href="{{ route('admin.inventory.categories.index') }}" class="{{ request()->routeIs('admin.inventory.categories.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>Categories
+                            </a>
+                            @endpermission
+                            @permission('view_purchase_orders')
                             <a href="{{ route('admin.purchase-orders.index') }}" class="{{ request()->routeIs('admin.purchase-orders.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center justify-between gap-2 px-4 py-2 text-sm">
                                 <span class="flex items-center gap-2"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>Purchase Orders</span>
                                 @if($pendingPOs > 0)<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-800">{{ $pendingPOs }}</span>@endif
                             </a>
+                            @endpermission
+                            @permission('view_suppliers')
                             <a href="{{ route('admin.suppliers.index') }}" class="{{ request()->routeIs('admin.suppliers.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>Suppliers
                             </a>
+                            @endpermission
+                            @permission('view_fuel_logs')
                             <a href="{{ route('admin.fuel-logs.index') }}" class="{{ request()->routeIs('admin.fuel-logs.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>Fuel Logs
                             </a>
-                            <a href="{{ route('admin.inventory.categories.index') }}" class="{{ request()->routeIs('admin.inventory.categories.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>Categories
-                            </a>
+                            @endpermission
                         </div>
                     </div>
                     @endpermission
@@ -329,7 +346,7 @@
                     @endpermission
 
                     {{-- Reports --}}
-                    @permission('view_reports')
+                    @permission('view_sales_reports', 'view_fleet_reports', 'view_financial_reports', 'view_expense_reports', 'view_inventory_reports', 'view_executive_reports')
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" @keydown.escape="open = false" class="{{ request()->routeIs('admin.reports.*') ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-600 hover:bg-gray-50' }} flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0120 9.414V19a2 2 0 01-2 2z"/></svg>
@@ -389,7 +406,7 @@
                         <div x-show="open" @click.away="open = false" x-cloak
                              x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                              class="nav-dd absolute top-full right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                            @permission('manage_users')
+                            @permission('view_users')
                             <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>Users
                             </a>
@@ -426,10 +443,14 @@
                     @permission('view_bookings')
                     <a href="{{ route('admin.bookings.index') }}" class="{{ request()->routeIs('admin.bookings.index') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Bookings</a>
                     <a href="{{ route('admin.bookings.active-rentals') }}" class="{{ request()->routeIs('admin.bookings.active-rentals') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Active Rentals</a>
+                    @endpermission
+                    @permission('view_deliveries')
                     <a href="{{ route('admin.deliveries.index') }}" class="{{ request()->routeIs('admin.deliveries.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Deliveries</a>
                     @endpermission
                     @permission('view_fleet')
                     <a href="{{ route('admin.gensets.index') }}" class="{{ request()->routeIs('admin.gensets.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Generators</a>
+                    @endpermission
+                    @permission('view_maintenance')
                     <a href="{{ route('admin.maintenance.index') }}" class="{{ request()->routeIs('admin.maintenance.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Maintenance</a>
                     @endpermission
                     @permission('view_clients')
@@ -437,6 +458,8 @@
                     @endpermission
                     @permission('view_inventory')
                     <a href="{{ route('admin.inventory.items.index') }}" class="{{ request()->routeIs('admin.inventory.items.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Stock Items</a>
+                    @endpermission
+                    @permission('view_purchase_orders')
                     <a href="{{ route('admin.purchase-orders.index') }}" class="text-gray-700 hover:bg-gray-50 hover:text-red-600 flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Purchase Orders</a>
                     @endpermission
                     @permission('view_accounting', 'view_invoices')
@@ -444,10 +467,10 @@
                     <a href="{{ route('admin.accounting.expenses.index') }}" class="text-gray-700 hover:bg-gray-50 hover:text-red-600 flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Expenses</a>
                     <a href="{{ route('admin.accounting.cash-requests.index') }}" class="text-gray-700 hover:bg-gray-50 hover:text-red-600 flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Cash Requests</a>
                     @endpermission
-                    @permission('view_reports')
+                    @permission('view_sales_reports', 'view_fleet_reports', 'view_financial_reports', 'view_expense_reports', 'view_inventory_reports', 'view_executive_reports')
                     <a href="{{ route('admin.reports.executive-summary') }}" class="{{ request()->routeIs('admin.reports.executive-summary') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Executive Summary</a>
                     @endpermission
-                    @permission('manage_users')
+                    @permission('view_users')
                     <a href="{{ route('admin.users.index') }}" class="text-gray-700 hover:bg-gray-50 hover:text-red-600 flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Users</a>
                     @endpermission
                 </div>

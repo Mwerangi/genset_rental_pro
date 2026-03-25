@@ -101,6 +101,7 @@
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4 space-y-2">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3">Actions</h3>
 
+                @permission('toggle_user_status')
                 @if($user->id !== auth()->id())
                 <form method="POST" action="{{ route('admin.users.toggle-status', $user) }}">
                     @csrf
@@ -110,7 +111,9 @@
                     </button>
                 </form>
                 @endif
+                @endpermission
 
+                @permission('unlock_users')
                 @if($user->isLocked())
                 <form method="POST" action="{{ route('admin.users.unlock', $user) }}">
                     @csrf
@@ -119,6 +122,7 @@
                     </button>
                 </form>
                 @endif
+                @endpermission
 
                 <a href="{{ route('admin.users.activity-log', $user) }}"
                    class="block px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition border border-gray-200">
@@ -127,6 +131,7 @@
             </div>
 
             <!-- Reset Password -->
+            @permission('reset_user_password')
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4" x-data="{ open: false }">
                 <button @click="open = !open" class="w-full text-left text-sm font-semibold text-gray-700 flex items-center justify-between">
                     <span>🔑 Reset Password</span>
@@ -154,6 +159,7 @@
                     </form>
                 </div>
             </div>
+            @endpermission
         </div>
 
         <!-- Activity Log -->

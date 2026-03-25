@@ -4,10 +4,12 @@
             <h1 class="text-2xl font-bold text-gray-900">Maintenance</h1>
             <p class="text-gray-500 mt-1">Fleet servicing, repairs and inspections</p>
         </div>
+        @permission('create_maintenance')
         <a href="{{ route('admin.maintenance.create') }}" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             New Record
         </a>
+        @endpermission
     </div>
 
     {{-- Stats --}}
@@ -77,7 +79,9 @@
             <div class="px-6 py-16 text-center text-gray-400">
                 <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/></svg>
                 <p class="text-sm">No maintenance records found</p>
+                @permission('create_maintenance')
                 <a href="{{ route('admin.maintenance.create') }}" class="mt-3 inline-block text-sm text-red-600 hover:underline">Create first record</a>
+                @endpermission
             </div>
         @else
             <table class="w-full text-sm">

@@ -16,12 +16,22 @@
         </div>
         <div class="flex flex-wrap gap-2">
             @if($maintenance->status === 'scheduled')
+                @permission('start_maintenance')
                 <button onclick="document.getElementById('startModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#b45309;">Start Work</button>
+                @endpermission
+                @permission('edit_maintenance')
                 <a href="{{ route('admin.maintenance.edit', $maintenance) }}" class="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">Edit</a>
+                @endpermission
+                @permission('cancel_maintenance')
                 <button onclick="document.getElementById('cancelModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-600 hover:bg-red-50">Cancel</button>
+                @endpermission
             @elseif($maintenance->status === 'in_progress')
+                @permission('complete_maintenance')
                 <button onclick="document.getElementById('completeModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#16a34a;">Mark Completed</button>
+                @endpermission
+                @permission('cancel_maintenance')
                 <button onclick="document.getElementById('cancelModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold border border-red-300 text-red-600 hover:bg-red-50">Cancel</button>
+                @endpermission
             @endif
         </div>
     </div>

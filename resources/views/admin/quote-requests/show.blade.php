@@ -132,12 +132,15 @@
                     <div class="flex flex-wrap gap-3">
                         <a href="{{ route('admin.quotations.show', $quotation) }}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">View Details</a>
 
+                        @permission('edit_quotations')
                         @if($quotation->canBeEdited())
                             <a href="{{ route('admin.quotations.edit', $quotation) }}" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium transition">Edit &amp; Resend</a>
                         @endif
+                        @endpermission
 
                         <a href="{{ route('admin.quotations.download-pdf', $quotation) }}" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Download PDF</a>
 
+                        @permission('approve_quotations')
                         @if(in_array($quotation->status, ['draft', 'sent', 'viewed']))
                             <div x-data="{ open: false }">
                                 <!-- Trigger -->
@@ -195,6 +198,7 @@
                                 class="px-4 py-2 border border-red-300 hover:bg-red-50 text-red-700 rounded-lg text-sm font-medium transition"
                             >Reject Quotation</button>
                         @endif
+                        @endpermission
                     </div>
                 </x-card>
             @else
@@ -273,15 +277,20 @@
                 <h2 class="text-lg font-semibold text-slate-900 mb-4">Quick Actions</h2>
                 <div class="space-y-3">
                     @if($quoteRequest->status !== 'converted' && $quoteRequest->status !== 'rejected')
+                        @permission('create_quotations')
                         @if(!$quotation)
                             <x-button href="{{ route('admin.quotations.create', ['quote_request_id' => $quoteRequest->id]) }}" class="w-full justify-center">
                                 Create Quotation
                             </x-button>
-                        @elseif($quotation->canBeEdited())
+                        @endif
+                        @endpermission
+                        @permission('edit_quotations')
+                        @if($quotation && $quotation->canBeEdited())
                             <a href="{{ route('admin.quotations.edit', $quotation) }}" class="block w-full px-4 py-2 bg-red-600 text-white rounded-lg text-center hover:bg-red-700 transition font-medium">
                                 Edit &amp; Resend Quotation
                             </a>
                         @endif
+                        @endpermission
 
                         @if($quotation && $quotation->booking)
                             <a href="{{ route('admin.bookings.show', $quotation->booking) }}" class="block w-full px-4 py-2 bg-green-600 text-white rounded-lg text-center hover:bg-green-700 transition font-medium">
@@ -293,6 +302,7 @@
                             Send Email
                         </a>
 
+                        @permission('review_quote_requests')
                         @if($quoteRequest->status === 'new')
                             <form method="POST" action="{{ route('admin.quote-requests.mark-as-reviewed', $quoteRequest->id) }}">
                                 @csrf
@@ -301,10 +311,10 @@
                                 </button>
                             </form>
                         @endif
-
                         <button onclick="document.getElementById('reject-modal').classList.remove('hidden')" class="w-full px-4 py-2 border border-red-300 rounded-lg text-center text-red-700 hover:bg-red-50 transition font-medium">
                             Reject Request
                         </button>
+                        @endpermission
                     @endif
                 </div>
             </x-card>

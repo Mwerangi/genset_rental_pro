@@ -13,7 +13,83 @@ class JournalEntryController extends Controller
 {
     public function index(Request $request)
     {
-        $query = JournalEntry::with(['lines.account', 'createdBy'])->latest('entry_date');
+        $query = $this->buildQuery($request);
+
+        // Most-recent dates at top; within the same date the oldest entry first → newest last
+        $entries = $query->orderBy('entry_date', 'desc')
+                         ->orderBy('created_at', 'asc')
+                         ->paginate(10)
+                         ->withQueryString();
+
+        $stats = [
+            'total'  => JournalEntry::count(),
+            'draft'  => JournalEntry::where('status', 'draft')->count(),
+            'posted' => JournalEntry::where('status', 'posted')->count(),
+        ];
+
+        return view('admin.accounting.journal-entries.index', compact('entries', 'stats'));
+    }
+
+    public function export(Request $request)
+    {
+        $entries = $this->buildQuery($request)
+            ->with(['lines.account', 'createdBy'])
+            ->orderBy('entry_date', 'desc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $filename = 'journal-entries-' . now()->format('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ];
+
+        $callback = function () use ($entries) {
+            $handle = fopen('php://output', 'w');
+
+            // UTF-8 BOM so Excel opens it correctly
+            fputs($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Entry #', 'Date', 'Description', 'Source', 'Status',
+                'DR Account Code', 'DR Account Name', 'CR Account Code', 'CR Account Name',
+                'Total Debit (TZS)', 'Created By',
+            ]);
+
+            foreach ($entries as $je) {
+                $drLines = $je->lines->filter(fn($l) => $l->debit > 0);
+                $crLines = $je->lines->filter(fn($l) => $l->credit > 0);
+
+                $drCodes = $drLines->map(fn($l) => $l->account?->code ?? '')->join(' / ');
+                $drNames = $drLines->map(fn($l) => $l->account?->name ?? '')->join(' / ');
+                $crCodes = $crLines->map(fn($l) => $l->account?->code ?? '')->join(' / ');
+                $crNames = $crLines->map(fn($l) => $l->account?->name ?? '')->join(' / ');
+
+                fputcsv($handle, [
+                    $je->entry_number,
+                    $je->entry_date?->format('d/m/Y'),
+                    $je->description,
+                    ucfirst(str_replace('_', ' ', $je->source_type ?? 'manual')),
+                    ucfirst($je->status),
+                    $drCodes,
+                    $drNames,
+                    $crCodes,
+                    $crNames,
+                    number_format($je->lines->sum('debit'), 2, '.', ''),
+                    $je->createdBy?->name ?? '',
+                ]);
+            }
+
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    private function buildQuery(Request $request)
+    {
+        $query = JournalEntry::with(['lines.account', 'createdBy']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -36,15 +112,7 @@ class JournalEntryController extends Controller
             });
         }
 
-        $entries = $query->paginate(30)->withQueryString();
-
-        $stats = [
-            'total'  => JournalEntry::count(),
-            'draft'  => JournalEntry::where('status', 'draft')->count(),
-            'posted' => JournalEntry::where('status', 'posted')->count(),
-        ];
-
-        return view('admin.accounting.journal-entries.index', compact('entries', 'stats'));
+        return $query;
     }
 
     public function create()

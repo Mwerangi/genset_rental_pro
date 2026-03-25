@@ -326,6 +326,61 @@ class BookingController extends Controller
             ->with('success', 'Booking ' . $booking->booking_number . ' has been cancelled.');
     }
 
+    public function contractPdf(Booking $booking)
+    {
+        $booking->load(['client', 'genset', 'quotation.items', 'approvedBy']);
+
+        $client = $booking->client;
+
+        $clientName     = $client?->display_name
+                            ?? $booking->company_name
+                            ?? $booking->customer_name
+                            ?? 'N/A';
+        $clientTin      = $client?->tin_number;
+        $clientVrn      = $client?->vrn;
+        $clientPhone    = $client?->phone ?? $booking->customer_phone;
+        $clientEmail    = $client?->email ?? $booking->customer_email;
+        $clientAddress  = null; // Client model has no dedicated address field
+        $clientLocation = null;
+
+        $quotationItems = $booking->quotation?->items ?? collect();
+        $currency       = $booking->currency ?? 'TZS';
+        $totalAmount    = (float) $booking->total_amount;
+
+        // Try to derive VAT from quotation; default to 0 if not available
+        $vatRate   = 18;
+        $vatAmount = $quotationItems->isNotEmpty()
+            ? (float) ($booking->quotation?->vat_amount ?? 0)
+            : 0;
+        $subtotal  = $totalAmount - $vatAmount;
+
+        // Lift-on/off and transport from quotation items if present
+        $lifting_fee   = null;
+        $transport_fee = null;
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.bookings.contract-pdf', compact(
+            'booking',
+            'clientName',
+            'clientAddress',
+            'clientLocation',
+            'clientTin',
+            'clientVrn',
+            'clientPhone',
+            'clientEmail',
+            'quotationItems',
+            'currency',
+            'totalAmount',
+            'vatAmount',
+            'vatRate',
+            'subtotal',
+            'lifting_fee',
+            'transport_fee'
+        ));
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->download('CONTRACT-' . $booking->booking_number . '.pdf');
+    }
+
     public function activeRentals()
     {
         $rentals = Booking::with(['quoteRequest', 'client', 'genset', 'activatedBy'])
@@ -358,6 +413,9 @@ class BookingController extends Controller
             return back()->with('error', 'Only bookings in Created or Approved status can be edited.');
         }
 
+        $wasApproved      = $booking->status === 'approved';
+        $previousApproverId = $booking->approved_by;
+
         $validated = $request->validate([
             'genset_type'          => 'required|string|max:100',
             'rental_start_date'    => 'required|date',
@@ -370,12 +428,11 @@ class BookingController extends Controller
             'notes'                => 'nullable|string',
         ]);
 
-        $currency = $validated['currency'] ?? $booking->currency ?? 'TZS';
-
+        $currency  = $validated['currency'] ?? $booking->currency ?? 'TZS';
         $startDate = \Carbon\Carbon::parse($validated['rental_start_date']);
         $endDate   = $startDate->copy()->addDays((int) $validated['rental_duration_days']);
 
-        $booking->update([
+        $updateData = [
             'genset_type'          => $validated['genset_type'],
             'rental_start_date'    => $startDate,
             'rental_end_date'      => $endDate,
@@ -386,16 +443,43 @@ class BookingController extends Controller
             'currency'             => $currency,
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
             'notes'                => $validated['notes'] ?? null,
-        ]);
+        ];
+
+        // If the booking was approved, revoke the approval so it must be re-approved
+        if ($wasApproved) {
+            $updateData['status']      = 'created';
+            $updateData['approved_by'] = null;
+            $updateData['approved_at'] = null;
+        }
+
+        $booking->update($updateData);
 
         UserActivityLog::record(
             auth()->id(), 'updated',
-            'Updated booking ' . $booking->booking_number,
+            'Updated booking ' . $booking->booking_number . ($wasApproved ? ' (approval revoked — re-approval required)' : ''),
             Booking::class, $booking->id
         );
 
+        // Notify the original approver that their approval has been invalidated
+        if ($wasApproved && $previousApproverId) {
+            AppNotification::notify(
+                $previousApproverId,
+                'booking',
+                'Re-approval Required: ' . $booking->booking_number,
+                'Booking details were edited by ' . auth()->user()->name . ' after your approval. Please review and re-approve.',
+                route('admin.bookings.show', $booking),
+                'booking'
+            );
+        }
+
+        $message = $wasApproved
+            ? 'Booking ' . $booking->booking_number . ' updated. Approval has been revoked — the booking must be re-approved before deployment.'
+            : 'Booking ' . $booking->booking_number . ' updated successfully.';
+
+        $flashKey = $wasApproved ? 'warning' : 'success';
+
         return redirect()
             ->route('admin.bookings.show', $booking)
-            ->with('success', 'Booking ' . $booking->booking_number . ' updated successfully.');
+            ->with($flashKey, $message);
     }
 }

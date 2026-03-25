@@ -8,27 +8,53 @@
             <p class="text-gray-500 mt-0.5 text-sm">{{ now()->format('l, d F Y') }}</p>
         </div>
         <div class="flex items-center gap-2">
-            @if($pendingApprovals > 0)
+            @if($canApproveBookings && $pendingApprovals > 0)
             <a href="{{ route('admin.bookings.index', ['status' => 'created']) }}"
                class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-100">
                 <span class="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
                 {{ $pendingApprovals }} booking{{ $pendingApprovals > 1 ? 's' : '' }} awaiting approval
             </a>
             @endif
-            @if($newQuoteRequests > 0)
+            @if($canViewQuoteReqs && $newQuoteRequests > 0)
             <a href="{{ route('admin.quote-requests.index') }}"
                class="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-100">
                 <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
                 {{ $newQuoteRequests }} new quote request{{ $newQuoteRequests > 1 ? 's' : '' }}
             </a>
             @endif
+            @if($canViewCashReqs && !$canApproveCash && $myCashRequests > 0)
+            <a href="{{ route('admin.accounting.cash-requests.index') }}"
+               class="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-orange-100">
+                <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                {{ $myCashRequests }} pending cash request{{ $myCashRequests > 1 ? 's' : '' }}
+            </a>
+            @endif
         </div>
     </div>
 
+    @php
+        // Number of visible KPI cards (invoices contributes 2: revenue + outstanding)
+        $kpiCount    = (int)$canViewBookings + (int)$canViewInvoices * 2 + (int)$canViewFleet;
+        $kpiColClass = match(true) {
+            $kpiCount <= 1  => 'grid-cols-1 sm:grid-cols-2',
+            $kpiCount === 2 => 'grid-cols-2',
+            $kpiCount === 3 => 'grid-cols-2 md:grid-cols-3',
+            default          => 'grid-cols-2 lg:grid-cols-4',
+        };
+        // Whether the main left column (bookings / invoices tables) has any content
+        $hasMainLeft     = $canViewBookings || $canViewInvoices;
+        // Outer grid: 3-col split when left has content, plain vertical stack otherwise
+        $mainGridClass   = $hasMainLeft ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'space-y-6 max-w-2xl';
+        // Whether the Quick Actions panel has at least one action to show
+        $hasQuickActions = $canViewBookings || $canViewInvoices || $canViewExpenses || $canViewCashReqs;
+    @endphp
+
     {{-- KPI Cards --}}
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    @if($canViewBookings || $canViewInvoices || $canViewFleet)
+    <div class="grid {{ $kpiColClass }} gap-4 mb-6">
 
         {{-- Active Rentals --}}
+        @if($canViewBookings)
         <a href="{{ route('admin.bookings.index', ['status' => 'active']) }}"
            class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group">
             <div class="flex items-start justify-between mb-3">
@@ -42,8 +68,10 @@
             <p class="text-3xl font-bold text-gray-900">{{ $activeRentals }}</p>
             <p class="text-sm text-gray-500 mt-0.5">Active Rentals</p>
         </a>
+        @endif
 
         {{-- Monthly Revenue --}}
+        @if($canViewInvoices)
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
             <div class="flex items-start justify-between mb-3">
                 <div class="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
@@ -64,19 +92,21 @@
             </p>
             <p class="text-sm text-gray-500 mt-0.5">Revenue — {{ now()->format('M Y') }}</p>
         </div>
+        @endif
 
         {{-- Outstanding Invoices --}}
+        @if($canViewInvoices)
         <a href="{{ route('admin.invoices.index', ['status' => 'sent']) }}"
-           class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group {{ $overdueCount > 0 ? 'border-red-200' : '' }}">
+           class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group {{ ($overdueCount ?? 0) > 0 ? 'border-red-200' : '' }}">
             <div class="flex items-start justify-between mb-3">
-                <div class="w-10 h-10 {{ $overdueCount > 0 ? 'bg-red-50' : 'bg-orange-50' }} rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 {{ $overdueCount > 0 ? 'text-red-600' : 'text-orange-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <div class="w-10 h-10 {{ ($overdueCount ?? 0) > 0 ? 'bg-red-50' : 'bg-orange-50' }} rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 {{ ($overdueCount ?? 0) > 0 ? 'text-red-600' : 'text-orange-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
-                @if($overdueCount > 0)
+                @if(($overdueCount ?? 0) > 0)
                 <span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{{ $overdueCount }} overdue</span>
                 @endif
             </div>
-            <p class="text-3xl font-bold {{ $overdueCount > 0 ? 'text-red-600' : 'text-gray-900' }}">
+            <p class="text-3xl font-bold {{ ($overdueCount ?? 0) > 0 ? 'text-red-600' : 'text-gray-900' }}">
                 @if($outstandingAmount >= 1_000_000)
                     {{ number_format($outstandingAmount / 1_000_000, 1) }}M
                 @else
@@ -85,8 +115,10 @@
             </p>
             <p class="text-sm text-gray-500 mt-0.5">Outstanding (TZS)</p>
         </a>
+        @endif
 
         {{-- Fleet Status --}}
+        @if($canViewFleet)
         <a href="{{ route('admin.gensets.index') }}"
            class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow group">
             <div class="flex items-start justify-between mb-3">
@@ -100,10 +132,13 @@
             <p class="text-3xl font-bold text-gray-900">{{ $availableGensets }}<span class="text-lg text-gray-400">/{{ $totalGensets }}</span></p>
             <p class="text-sm text-gray-500 mt-0.5">Available Units</p>
         </a>
+        @endif
+
     </div>
+    @endif {{-- end KPI grid --}}
 
     {{-- Fleet breakdown mini-bar --}}
-    @if($totalGensets > 0)
+    @if($canViewFleet && $totalGensets > 0)
     <div class="mb-6 bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
         <div class="flex items-center justify-between mb-2">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fleet Breakdown</p>
@@ -130,12 +165,14 @@
     @endif
 
     {{-- Main content grid --}}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="{{ $mainGridClass }}">
 
         {{-- Left: Bookings needing action + recent invoices --}}
+        @if($hasMainLeft)
         <div class="lg:col-span-2 space-y-6">
 
             {{-- Bookings needing action --}}
+            @if($canViewBookings)
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <p class="font-semibold text-gray-900">Bookings Needing Action</p>
@@ -165,8 +202,10 @@
                 <div class="px-5 py-8 text-center text-sm text-gray-400">All caught up — no bookings need action.</div>
                 @endforelse
             </div>
+            @endif {{-- canViewBookings --}}
 
             {{-- Recent Invoices --}}
+            @if($canViewInvoices)
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <p class="font-semibold text-gray-900">Recent Invoices</p>
@@ -218,44 +257,60 @@
                     </tbody>
                 </table>
             </div>
+            @endif {{-- canViewInvoices --}}
+
         </div>
+        @endif {{-- hasMainLeft --}}
 
         {{-- Right column --}}
         <div class="space-y-6">
 
             {{-- Quick Actions --}}
+            @if($hasQuickActions)
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5">
                 <p class="font-semibold text-gray-900 mb-4">Quick Actions</p>
                 <div class="space-y-2">
+                    @if($canViewBookings)
                     <a href="{{ route('admin.bookings.create') }}"
                        class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors">
                         <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         New Booking
                     </a>
+                    @endif
+                    @if($canViewInvoices)
                     <a href="{{ route('admin.invoices.index') }}"
                        class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         View Invoices
                     </a>
+                    @endif
+                    @if($canViewExpenses)
                     <a href="{{ route('admin.accounting.expenses.create') }}"
                        class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
                         Record Expense
                     </a>
+                    @endif
+                    @if($canViewBookings)
                     <a href="{{ route('admin.clients.create') }}"
                        class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                         Add Client
                     </a>
+                    @endif
+                    @if($canViewCashReqs)
                     <a href="{{ route('admin.accounting.cash-requests.create') }}"
                        class="flex items-center gap-3 w-full px-4 py-2.5 rounded-lg bg-white border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
                         <svg class="w-4 h-4 flex-shrink-0 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                         Cash Request
                     </a>
+                    @endif
                 </div>
             </div>
+            @endif {{-- hasQuickActions --}}
 
             {{-- Account Balances --}}
+            @if($canViewAccounting)
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <p class="font-semibold text-gray-900">Account Balances</p>
@@ -291,9 +346,10 @@
                 </div>
                 @endif
             </div>
+            @endif {{-- canViewAccounting --}}
 
             {{-- Ending Soon --}}
-            @if($endingSoon->count() > 0)
+            @if($canViewBookings && $endingSoon->count() > 0)
             <div class="bg-white border border-amber-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-amber-100 bg-amber-50 flex items-center gap-2">
                     <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -319,7 +375,7 @@
             @endif
 
             {{-- Pending Cash Requests --}}
-            @if($pendingCashRequests > 0)
+            @if($canApproveCash && $pendingCashRequests > 0)
             <a href="{{ route('admin.accounting.cash-requests.index') }}"
                class="flex items-center justify-between px-4 py-3.5 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors">
                 <div class="flex items-center gap-3">

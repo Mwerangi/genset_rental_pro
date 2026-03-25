@@ -64,7 +64,7 @@ class ExpenseController extends Controller
 
     public function create()
     {
-        $categories   = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
 
         return view('admin.accounting.expenses.create', compact('categories', 'bankAccounts'));
@@ -163,8 +163,15 @@ class ExpenseController extends Controller
 
     public function destroy(Expense $expense)
     {
-        if ($expense->status === 'posted') {
-            return back()->with('error', 'Posted expenses cannot be deleted. Reverse the journal entry instead.');
+        $user = auth()->user();
+
+        // Only the creator can delete their own draft; approve_expenses users can delete any draft
+        if (!PermissionService::can($user, 'approve_expenses') && $expense->created_by !== $user->id) {
+            abort(403, 'You do not have permission to delete this expense.');
+        }
+
+        if ($expense->status !== 'draft') {
+            return back()->with('error', 'Only draft expenses can be deleted. Reverse the journal entry instead.');
         }
 
         $number = $expense->expense_number;

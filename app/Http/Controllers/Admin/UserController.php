@@ -47,17 +47,19 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = User::roles();
+        $roles = $this->allowedRoles();
         return view('admin.users.create', compact('roles'));
     }
 
     public function store(Request $request)
     {
+        $allowedRoles = $this->allowedRoles();
+
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
             'email'      => 'required|email|unique:users,email',
             'phone'      => 'nullable|string|max:50',
-            'role'       => 'required|in:' . implode(',', array_keys(User::roles())),
+            'role'       => 'required|in:' . implode(',', array_keys($allowedRoles)),
             'department' => 'nullable|string|max:100',
             'position'   => 'nullable|string|max:100',
             'status'     => 'required|in:active,inactive',
@@ -96,17 +98,29 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        $roles = User::roles();
+        // Only super_admin can edit another super_admin account
+        if ($user->role === 'super_admin' && auth()->user()->role !== 'super_admin') {
+            abort(403, 'Only Super Admins can edit Super Admin accounts.');
+        }
+
+        $roles = $this->allowedRoles();
         return view('admin.users.edit', compact('user', 'roles'));
     }
 
     public function update(Request $request, User $user)
     {
+        // Only super_admin can edit another super_admin account
+        if ($user->role === 'super_admin' && auth()->user()->role !== 'super_admin') {
+            abort(403, 'Only Super Admins can edit Super Admin accounts.');
+        }
+
+        $allowedRoles = $this->allowedRoles();
+
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
             'email'      => 'required|email|unique:users,email,' . $user->id,
             'phone'      => 'nullable|string|max:50',
-            'role'       => 'required|in:' . implode(',', array_keys(User::roles())),
+            'role'       => 'required|in:' . implode(',', array_keys($allowedRoles)),
             'department' => 'nullable|string|max:100',
             'position'   => 'nullable|string|max:100',
             'status'     => 'required|in:active,inactive,suspended',
@@ -131,6 +145,10 @@ class UserController extends Controller
 
     public function resetPassword(Request $request, User $user)
     {
+        if ($user->role === 'super_admin' && auth()->user()->role !== 'super_admin') {
+            abort(403, 'Only Super Admins can reset a Super Admin password.');
+        }
+
         $validated = $request->validate([
             'password' => ['required', 'confirmed', Password::min(8)],
         ]);
@@ -158,6 +176,10 @@ class UserController extends Controller
             return back()->with('error', 'You cannot change your own status.');
         }
 
+        if ($user->role === 'super_admin' && auth()->user()->role !== 'super_admin') {
+            abort(403, 'Only Super Admins can change a Super Admin status.');
+        }
+
         $newStatus = $user->status === 'active' ? 'inactive' : 'active';
         $user->update(['status' => $newStatus]);
 
@@ -174,6 +196,10 @@ class UserController extends Controller
 
     public function unlock(User $user)
     {
+        if ($user->role === 'super_admin' && auth()->user()->role !== 'super_admin') {
+            abort(403, 'Only Super Admins can unlock a Super Admin account.');
+        }
+
         $user->update(['login_attempts' => 0, 'locked_until' => null]);
 
         UserActivityLog::record(
@@ -191,5 +217,18 @@ class UserController extends Controller
     {
         $logs = $user->activityLogs()->latest('created_at')->paginate(50);
         return view('admin.users.activity-log', compact('user', 'logs'));
+    }
+
+    /**
+     * Returns the roles the current user is allowed to assign.
+     * Only super_admin can see or assign the super_admin role.
+     */
+    private function allowedRoles(): array
+    {
+        $all = User::roles();
+        if (auth()->user()->role !== 'super_admin') {
+            unset($all['super_admin']);
+        }
+        return $all;
     }
 }

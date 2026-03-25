@@ -27,10 +27,12 @@
                 <p class="text-gray-500 mt-1">{{ $genset->name }}@if($genset->brand) — {{ $genset->brand }}{{ $genset->model ? ' ' . $genset->model : '' }}@endif</p>
             </div>
             <div class="flex gap-2">
+                @permission('edit_gensets')
                 <a href="{{ route('admin.gensets.edit', $genset) }}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                     Edit
                 </a>
+                @endpermission
             </div>
         </div>
     </div>
@@ -239,10 +241,12 @@
                 <h2 class="font-semibold text-gray-900">Fuel Logs</h2>
                 <div class="flex items-center gap-3">
                     <a href="{{ route('admin.fuel-logs.genset', $genset) }}" class="text-xs text-red-600 hover:underline font-medium">View All</a>
+                    @permission('create_fuel_logs')
                     <button onclick="document.getElementById('fuelLogModal').classList.remove('hidden')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style="background:#dc2626;">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         Log Fuel
                     </button>
+                    @endpermission
                 </div>
             </div>
             @php
@@ -378,6 +382,7 @@
             </div>
 
             <!-- Change Status -->
+            @permission('update_genset_status')
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden" x-data="{ open: false }">
                 <div class="px-5 py-4 border-b border-gray-100">
                     <h2 class="font-semibold text-gray-900">Change Status</h2>
@@ -398,8 +403,10 @@
                     </form>
                 </div>
             </div>
+            @endpermission
 
             <!-- Danger Zone -->
+            @permission('delete_gensets')
             @if($genset->status !== 'rented')
             <div class="bg-white border border-red-100 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-red-100">
@@ -414,6 +421,7 @@
                 </div>
             </div>
             @endif
+            @endpermission
         </div>
     </div>
 </x-admin-layout>

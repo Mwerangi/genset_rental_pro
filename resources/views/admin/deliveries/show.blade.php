@@ -26,6 +26,7 @@
 
         {{-- Action buttons --}}
         <div class="flex gap-2 flex-wrap">
+            @permission('dispatch_deliveries')
             @if($delivery->status === 'pending')
                 <button onclick="document.getElementById('dispatch-modal').classList.remove('hidden')"
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#1e40af;">
@@ -33,6 +34,8 @@
                     Dispatch
                 </button>
             @endif
+            @endpermission
+            @permission('complete_deliveries')
             @if(in_array($delivery->status, ['pending', 'dispatched']))
                 <button onclick="document.getElementById('complete-modal').classList.remove('hidden')"
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#166534;">
@@ -44,6 +47,7 @@
                     Mark Failed
                 </button>
             @endif
+            @endpermission
         </div>
     </div>
 

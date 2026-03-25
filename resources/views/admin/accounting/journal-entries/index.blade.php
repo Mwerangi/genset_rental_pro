@@ -4,11 +4,20 @@
             <h1 class="text-2xl font-bold text-gray-900">Journal Entries</h1>
             <p class="text-gray-500 mt-1">Double-entry ledger transactions</p>
         </div>
-        <a href="{{ route('admin.accounting.journal-entries.create') }}"
-           class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            Manual Entry
-        </a>
+        <div class="flex items-center gap-2">
+            <a href="{{ route('admin.accounting.journal-entries.export', request()->query()) }}"
+               class="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Export Excel
+            </a>
+            @permission('create_journal_entries')
+            <a href="{{ route('admin.accounting.journal-entries.create') }}"
+               class="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Manual Entry
+            </a>
+            @endpermission
+        </div>
     </div>
 
     @if(session('success'))
@@ -164,8 +173,13 @@
                 @endforelse
             </tbody>
         </table>
-        @if($entries->hasPages())
-        <div class="px-4 py-3 border-t border-gray-100">{{ $entries->links() }}</div>
-        @endif
+        <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
+            <p class="text-xs text-gray-500">
+                Showing {{ $entries->firstItem() ?? 0 }}–{{ $entries->lastItem() ?? 0 }} of {{ number_format($entries->total()) }} entries
+            </p>
+            @if($entries->hasPages())
+            {{ $entries->links() }}
+            @endif
+        </div>
     </div>
 </x-admin-layout>

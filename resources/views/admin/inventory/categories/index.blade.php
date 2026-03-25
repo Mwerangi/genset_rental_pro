@@ -4,10 +4,12 @@
             <h1 class="text-2xl font-bold text-gray-900">Item Categories</h1>
             <p class="text-gray-500 mt-1">Organise your inventory into groups</p>
         </div>
+        @permission('manage_inventory_categories')
         <button onclick="document.getElementById('createModal').classList.remove('hidden')" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             New Category
         </button>
+        @endpermission
     </div>
 
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -42,11 +44,13 @@
                             <a href="{{ route('admin.inventory.items.index', ['category_id' => $cat->id]) }}" class="text-red-600 hover:underline">{{ $cat->items_count }} item{{ $cat->items_count !== 1 ? 's' : '' }}</a>
                         </td>
                         <td class="px-6 py-3 text-right flex gap-3 justify-end">
+                            @permission('manage_inventory_categories')
                             <button onclick='openEditModal({{ $cat->id }}, {{ json_encode($cat->name) }}, {{ json_encode($cat->description) }}, {{ $cat->account_id ?? "null" }})' class="text-xs text-gray-600 hover:text-gray-900 underline">Edit</button>
                             <form method="POST" action="{{ route('admin.inventory.categories.destroy', $cat) }}" onsubmit="return confirm('Delete this category?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-xs text-red-500 hover:text-red-700 underline">Delete</button>
                             </form>
+                            @endpermission
                         </td>
                     </tr>
                     @endforeach

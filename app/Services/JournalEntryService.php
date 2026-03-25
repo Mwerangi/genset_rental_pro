@@ -370,16 +370,34 @@ class JournalEntryService
         $expenseAccount = $expense->category?->account;
         if (!$expenseAccount) return null;
 
-        $total = (float) $expense->total_amount;
+        $amount = round((float) $expense->amount, 2);
+        $vat    = round((float) ($expense->vat_amount ?? 0), 2);
+        $total  = round((float) $expense->total_amount, 2);
+
+        $lines = [
+            ['account_code' => $expenseAccount->code, 'debit' => $amount, 'credit' => 0,
+             'description'  => $expense->description],
+        ];
+
+        if ($vat > 0 && !$expense->is_zero_rated) {
+            $vatInput = $this->account('1180');
+            if ($vatInput) {
+                $lines[] = ['account_code' => '1180', 'debit' => $vat, 'credit' => 0,
+                            'description'  => "VAT input — {$expense->expense_number}"];
+            } else {
+                // Fallback: fold VAT into expense line if 1180 not seeded yet
+                $lines[0]['debit'] = $total;
+            }
+        }
+
+        $lines[] = ['account_code' => $bankCoa->code, 'debit' => 0, 'credit' => $total,
+                    'description'  => "Payment via {$bankAccount->name}"];
 
         $je = $this->createAndPost(
             "Expense — {$expense->expense_number}: {$expense->description}",
             'expense',
             $expense->id,
-            [
-                ['account_code' => $expenseAccount->code, 'debit' => $total, 'credit' => 0,      'description' => $expense->description],
-                ['account_code' => $bankCoa->code,         'debit' => 0,      'credit' => $total, 'description' => "Payment via {$bankAccount->name}"],
-            ],
+            $lines,
             $expense->expense_date->toDateString(),
             $expense->created_by
         );

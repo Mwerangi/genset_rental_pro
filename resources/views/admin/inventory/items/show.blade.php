@@ -15,8 +15,12 @@
             </div>
         </div>
         <div class="flex gap-2">
+            @permission('adjust_inventory_stock')
             <button onclick="document.getElementById('adjustModal').classList.remove('hidden')" class="px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#b45309;">Adjust Stock</button>
+            @endpermission
+            @permission('edit_inventory_items')
             <a href="{{ route('admin.inventory.items.edit', $item) }}" class="px-4 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">Edit</a>
+            @endpermission
         </div>
     </div>
 

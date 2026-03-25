@@ -4,7 +4,7 @@
             <h1 class="text-2xl font-bold text-slate-900">Created Quotations</h1>
             <p class="text-slate-600 mt-1">Manage all quotations generated in the system</p>
         </div>
-        @permission('manage_quotations')
+        @permission('create_quotations')
         <a href="{{ route('admin.quotations.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -145,7 +145,7 @@
     <x-card>
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-semibold text-slate-900">All Quotations</h2>
-            @permission('manage_quotations')
+            @permission('create_quotations')
             <a href="{{ route('admin.quotations.create') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>

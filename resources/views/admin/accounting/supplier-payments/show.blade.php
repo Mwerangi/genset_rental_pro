@@ -92,7 +92,7 @@
             </div>
 
             <!-- Confirmation Card -->
-            @permission('approve_payments')
+            @permission('confirm_supplier_payments')
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-5 mt-4">
                 <p class="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-3">Payment Confirmation</p>
 

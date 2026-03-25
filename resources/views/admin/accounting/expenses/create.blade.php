@@ -17,15 +17,23 @@
                     <input type="text" name="description" value="{{ old('description') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                     @error('description')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
-                <div>
+                <div x-data="{
+                        selectedCat: '{{ old('expense_category_id') }}',
+                        cats: {{ $categories->map(fn($c) => ['id' => (string)$c->id, 'hasAccount' => (bool)$c->account_id])->toJson() }}
+                    }">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
-                    <select name="expense_category_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
+                    <select name="expense_category_id" x-model="selectedCat" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                         <option value="">Select category</option>
                         @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}" @selected(old('expense_category_id') == $cat->id)>{{ $cat->name }}</option>
+                        <option value="{{ $cat->id }}" @selected(old('expense_category_id') == $cat->id)>
+                            {{ $cat->name }}{{ $cat->account ? ' — ' . $cat->account->code . ' ' . $cat->account->name : ' ⚠ No ledger account' }}
+                        </option>
                         @endforeach
                     </select>
                     @error('expense_category_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                    <template x-if="selectedCat && cats.find(c => c.id === selectedCat && !c.hasAccount)">
+                        <p class="mt-1 text-xs text-amber-600 font-medium">⚠ This category has no ledger account — posting will fail. <a href="{{ route('admin.accounting.expense-categories.index') }}" class="underline">Link one in Categories</a>.</p>
+                    </template>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pay From Account <span class="text-red-500">*</span></label>

@@ -11,13 +11,13 @@
         </div>
         <div class="flex gap-2">
             @if($expense->status === 'draft')
-            @permission('approve_payments')
+            @permission('approve_expenses')
             <form method="POST" action="{{ route('admin.accounting.expenses.approve', $expense) }}">
                 @csrf<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Approve</button>
             </form>
             @endpermission
             @elseif($expense->status === 'approved')
-            @permission('approve_payments')
+            @permission('approve_expenses')
             <form method="POST" action="{{ route('admin.accounting.expenses.post', $expense) }}">
                 @csrf<button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Post to Ledger</button>
             </form>
