@@ -399,6 +399,46 @@
                 </div>
             </div>
 
+            <!-- Company / Issuer Details -->
+            @if($companySetting?->company_name)
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b" style="background:#fafafa;">
+                    <h3 class="font-semibold text-gray-800 text-sm">Issued By</h3>
+                </div>
+                <div class="p-5 space-y-2 text-sm">
+                    <p class="font-semibold text-gray-900">{{ $companySetting->company_name }}</p>
+                    @if($companySetting->tagline)
+                        <p class="text-xs text-gray-400">{{ $companySetting->tagline }}</p>
+                    @endif
+                    @if($companySetting->phone_primary || $companySetting->email_general)
+                    <div class="border-t border-gray-100 pt-2 text-xs text-gray-500 space-y-0.5">
+                        @if($companySetting->phone_primary)<p>{{ $companySetting->phone_primary }}</p>@endif
+                        @if($companySetting->email_general)<p>{{ $companySetting->email_general }}</p>@endif
+                    </div>
+                    @endif
+                    @if($companySetting->tin_number || $companySetting->vrn_number)
+                    <div class="border-t border-gray-100 pt-2 space-y-0.5">
+                        @if($companySetting->tin_number)
+                        <p class="text-xs"><span class="text-gray-400">TIN:</span> <span class="font-semibold text-gray-800">{{ $companySetting->tin_number }}</span></p>
+                        @endif
+                        @if($companySetting->vrn_number)
+                        <p class="text-xs"><span class="text-gray-400">VRN:</span> <span class="font-semibold text-gray-800">{{ $companySetting->vrn_number }}</span></p>
+                        @endif
+                    </div>
+                    @endif
+                    @if($companySetting->bank_name || $companySetting->bank_account_number)
+                    <div class="border-t border-gray-100 pt-2 space-y-0.5">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bank Details</p>
+                        @if($companySetting->bank_name)<p class="text-xs text-gray-600">{{ $companySetting->bank_name }}@if($companySetting->bank_branch_name) — {{ $companySetting->bank_branch_name }}@endif</p>@endif
+                        @if($companySetting->bank_account_name)<p class="text-xs text-gray-600">{{ $companySetting->bank_account_name }}</p>@endif
+                        @if($companySetting->bank_account_number)<p class="text-xs font-semibold text-gray-800">{{ $companySetting->bank_account_number }}</p>@endif
+                        @if($companySetting->bank_swift_code)<p class="text-xs text-gray-500">SWIFT: {{ $companySetting->bank_swift_code }}</p>@endif
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endif
+
         </div>
     </div>
 

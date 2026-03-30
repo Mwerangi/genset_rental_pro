@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\CompanySetting;
 use App\Services\PermissionService;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -15,6 +17,18 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        /**
+         * Share company settings with all views so templates can access
+         * $companySetting->company_name, ->tin_number, ->logo_url, etc.
+         */
+        View::composer('*', function ($view) {
+            try {
+                $view->with('companySetting', CompanySetting::current());
+            } catch (\Throwable) {
+                // During migrations or before table exists, silently skip
+            }
+        });
+
         /**
          * @permission('view_bookings') ... @endpermission
          * Returns true if the authenticated user has ANY of the listed permissions.

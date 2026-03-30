@@ -28,6 +28,7 @@ use App\Http\Controllers\Admin\TaxReportController;
 use App\Http\Controllers\Admin\ReportsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AuditTrailController;
+use App\Http\Controllers\Admin\CompanySettingController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\QuoteRequestController as PublicQuoteRequestController;
 use Illuminate\Support\Facades\Route;
@@ -531,6 +532,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ─── AUDIT TRAIL ──────────────────────────────────────────────────────────
     Route::middleware('permission:view_audit_trail')->group(function () {
         Route::get('/settings/audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
+    });
+
+    // ─── COMPANY SETTINGS ────────────────────────────────────────────────────
+    Route::middleware('permission:manage_company_settings')->group(function () {
+        Route::get('/settings/company', [CompanySettingController::class, 'edit'])->name('company-settings.edit');
+        Route::put('/settings/company', [CompanySettingController::class, 'update'])->name('company-settings.update');
+        Route::delete('/settings/company/logo', [CompanySettingController::class, 'deleteLogo'])->name('company-settings.logo.delete');
     });
 
     // Notifications are already registered above (always accessible)

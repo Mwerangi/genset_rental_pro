@@ -153,8 +153,9 @@ class PermissionsSeeder extends Seeder
         'unlock_users'             => ['Unlock User Accounts',                          'System', 6],
 
         // ── System ────────────────────────────────────────────────────
-        'manage_permissions'       => ['Manage Role Permissions',                       'System', 7],
-        'view_audit_trail'         => ['View Audit Trail',                              'System', 8],
+        'manage_permissions'         => ['Manage Role Permissions',                     'System', 7],
+        'view_audit_trail'           => ['View Audit Trail',                            'System', 8],
+        'manage_company_settings'    => ['Manage Company Settings',                     'System', 9],
     ];
 
     /**
@@ -211,6 +212,7 @@ class PermissionsSeeder extends Seeder
             // System
             'view_users', 'create_users', 'edit_users', 'reset_user_password', 'toggle_user_status', 'unlock_users',
             'view_audit_trail',
+            'manage_company_settings',
             // manage_permissions intentionally excluded — super_admin only
         ],
 

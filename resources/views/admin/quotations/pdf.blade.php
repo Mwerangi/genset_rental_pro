@@ -1,3 +1,7 @@
+@php
+    $cs = $companySetting;
+    $primaryColor = $cs?->primary_color ?: '#dc2626';
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -75,6 +79,17 @@
         .footer { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; text-align: center; font-size: 8pt; color: #aaa; }
         .footer strong { color: #888; }
     </style>
+    <style>
+        .company-name { color: {{ $primaryColor }}; }
+        .doc-label { color: {{ $primaryColor }}; }
+        .billing-box .section-title { color: {{ $primaryColor }}; }
+        .divider { border-top-color: {{ $primaryColor }}; }
+        .billing-box { border-left-color: {{ $primaryColor }}; }
+        .items-table thead tr { background: {{ $primaryColor }}; }
+        .grand-total td { background: {{ $primaryColor }}; }
+        .validity-expired-text { color: {{ $primaryColor }}; }
+        .validity-expired { border-color: {{ $primaryColor }}; }
+    </style>
 </head>
 <body>
 <div class="page">
@@ -83,12 +98,47 @@
     <table class="header-table">
         <tr>
             <td style="vertical-align:top; width:55%;">
-                <div class="company-name">&#9889; Milele Power</div>
+                @php
+                    $logoLocalPath = $cs?->logo_path
+                        ? storage_path('app/public/' . $cs->logo_path)
+                        : null;
+                @endphp
+                @if($logoLocalPath && file_exists($logoLocalPath))
+                <img src="{{ $logoLocalPath }}" style="height:52px; max-width:160px; object-fit:contain; margin-bottom:5px;" alt="{{ $cs->company_name }}"><br>
+                @endif
+                <div class="company-name">{{ $cs?->company_name ?? 'Milele Power' }}</div>
+                @if($cs?->trading_name && $cs->trading_name !== $cs->company_name)
+                <div class="company-sub">t/a {{ $cs->trading_name }}</div>
+                @endif
+                @if($cs?->tagline)
+                <div class="company-sub">{{ $cs->tagline }}</div>
+                @else
                 <div class="company-sub">Generator Rental &amp; Power Solutions</div>
+                @endif
                 <div class="company-contact">
-                    Dar es Salaam, Tanzania<br>
-                    Tel: +255 XXX XXX XXX &bull; info@milelepower.co.tz<br>
-                    www.milelepower.co.tz
+                    @if($cs?->address_line1)
+                        {{ $cs->address_line1 }}@if($cs?->city), {{ $cs->city }}@endif<br>
+                    @elseif($cs?->city)
+                        {{ $cs->city }}, {{ $cs?->country ?? 'Tanzania' }}<br>
+                    @else
+                        Dar es Salaam, Tanzania<br>
+                    @endif
+                    @if($cs?->phone_primary)
+                        Tel: {{ $cs->phone_primary }}
+                        @if($cs?->email_general)
+                            &bull; {{ $cs->email_general }}
+                        @endif
+                        <br>
+                    @endif
+                    @if($cs?->website)
+                        {{ $cs->website }}<br>
+                    @endif
+                    @if($cs?->tin_number)
+                        <strong>TIN: {{ $cs->tin_number }}</strong>
+                        @if($cs?->vrn_number)
+                            &bull; <strong>VRN: {{ $cs->vrn_number }}</strong>
+                        @endif
+                    @endif
                 </div>
             </td>
             <td style="vertical-align:top; text-align:right; width:45%;">
@@ -265,6 +315,35 @@
     </div>
     @endif
 
+    <!-- Bank Details & Payment Instructions -->
+    @if($cs?->bank_name || $cs?->bank_account_number || $cs?->payment_instructions)
+    <div style="margin-top:12px; border:1px solid #e5e7eb; border-left:3px solid {{ $primaryColor }}; border-radius:4px; padding:10px 14px; background:#fafafa;">
+        <div style="font-size:7.5pt; font-weight:bold; color:{{ $primaryColor }}; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:7px;">Payment Details</div>
+        @if($cs->bank_name || $cs->bank_account_number)
+        <table style="border-collapse:collapse; width:100%; font-size:8.5pt;">
+            @if($cs->bank_name)
+            <tr><td style="color:#888; padding:1px 0; width:110px;">Bank:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_name }}</td></tr>
+            @endif
+            @if($cs->bank_branch_name)
+            <tr><td style="color:#888; padding:1px 0;">Branch:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_branch_name }}</td></tr>
+            @endif
+            @if($cs->bank_account_name)
+            <tr><td style="color:#888; padding:1px 0;">Account Name:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_account_name }}</td></tr>
+            @endif
+            @if($cs->bank_account_number)
+            <tr><td style="color:#888; padding:1px 0;">Account No.:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_account_number }}</td></tr>
+            @endif
+            @if($cs->bank_swift_code)
+            <tr><td style="color:#888; padding:1px 0;">SWIFT/BIC:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_swift_code }}</td></tr>
+            @endif
+        </table>
+        @endif
+        @if($cs?->payment_instructions)
+        <div style="margin-top:6px; font-size:8.5pt; color:#555; line-height:1.5;">{{ $cs->payment_instructions }}</div>
+        @endif
+    </div>
+    @endif
+
     <!-- Notes & Terms -->
     @if($quotation->payment_terms || $quotation->terms_conditions)
     <div style="margin-top:12px; border-top: 1px solid #e5e7eb; padding-top:8px;">
@@ -303,9 +382,29 @@
 
     <!-- Footer -->
     <div class="footer">
-        <strong>Milele Power &bull; Generator Rental &amp; Power Solutions</strong><br>
-        Dar es Salaam, Tanzania &bull; Tel: +255 XXX XXX XXX &bull; info@milelepower.co.tz<br>
-        Thank you for choosing Milele Power.
+        <strong>
+            {{ $cs?->company_name ?? 'Milele Power' }}
+            @if($cs?->tagline)
+                &bull; {{ $cs->tagline }}
+            @endif
+        </strong><br>
+        @if($cs?->city)
+            {{ $cs->city }}, {{ $cs?->country ?? 'Tanzania' }}
+        @else
+            Dar es Salaam, Tanzania
+        @endif
+        @if($cs?->phone_primary)
+            &bull; Tel: {{ $cs->phone_primary }}
+        @endif
+        @if($cs?->email_general)
+            &bull; {{ $cs->email_general }}
+        @endif
+        <br>
+        @if($cs?->quotation_terms)
+            {{ $cs->quotation_terms }}
+        @else
+            Thank you for choosing {{ $cs?->company_name ?? 'Milele Power' }}.
+        @endif
     </div>
 
 </div>

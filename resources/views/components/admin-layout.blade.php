@@ -398,14 +398,22 @@
 
                     {{-- Settings --}}
                     <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" @keydown.escape="open = false" class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') || request()->routeIs('admin.audit-trail.*') ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-600 hover:bg-gray-50' }} flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap">
+                        <button @click="open = !open" @keydown.escape="open = false" class="{{ request()->routeIs('admin.users.*') || request()->routeIs('admin.roles.*') || request()->routeIs('admin.permissions.*') || request()->routeIs('admin.audit-trail.*') || request()->routeIs('admin.company-settings.*') ? 'text-red-600 bg-red-50' : 'text-gray-600 hover:text-red-600 hover:bg-gray-50' }} flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             Settings
                             <svg class="w-3 h-3 ml-0.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div x-show="open" @click.away="open = false" x-cloak
                              x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                             class="nav-dd absolute top-full right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                             class="nav-dd absolute top-full right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                            @permission('manage_company_settings')
+                            <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Company</p>
+                            <a href="{{ route('admin.company-settings.edit') }}" class="{{ request()->routeIs('admin.company-settings.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>Company Settings
+                            </a>
+                            <div class="nav-divider my-0.5 border-t border-gray-100"></div>
+                            <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Users &amp; Access</p>
+                            @endpermission
                             @permission('view_users')
                             <a href="{{ route('admin.users.index') }}" class="{{ request()->routeIs('admin.users.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>Users
@@ -472,6 +480,9 @@
                     @endpermission
                     @permission('view_users')
                     <a href="{{ route('admin.users.index') }}" class="text-gray-700 hover:bg-gray-50 hover:text-red-600 flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Users</a>
+                    @endpermission
+                    @permission('manage_company_settings')
+                    <a href="{{ route('admin.company-settings.edit') }}" class="{{ request()->routeIs('admin.company-settings.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-3 py-2 rounded-lg text-sm">Company Settings</a>
                     @endpermission
                 </div>
 
