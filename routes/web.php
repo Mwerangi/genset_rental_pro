@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\AuditTrailController;
 use App\Http\Controllers\Admin\CompanySettingController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\QuotationItemTypeController;
 use App\Http\Controllers\QuoteRequestController as PublicQuoteRequestController;
 use Illuminate\Support\Facades\Route;
 
@@ -94,10 +95,6 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware('permission:view_bookings')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
-        Route::middleware('permission:create_bookings')->group(function () {
-            Route::get('/bookings/create', [BookingController::class, 'create'])->name('bookings.create');
-            Route::post('/bookings', [BookingController::class, 'store'])->name('bookings.store');
-        });
         Route::middleware('permission:edit_bookings')->group(function () {
             Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
             Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
@@ -539,6 +536,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/settings/company', [CompanySettingController::class, 'edit'])->name('company-settings.edit');
         Route::put('/settings/company', [CompanySettingController::class, 'update'])->name('company-settings.update');
         Route::delete('/settings/company/logo', [CompanySettingController::class, 'deleteLogo'])->name('company-settings.logo.delete');
+
+        // ─── LINE ITEM TYPES ─────────────────────────────────────────────────
+        Route::get('/settings/item-types', [QuotationItemTypeController::class, 'index'])->name('item-types.index');
+        Route::post('/settings/item-types', [QuotationItemTypeController::class, 'store'])->name('item-types.store');
+        Route::put('/settings/item-types/{itemType}', [QuotationItemTypeController::class, 'update'])->name('item-types.update');
+        Route::delete('/settings/item-types/{itemType}', [QuotationItemTypeController::class, 'destroy'])->name('item-types.destroy');
     });
 
     // Notifications are already registered above (always accessible)

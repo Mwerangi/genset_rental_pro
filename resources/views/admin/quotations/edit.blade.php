@@ -22,6 +22,24 @@
             @csrf
             @method('PUT')
 
+            @if ($errors->any())
+                <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-red-800 text-sm">Please fix the following errors:</p>
+                            <ul class="mt-1 list-disc list-inside text-sm text-red-700 space-y-0.5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Content -->
                 <div class="lg:col-span-2 space-y-6">
@@ -79,11 +97,9 @@
                                                 class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                                                 required
                                             >
-                                                <option value="genset_rental">Generator Rental</option>
-                                                <option value="delivery">Delivery Charges</option>
-                                                <option value="fuel">Fuel Costs</option>
-                                                <option value="maintenance">Maintenance Fee</option>
-                                                <option value="other">Other</option>
+                                                <template x-for="type in itemTypes" :key="type.key">
+                                                    <option :value="type.key" x-text="type.label"></option>
+                                                </template>
                                             </select>
                                         </div>
 
@@ -130,7 +146,8 @@
                                         </div>
 
                                         <!-- Duration (only for rental) -->
-                                        <div x-show="item.item_type === 'genset_rental'">
+                                        <!-- Duration (only for rental types) -->
+                                        <div x-show="isRentalType(item.item_type)">
                                             <label class="block text-sm font-medium text-slate-700 mb-2">Duration (Days)</label>
                                             <input 
                                                 type="number" 
@@ -308,9 +325,12 @@
     </div>
 
     <script>
+        const ITEM_TYPES = @json($itemTypes);
+
         function quotationBuilder() {
             return {
                 items: [],
+                itemTypes: ITEM_TYPES,
                 currency: '{{ old('currency', $quotation->currency ?? 'TZS') }}',
                 totals: {
                     subtotal: 0,
@@ -337,7 +357,7 @@
                 addItem(data = {}) {
                     this.items.push({
                         id: this.nextId++,
-                        item_type: data.item_type || 'genset_rental',
+                        item_type: data.item_type || (ITEM_TYPES[0]?.key ?? 'genset_rental'),
                         description: data.description || '',
                         quantity: data.quantity || 1,
                         unit_price: data.unit_price || 0,
@@ -351,8 +371,13 @@
                     this.updateCalculations();
                 },
 
+                isRentalType(key) {
+                    const t = ITEM_TYPES.find(t => t.key === key);
+                    return t ? t.is_rental : false;
+                },
+
                 calculateItemSubtotal(item) {
-                    if (item.item_type === 'genset_rental' && item.duration_days) {
+                    if (this.isRentalType(item.item_type) && item.duration_days) {
                         return item.quantity * item.unit_price * item.duration_days;
                     }
                     return item.quantity * item.unit_price;

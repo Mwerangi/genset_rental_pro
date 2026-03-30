@@ -20,6 +20,24 @@
         <form method="POST" action="{{ route('admin.quotations.store') }}" class="space-y-6" x-data="{ quoteRequestId: '{{ $quoteRequest?->id ?? '' }}' }">
             @csrf
 
+            @if ($errors->any())
+                <div class="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-red-800 text-sm">Please fix the following errors:</p>
+                            <ul class="mt-1 list-disc list-inside text-sm text-red-700 space-y-0.5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <!-- Main Content -->
                 <div class="lg:col-span-2 space-y-6">
@@ -73,29 +91,114 @@
                             </div>
                         </x-card>
 
-                        {{-- Direct customer fields — visible only when no quote request selected --}}
+                        {{-- Customer section — visible only when no quote request selected --}}
                         <x-card x-show="!quoteRequestId" x-transition>
-                            <h2 class="text-lg font-semibold text-slate-900 mb-4">Customer Information</h2>
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">Full Name <span class="text-red-500">*</span></label>
-                                    <x-input type="text" name="customer_name" value="{{ old('customer_name') }}" placeholder="John Mwangi" class="w-full" />
-                                    @error('customer_name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">Email <span class="text-red-500">*</span></label>
-                                    <x-input type="email" name="customer_email" value="{{ old('customer_email') }}" placeholder="john@company.co.tz" class="w-full" />
-                                    @error('customer_email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">Phone</label>
-                                    <x-input type="text" name="customer_phone" value="{{ old('customer_phone') }}" placeholder="+255 7xx xxx xxx" class="w-full" />
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-700 mb-2">Company</label>
-                                    <x-input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Company Ltd." class="w-full" />
+                        <div x-data="customerSection()">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-lg font-semibold text-slate-900">Customer Information</h2>
+                                {{-- Mode toggle --}}
+                                <div class="flex rounded-lg border border-slate-300 overflow-hidden text-sm font-medium">
+                                    <button type="button"
+                                        @click="mode = 'existing'; clearClient()"
+                                        :class="mode === 'existing' ? 'bg-red-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'"
+                                        class="px-4 py-1.5 transition-colors">
+                                        Existing Client
+                                    </button>
+                                    <button type="button"
+                                        @click="mode = 'new'; clearClient()"
+                                        :class="mode === 'new' ? 'bg-red-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'"
+                                        class="px-4 py-1.5 border-l border-slate-300 transition-colors">
+                                        New Customer
+                                    </button>
                                 </div>
                             </div>
+
+                            {{-- EXISTING CLIENT SEARCH --}}
+                            <div x-show="mode === 'existing'" x-transition>
+                                <input type="hidden" name="client_id" :value="selectedClient ? selectedClient.id : ''" />
+
+                                <div class="relative" @click.outside="dropdownOpen = false">
+                                    <label class="block text-sm font-medium text-slate-700 mb-2">
+                                        Search Client <span class="text-red-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            type="text"
+                                            x-model="clientSearch"
+                                            @focus="dropdownOpen = true"
+                                            @input="dropdownOpen = true"
+                                            placeholder="Search by name, company, email or client #..."
+                                            class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500 pr-10"
+                                            autocomplete="off"
+                                        />
+                                        <button type="button" x-show="selectedClient" @click="clearClient()"
+                                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </div>
+
+                                    {{-- Dropdown results --}}
+                                    <div x-show="dropdownOpen && filtered.length > 0" x-transition
+                                        class="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                        <template x-for="client in filtered" :key="client.id">
+                                            <button type="button" @click="selectClient(client)"
+                                                class="w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 text-left border-b border-slate-100 last:border-0">
+                                                <div class="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                                                    <span x-text="(client.company_name || client.full_name || '?').charAt(0).toUpperCase()"></span>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="font-medium text-slate-900 text-sm" x-text="client.company_name || client.full_name"></p>
+                                                    <p class="text-xs text-slate-500 mt-0.5" x-show="client.company_name && client.full_name" x-text="client.full_name"></p>
+                                                    <p class="text-xs text-slate-400" x-text="[client.client_number, client.email].filter(Boolean).join(' · ')"></p>
+                                                </div>
+                                            </button>
+                                        </template>
+                                    </div>
+
+                                    <div x-show="dropdownOpen && clientSearch && filtered.length === 0"
+                                        class="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 text-sm text-slate-500">
+                                        No clients found matching "<span x-text="clientSearch"></span>"
+                                    </div>
+                                </div>
+
+                                {{-- Selected client preview --}}
+                                <div x-show="selectedClient" x-transition
+                                    class="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
+                                    <svg class="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="text-sm">
+                                        <p class="font-semibold text-green-800" x-text="selectedClient?.company_name || selectedClient?.full_name"></p>
+                                        <p class="text-green-700 text-xs mt-0.5" x-show="selectedClient?.company_name" x-text="selectedClient?.full_name"></p>
+                                        <p class="text-green-600 text-xs" x-text="[selectedClient?.email, selectedClient?.phone].filter(Boolean).join(' · ')"></p>
+                                    </div>
+                                </div>
+
+                                @error('client_id') <p class="text-red-600 text-xs mt-2">{{ $message }}</p> @enderror
+                            </div>
+
+                            {{-- NEW CUSTOMER MANUAL FORM --}}
+                            <div x-show="mode === 'new'" x-transition>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">Full Name <span class="text-red-500">*</span></label>
+                                        <x-input type="text" name="customer_name" value="{{ old('customer_name') }}" placeholder="John Mwangi" class="w-full" />
+                                        @error('customer_name') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">Email <span class="text-red-500">*</span></label>
+                                        <x-input type="email" name="customer_email" value="{{ old('customer_email') }}" placeholder="john@company.co.tz" class="w-full" />
+                                        @error('customer_email') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">Phone</label>
+                                        <x-input type="text" name="customer_phone" value="{{ old('customer_phone') }}" placeholder="+255 7xx xxx xxx" class="w-full" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-2">Company</label>
+                                        <x-input type="text" name="company_name" value="{{ old('company_name') }}" placeholder="Company Ltd." class="w-full" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>{{-- /customerSection --}}
                         </x-card>
                     @endif
 
@@ -125,11 +228,9 @@
                                                 class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                                                 required
                                             >
-                                                <option value="genset_rental">Generator Rental</option>
-                                                <option value="delivery">Delivery Charges</option>
-                                                <option value="fuel">Fuel Costs</option>
-                                                <option value="maintenance">Maintenance Fee</option>
-                                                <option value="other">Other</option>
+                                                <template x-for="type in itemTypes" :key="type.key">
+                                                    <option :value="type.key" x-text="type.label"></option>
+                                                </template>
                                             </select>
                                         </div>
 
@@ -175,8 +276,8 @@
                                             >
                                         </div>
 
-                                        <!-- Duration (only for rental) -->
-                                        <div x-show="item.item_type === 'genset_rental'">
+                                        <!-- Duration (only for rental types) -->
+                                        <div x-show="isRentalType(item.item_type)">
                                             <label class="block text-sm font-medium text-slate-700 mb-2">Duration (Days)</label>
                                             <input 
                                                 type="number" 
@@ -352,9 +453,12 @@
     </div>
 
     <script>
+        const ITEM_TYPES = @json($itemTypes);
+
         function quotationBuilder() {
             return {
                 items: [],
+                itemTypes: ITEM_TYPES,
                 currency: '{{ old('currency', 'TZS') }}',
                 totals: {
                     subtotal: 0,
@@ -383,7 +487,7 @@
                 addItem(data = {}) {
                     this.items.push({
                         id: this.nextId++,
-                        item_type: data.item_type || 'genset_rental',
+                        item_type: data.item_type || (ITEM_TYPES[0]?.key ?? 'genset_rental'),
                         description: data.description || '',
                         quantity: data.quantity || 1,
                         unit_price: data.unit_price || 0,
@@ -397,8 +501,13 @@
                     this.updateCalculations();
                 },
 
+                isRentalType(key) {
+                    const t = ITEM_TYPES.find(t => t.key === key);
+                    return t ? t.is_rental : false;
+                },
+
                 calculateItemSubtotal(item) {
-                    if (item.item_type === 'genset_rental' && item.duration_days) {
+                    if (this.isRentalType(item.item_type) && item.duration_days) {
                         return item.quantity * item.unit_price * item.duration_days;
                     }
                     return item.quantity * item.unit_price;
@@ -427,6 +536,35 @@
                     }).format(num || 0);
                 }
             }
+        }
+        function customerSection() {
+            return {
+                mode: '{{ old('client_id') ? 'existing' : 'new' }}',
+                clientSearch: '',
+                selectedClient: null,
+                dropdownOpen: false,
+                clients: @json($clients),
+                get filtered() {
+                    if (!this.clientSearch) return this.clients;
+                    const q = this.clientSearch.toLowerCase();
+                    return this.clients.filter(c =>
+                        (c.full_name || '').toLowerCase().includes(q) ||
+                        (c.company_name || '').toLowerCase().includes(q) ||
+                        (c.email || '').toLowerCase().includes(q) ||
+                        (c.client_number || '').toLowerCase().includes(q) ||
+                        (c.phone || '').toLowerCase().includes(q)
+                    );
+                },
+                selectClient(client) {
+                    this.selectedClient = client;
+                    this.clientSearch = client.company_name || client.full_name;
+                    this.dropdownOpen = false;
+                },
+                clearClient() {
+                    this.selectedClient = null;
+                    this.clientSearch = '';
+                }
+            };
         }
     </script>
 </x-admin-layout>

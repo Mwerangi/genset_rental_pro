@@ -4,12 +4,14 @@
             <h1 class="text-2xl font-bold text-slate-900">Bookings</h1>
             <p class="text-slate-600 mt-1">All confirmed rental bookings</p>
         </div>
-        <a href="{{ route('admin.bookings.create') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
+        @permission('view_quotations')
+        <a href="{{ route('admin.quotations.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            New Booking
+            New Quotation
         </a>
+        @endpermission
     </div>
 
     <!-- Stats -->

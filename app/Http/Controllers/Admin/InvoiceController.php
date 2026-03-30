@@ -66,7 +66,11 @@ class InvoiceController extends Controller
         }
         $invoice->load(['client', 'booking.genset', 'quotation', 'items', 'payments.recordedBy', 'createdBy']);
 
-        return view('admin.invoices.show', compact('invoice'));
+        $bankAccounts = \App\Models\BankAccount::where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'account_type', 'currency']);
+
+        return view('admin.invoices.show', compact('invoice', 'bankAccounts'));
     }
 
     /**
@@ -172,7 +176,7 @@ class InvoiceController extends Controller
             'payment_method'  => 'required|in:cash,mpesa,bank_transfer,cheque,other',
             'reference'       => 'nullable|string|max:255',
             'notes'           => 'nullable|string|max:500',
-            'bank_account_id' => 'nullable|exists:bank_accounts,id',
+            'bank_account_id' => 'required|exists:bank_accounts,id',
             'receipt_number'  => 'nullable|string|max:100',
         ]);
 
@@ -188,9 +192,11 @@ class InvoiceController extends Controller
             'receipt_number'  => $validated['receipt_number'] ?? null,
         ]);
 
-        // Auto-post DR Bank / CR AR journal entry when bank account is provided
-        if ($payment->bank_account_id) {
-            app(JournalEntryService::class)->onPaymentRecorded($payment);
+        // Post DR Bank / CR AR journal entry
+        $je = app(JournalEntryService::class)->onPaymentRecorded($payment);
+
+        if ($je) {
+            $payment->update(['journal_entry_id' => $je->id]);
         }
 
         $invoice->recalculatePayments();

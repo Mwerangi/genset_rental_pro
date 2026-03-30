@@ -80,9 +80,11 @@
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                     <h2 class="font-semibold text-gray-900">Booking History</h2>
-                    <a href="{{ route('admin.bookings.create', ['client_id' => $client->id]) }}" class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-red-700 transition-colors">
-                        + New Booking
+                    @permission('view_quotations')
+                    <a href="{{ route('admin.quotations.create') }}" class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-red-700 transition-colors">
+                        + New Quotation
                     </a>
+                    @endpermission
                 </div>
                 @if($client->bookings->count())
                     <table class="w-full text-sm">

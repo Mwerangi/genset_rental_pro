@@ -75,20 +75,20 @@ class BookingController extends Controller
         return view('admin.bookings.show', compact('booking', 'availableGensets'));
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        $quoteRequests = QuoteRequest::whereNotIn('status', ['converted', 'rejected'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        $preselected = $request->filled('quote_request_id')
-            ? QuoteRequest::find($request->quote_request_id)
-            : null;
-
-        return view('admin.bookings.create', compact('quoteRequests', 'preselected'));
+        return redirect()->route('admin.quotations.index')
+            ->with('info', 'Bookings are created automatically when a quotation is approved. Please start from a quotation.');
     }
 
-    public function store(Request $request)
+    public function store()
+    {
+        return redirect()->route('admin.quotations.index')
+            ->with('info', 'Bookings are created automatically when a quotation is approved. Please start from a quotation.');
+    }
+
+    /** @deprecated kept as tombstone — direct booking creation is disabled */
+    private function _storeDeprecated(Request $request)
     {
         $validated = $request->validate([
             'quote_request_id'     => 'nullable|exists:quote_requests,id',

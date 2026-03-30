@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\QuotationItemType;
 
 class QuotationItem extends Model
 {
@@ -63,11 +64,13 @@ class QuotationItem extends Model
      */
     public function calculateSubtotal()
     {
-        if ($this->item_type === 'genset_rental' && $this->duration_days) {
-            // For rental: unit_price * quantity * duration_days
+        $isRental = QuotationItemType::where('key', $this->item_type)->value('is_rental');
+
+        if ($isRental && $this->duration_days) {
+            // For rental types: unit_price * quantity * duration_days
             $this->subtotal = $this->unit_price * $this->quantity * $this->duration_days;
         } else {
-            // For other items: unit_price * quantity
+            // For non-rental items: unit_price * quantity
             $this->subtotal = $this->unit_price * $this->quantity;
         }
     }

@@ -9,10 +9,12 @@ use App\Models\QuotationItem;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\ClientContact;
+use App\Models\QuotationItemType;
 use App\Models\UserActivityLog;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class QuotationController extends Controller
 {
@@ -166,7 +168,12 @@ class QuotationController extends Controller
             $quoteRequest = QuoteRequest::findOrFail($quoteRequestId);
         }
 
-        return view('admin.quotations.create', compact('quoteRequest'));
+        $clients = Client::orderBy('company_name')->orderBy('full_name')
+            ->get(['id', 'client_number', 'full_name', 'company_name', 'email', 'phone']);
+
+        $itemTypes = QuotationItemType::active()->get(['id', 'key', 'label', 'is_rental']);
+
+        return view('admin.quotations.create', compact('quoteRequest', 'clients', 'itemTypes'));
     }
 
     /**
@@ -174,10 +181,13 @@ class QuotationController extends Controller
      */
     public function store(Request $request)
     {
+        $validItemTypeKeys = QuotationItemType::active()->pluck('key')->toArray();
+
         $validated = $request->validate([
             'quote_request_id'  => 'nullable|exists:quote_requests,id',
-            'customer_name'     => 'required_without:quote_request_id|nullable|string|max:255',
-            'customer_email'    => 'required_without:quote_request_id|nullable|email|max:255',
+            'client_id'         => 'nullable|exists:clients,id',
+            'customer_name'     => 'required_without_all:quote_request_id,client_id|nullable|string|max:255',
+            'customer_email'    => 'required_without_all:quote_request_id,client_id|nullable|email|max:255',
             'customer_phone'    => 'nullable|string|max:50',
             'company_name'      => 'nullable|string|max:255',
             'valid_until' => 'required|date|after:today',
@@ -187,7 +197,7 @@ class QuotationController extends Controller
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.item_type' => 'required|in:genset_rental,delivery,fuel,maintenance,other',
+            'items.*.item_type' => ['required', Rule::in($validItemTypeKeys)],
             'items.*.description' => 'required|string|max:255',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
@@ -196,13 +206,18 @@ class QuotationController extends Controller
 
         DB::beginTransaction();
         try {
+            // Resolve client from client_id or manual fields
+            $linkedClient = !empty($validated['client_id']) ? Client::find($validated['client_id']) : null;
+            $hasQr = !empty($validated['quote_request_id']);
+
             // Create quotation
             $quotation = Quotation::create([
                 'quote_request_id'     => $validated['quote_request_id'] ?? null,
-                'customer_name'        => !($validated['quote_request_id'] ?? null) ? ($validated['customer_name'] ?? null) : null,
-                'customer_email'       => !($validated['quote_request_id'] ?? null) ? ($validated['customer_email'] ?? null) : null,
-                'customer_phone'       => !($validated['quote_request_id'] ?? null) ? ($validated['customer_phone'] ?? null) : null,
-                'company_name'         => !($validated['quote_request_id'] ?? null) ? ($validated['company_name'] ?? null) : null,
+                'client_id'            => $linkedClient?->id ?? null,
+                'customer_name'        => !$hasQr ? ($linkedClient?->full_name ?? ($validated['customer_name'] ?? null)) : null,
+                'customer_email'       => !$hasQr ? ($linkedClient?->email ?? ($validated['customer_email'] ?? null)) : null,
+                'customer_phone'       => !$hasQr ? ($linkedClient?->phone ?? ($validated['customer_phone'] ?? null)) : null,
+                'company_name'         => !$hasQr ? ($linkedClient?->company_name ?? ($validated['company_name'] ?? null)) : null,
                 'valid_until'          => $validated['valid_until'],
                 'currency'             => $validated['currency'],
                 'exchange_rate_to_tzs' => $validated['currency'] === 'USD'
@@ -299,8 +314,10 @@ class QuotationController extends Controller
         }
 
         $quotation->load(['items', 'quoteRequest']);
-        
-        return view('admin.quotations.edit', compact('quotation'));
+
+        $itemTypes = QuotationItemType::active()->get(['id', 'key', 'label', 'is_rental']);
+
+        return view('admin.quotations.edit', compact('quotation', 'itemTypes'));
     }
 
     /**
@@ -312,6 +329,8 @@ class QuotationController extends Controller
             return back()->with('error', 'This quotation cannot be edited.');
         }
 
+        $validItemTypeKeys = QuotationItemType::active()->pluck('key')->toArray();
+
         $validated = $request->validate([
             'valid_until' => 'required|date|after:today',
             'currency' => 'required|in:TZS,USD',
@@ -320,7 +339,7 @@ class QuotationController extends Controller
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
-            'items.*.item_type' => 'required|in:genset_rental,delivery,fuel,maintenance,other',
+            'items.*.item_type' => ['required', Rule::in($validItemTypeKeys)],
             'items.*.description' => 'required|string|max:255',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.unit_price' => 'required|numeric|min:0',
@@ -347,12 +366,14 @@ class QuotationController extends Controller
             // Recreate items without firing model observers to prevent
             // calculateTotals() being called multiple times with stale instances
             QuotationItem::withoutEvents(function () use ($quotation, $validated) {
+                $rentalKeys = QuotationItemType::where('is_rental', true)->pluck('key')->flip()->toArray();
+
                 foreach ($validated['items'] as $item) {
                     $quantity  = $item['quantity'];
                     $unitPrice = $item['unit_price'];
                     $duration  = $item['duration_days'] ?? null;
 
-                    $subtotal = ($item['item_type'] === 'genset_rental' && $duration)
+                    $subtotal = (isset($rentalKeys[$item['item_type']]) && $duration)
                         ? $quantity * $unitPrice * $duration
                         : $quantity * $unitPrice;
 

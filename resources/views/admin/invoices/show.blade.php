@@ -474,6 +474,22 @@
                     </select>
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Received Into Account <span style="color:#dc2626;">*</span>
+                    </label>
+                    <select name="bank_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">— Select account —</option>
+                        @foreach($bankAccounts as $ba)
+                            <option value="{{ $ba->id }}">{{ $ba->name }}{{ $ba->currency !== 'TZS' ? ' (' . $ba->currency . ')' : '' }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Required to record the ledger entry (DR Bank / CR Accounts Receivable).</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Receipt Number</label>
+                    <input type="text" name="receipt_number" placeholder="e.g. RCPT-0042" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Transaction ID</label>
                     <input type="text" name="reference" placeholder="e.g. TXN123456" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>

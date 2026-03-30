@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CompanySetting;
+use App\Models\QuotationItemType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -11,8 +12,9 @@ class CompanySettingController extends Controller
 {
     public function edit()
     {
-        $settings = CompanySetting::current();
-        return view('admin.company-settings.edit', compact('settings'));
+        $settings  = CompanySetting::current();
+        $itemTypes = QuotationItemType::orderBy('sort_order')->get();
+        return view('admin.company-settings.edit', compact('settings', 'itemTypes'));
     }
 
     public function update(Request $request)

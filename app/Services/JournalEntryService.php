@@ -14,6 +14,7 @@ use App\Models\InvoicePayment;
 use App\Models\JournalEntry;
 use App\Models\MaintenanceRecord;
 use App\Models\PurchaseOrder;
+use App\Models\QuotationItemType;
 use App\Models\SupplierPayment;
 use Illuminate\Support\Facades\DB;
 
@@ -115,6 +116,10 @@ class JournalEntryService
             ? " [{$invoice->currency} @ {$rate}]"
             : '';
 
+        // Classify each item type from DB so new types are picked up automatically.
+        // delivery → 4110 | fuel/maintenance → 4120 | rental flag → 4100 | fallback → 4120
+        $itemTypeMeta = QuotationItemType::pluck('is_rental', 'key')->toArray();
+
         $deliveryRevenue = 0.0;
         $otherRevenue    = 0.0;
 
@@ -122,12 +127,14 @@ class JournalEntryService
             $amt = round((float) $item->subtotal * $rate, 2);
             if ($item->item_type === 'delivery') {
                 $deliveryRevenue += $amt;
-            } elseif (in_array($item->item_type, ['fuel', 'maintenance', 'other'])) {
+            } elseif (!($itemTypeMeta[$item->item_type] ?? false)) {
+                // Non-rental, non-delivery → other income (4120)
                 $otherRevenue += $amt;
             }
+            // Rental types fall through — picked up as remainder below
         }
 
-        // Rental is the remainder — guarantees the JE always balances
+        // Rental revenue is the remainder — guarantees the JE always balances
         $rentalRevenue = round($total - $vat - $deliveryRevenue - $otherRevenue, 2);
 
         $dr = $reverse ? 0 : 1;
@@ -246,8 +253,14 @@ class JournalEntryService
         );
 
         if ($je) {
-            // Bank balance always stored in the account's own currency (TZS for TZS accounts)
-            BankAccount::where('id', $bankAccount->id)->increment('current_balance', $amountInTzs);
+            // Increment bank balance in the account's own currency.
+            // If the bank account holds the same currency as the invoice (e.g. both USD),
+            // store the native payment amount. Otherwise store the TZS equivalent.
+            $bankIncrement = ($bankAccount->currency !== 'TZS' && $invoice && $bankAccount->currency === $invoice->currency)
+                ? round((float) $payment->amount, 2)
+                : $amountInTzs;
+
+            BankAccount::where('id', $bankAccount->id)->increment('current_balance', $bankIncrement);
         }
 
         return $je;
