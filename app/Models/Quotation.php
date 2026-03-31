@@ -24,6 +24,7 @@ class Quotation extends Model
         'subtotal',
         'vat_rate',
         'vat_amount',
+        'is_zero_rated',
         'total_amount',
         'currency',
         'exchange_rate_to_tzs',
@@ -43,6 +44,7 @@ class Quotation extends Model
         'subtotal' => 'decimal:2',
         'vat_rate' => 'decimal:2',
         'vat_amount' => 'decimal:2',
+        'is_zero_rated' => 'boolean',
         'total_amount' => 'decimal:2',
         'exchange_rate_to_tzs' => 'decimal:4',
         'sent_at' => 'datetime',
@@ -145,7 +147,7 @@ class Quotation extends Model
     public function calculateTotals()
     {
         $this->subtotal = $this->items()->sum('subtotal');
-        $this->vat_amount = $this->subtotal * ($this->vat_rate / 100);
+        $this->vat_amount = $this->is_zero_rated ? 0 : round($this->subtotal * ($this->vat_rate / 100), 2);
         $this->total_amount = $this->subtotal + $this->vat_amount;
         $this->save();
     }

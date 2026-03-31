@@ -131,6 +131,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::put('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'updateItem'])->name('invoices.items.update');
             Route::delete('/invoices/{invoice}/items/{item}', [InvoiceController::class, 'deleteItem'])->name('invoices.items.delete');
             Route::patch('/invoices/{invoice}/discount', [InvoiceController::class, 'updateDiscount'])->name('invoices.discount.update');
+            Route::patch('/invoices/{invoice}/zero-rated', [InvoiceController::class, 'toggleZeroRated'])->name('invoices.zero-rated.toggle');
         });
         Route::middleware('permission:send_invoices')->group(function () {
             Route::post('/invoices/{invoice}/mark-sent', [InvoiceController::class, 'markSent'])->name('invoices.mark-sent');

@@ -217,6 +217,7 @@ class QuotationController extends Controller
             'payment_terms' => 'nullable|string|max:500',
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
+            'is_zero_rated' => 'nullable|boolean',
             'items' => 'required|array|min:1',
             'items.*.item_type' => ['required', Rule::in($validItemTypeKeys)],
             'items.*.description' => 'required|string|max:255',
@@ -247,7 +248,8 @@ class QuotationController extends Controller
                 'payment_terms'        => $validated['payment_terms'] ?? 'Payment due within 30 days of acceptance',
                 'terms_conditions'     => $validated['terms_conditions'],
                 'notes'                => $validated['notes'],
-                'vat_rate'             => 18, // Tanzania standard VAT
+                'is_zero_rated'        => $request->boolean('is_zero_rated'),
+                'vat_rate'             => $request->boolean('is_zero_rated') ? 0 : 18, // Tanzania standard VAT
                 'status'               => $request->has('send') ? 'sent' : 'draft',
                 'created_by'           => auth()->id(),
                 'sent_at'              => $request->has('send') ? now() : null,
@@ -359,6 +361,7 @@ class QuotationController extends Controller
             'payment_terms' => 'nullable|string|max:500',
             'terms_conditions' => 'nullable|string',
             'notes' => 'nullable|string',
+            'is_zero_rated' => 'nullable|boolean',
             'items' => 'required|array|min:1',
             'items.*.item_type' => ['required', Rule::in($validItemTypeKeys)],
             'items.*.description' => 'required|string|max:255',
@@ -379,6 +382,8 @@ class QuotationController extends Controller
                 'payment_terms'        => $validated['payment_terms'],
                 'terms_conditions'     => $validated['terms_conditions'],
                 'notes'                => $validated['notes'],
+                'is_zero_rated'        => $request->boolean('is_zero_rated'),
+                'vat_rate'             => $request->boolean('is_zero_rated') ? 0 : 18,
             ]);
 
             // Hard-delete all existing items via direct query (no Eloquent events)

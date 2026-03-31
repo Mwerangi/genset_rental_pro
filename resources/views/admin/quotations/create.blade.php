@@ -17,7 +17,7 @@
 
 
 
-        <form method="POST" action="{{ route('admin.quotations.store') }}" class="space-y-6" x-data="{ quoteRequestId: '{{ $quoteRequest?->id ?? '' }}' }">
+        <form method="POST" action="{{ route('admin.quotations.store') }}" class="space-y-6">
             @csrf
 
             @if ($errors->any())
@@ -377,7 +377,7 @@
                                 <span class="font-semibold text-slate-900"><span x-text="currency + ' ' + formatNumber(totals.subtotal)"></span></span>
                             </div>
                             <div class="flex items-center justify-between text-sm">
-                                <span class="text-slate-600">VAT (18%)</span>
+                                <span class="text-slate-600" x-text="isZeroRated ? 'Zero Rated (0%)' : 'VAT (18%)'">VAT (18%)</span>
                                 <span class="font-semibold text-slate-900"><span x-text="currency + ' ' + formatNumber(totals.vat)"></span></span>
                             </div>
                             <div class="border-t border-slate-200 pt-3">
@@ -429,6 +429,19 @@
                                 @enderror
                             </div>
                         </div>
+
+                        {{-- Zero Rated VAT --}}
+                        <div class="flex items-center justify-between py-3 border border-slate-200 rounded-lg px-4 bg-slate-50 mt-1">
+                            <div>
+                                <div class="text-sm font-medium text-slate-700">Zero Rated VAT</div>
+                                <div class="text-xs text-slate-500">Exempt from VAT (0%); leave off for standard 18%</div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="is_zero_rated" value="1" x-model="isZeroRated" class="sr-only peer" {{ old('is_zero_rated') ? 'checked' : '' }}>
+                                <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-400 peer-checked:bg-green-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                            </label>
+                        </div>
+
                     </x-card>
 
                     <!-- Actions -->
@@ -460,6 +473,8 @@
                 items: [],
                 itemTypes: ITEM_TYPES,
                 currency: '{{ old('currency', 'TZS') }}',
+                isZeroRated: {{ old('is_zero_rated') ? 'true' : 'false' }},
+                quoteRequestId: '{{ $quoteRequest?->id ?? '' }}',
                 totals: {
                     subtotal: 0,
                     vat: 0,
@@ -482,6 +497,7 @@
                     @endif
 
                     this.updateCalculations();
+                    this.$watch('isZeroRated', () => this.updateCalculations());
                 },
 
                 addItem(data = {}) {
@@ -519,7 +535,7 @@
                         subtotal += this.calculateItemSubtotal(item);
                     });
 
-                    const vat = subtotal * 0.18;
+                    const vat = this.isZeroRated ? 0 : subtotal * 0.18;
                     const total = subtotal + vat;
 
                     this.totals = {

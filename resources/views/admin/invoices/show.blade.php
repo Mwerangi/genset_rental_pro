@@ -39,8 +39,7 @@
                     @endif
                     @if($invoice->is_zero_rated)
                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold" style="background:#f0fdf4;color:#15803d;">Zero Rated</span>
-                    @endif
-                    @if($invoice->currency === 'USD')
+                    @endif                    @if($invoice->currency === 'USD')
                         <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD &mdash; @ {{ number_format($invoice->exchange_rate_to_tzs, 0) }} TZS</span>
                     @endif
                 </div>
@@ -163,13 +162,33 @@
                             @endif
                             @if($invoice->is_zero_rated)
                             <tr>
-                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">VAT (Zero Rated)</td>
+                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">
+                                    VAT (Zero Rated)
+                                    @if($isEditable)
+                                        @permission('edit_invoices')
+                                        <form method="POST" action="{{ route('admin.invoices.zero-rated.toggle', $invoice) }}" class="inline">
+                                            @csrf @method('PATCH')
+                                            <button type="submit" class="ml-2 text-xs px-1.5 py-0.5 rounded border border-amber-300 text-amber-700 hover:bg-amber-50">Remove Zero Rating</button>
+                                        </form>
+                                        @endpermission
+                                    @endif
+                                </td>
                                 <td class="px-5 py-2 text-right text-gray-400 text-sm">— 0%</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
                             @else
                             <tr>
-                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">VAT ({{ $invoice->vat_rate }}%)</td>
+                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">
+                                    VAT ({{ $invoice->vat_rate }}%)
+                                    @if($isEditable)
+                                        @permission('edit_invoices')
+                                        <form method="POST" action="{{ route('admin.invoices.zero-rated.toggle', $invoice) }}" class="inline">
+                                            @csrf @method('PATCH')
+                                            <button type="submit" class="ml-2 text-xs px-1.5 py-0.5 rounded border border-green-300 text-green-700 hover:bg-green-50">Mark Zero Rated</button>
+                                        </form>
+                                        @endpermission
+                                    @endif
+                                </td>
                                 <td class="px-5 py-2 text-right font-semibold text-gray-700">{{ $invoice->formatAmount($invoice->vat_amount, 0) }}</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>

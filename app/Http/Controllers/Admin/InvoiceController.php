@@ -93,10 +93,10 @@ class InvoiceController extends Controller
 
         // Determine pricing from quotation or booking total
         $subtotal    = $quotation ? (float) $quotation->subtotal : (float) $booking->total_amount;
-        $isZeroRated = false;
-        $vatRate     = $quotation ? (float) $quotation->vat_rate : 18.00;
-        $vatAmount   = $quotation ? (float) $quotation->vat_amount : round($subtotal * $vatRate / 100, 2);
-        $total       = $quotation ? (float) $quotation->total_amount : ($subtotal + $vatAmount);
+        $isZeroRated = $quotation ? (bool) $quotation->is_zero_rated : false;
+        $vatRate     = $isZeroRated ? 0 : ($quotation ? (float) $quotation->vat_rate : 18.00);
+        $vatAmount   = $isZeroRated ? 0 : ($quotation ? (float) $quotation->vat_amount : round($subtotal * $vatRate / 100, 2));
+        $total       = $subtotal + $vatAmount;
 
         // Inherit currency from quotation → booking → default TZS
         $currency    = $quotation?->currency ?? $booking->currency ?? 'TZS';
@@ -429,6 +429,28 @@ class InvoiceController extends Controller
         $invoice->recalculateTotals();
 
         return back()->with('success', 'Discount updated.');
+    }
+
+    /**
+     * Toggle zero-rated VAT on an invoice.
+     */
+    public function toggleZeroRated(Invoice $invoice)
+    {
+        if (!$invoice->is_editable) {
+            return back()->with('error', 'This invoice cannot be edited in its current status.');
+        }
+
+        $newValue = !$invoice->is_zero_rated;
+
+        $invoice->update([
+            'is_zero_rated' => $newValue,
+            'vat_rate'      => $newValue ? 0 : 18,
+        ]);
+
+        $invoice->recalculateTotals();
+
+        $label = $newValue ? 'marked as zero rated' : 'VAT restored to 18%';
+        return back()->with('success', 'Invoice ' . $label . '.');
     }
 
     /**
