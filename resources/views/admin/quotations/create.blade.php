@@ -431,18 +431,33 @@
                         </div>
 
                         {{-- Zero Rated VAT --}}
-                        <div class="flex items-center justify-between py-3 border border-slate-200 rounded-lg px-4 bg-slate-50 mt-1">
+                        <div class="flex items-center justify-between py-3 rounded-lg px-4 mt-1 border transition-colors duration-200"
+                             :class="isZeroRated ? 'bg-green-50 border-green-300' : 'bg-slate-50 border-slate-200'">
                             <div>
-                                <div class="text-sm font-medium text-slate-700">Zero Rated VAT</div>
-                                <div class="text-xs text-slate-500">Exempt from VAT (0%); leave off for standard 18%</div>
+                                <div class="text-sm font-medium transition-colors duration-200"
+                                     :class="isZeroRated ? 'text-green-800' : 'text-slate-700'">Zero Rated VAT</div>
+                                <div class="text-xs transition-colors duration-200"
+                                     :class="isZeroRated ? 'text-green-600 font-semibold' : 'text-slate-500'">
+                                    <span x-show="isZeroRated">&#10003; VAT exempted — 0% applied</span>
+                                    <span x-show="!isZeroRated">Off — standard 18% VAT</span>
+                                </div>
                             </div>
-                            <button type="button" role="switch" :aria-checked="isZeroRated.toString()"
-                                    @click="isZeroRated = !isZeroRated"
-                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1"
-                                    :class="isZeroRated ? 'bg-green-500' : 'bg-gray-200'">
-                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200"
-                                      :class="isZeroRated ? 'translate-x-5' : 'translate-x-0'"></span>
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold transition-colors duration-200"
+                                      :class="isZeroRated ? 'text-green-700' : 'text-slate-400'">
+                                    <span x-show="isZeroRated">ON</span>
+                                    <span x-show="!isZeroRated">OFF</span>
+                                </span>
+                                <button type="button" role="switch" :aria-checked="isZeroRated.toString()"
+                                        @click="isZeroRated = !isZeroRated"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+                                        :class="isZeroRated ? 'bg-green-500' : 'bg-gray-300'"
+                                        :style="isZeroRated ? 'box-shadow:0 0 0 3px rgba(34,197,94,0.25)' : ''">
+                                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full transition duration-200"
+                                          :class="isZeroRated ? 'translate-x-5 bg-white' : 'translate-x-0 bg-white'"
+                                          :style="isZeroRated ? 'box-shadow:0 1px 4px rgba(0,0,0,0.3)' : 'box-shadow:0 1px 3px rgba(0,0,0,0.2)'"></span>
+                                </button>
+                            </div>
                             <input type="hidden" name="is_zero_rated" :value="isZeroRated ? 1 : 0">
                         </div>
 
