@@ -219,6 +219,17 @@
                     @if($reqClient && $reqClient->vrn)
                         <div class="client-tax">VRN: {{ $reqClient->vrn }}</div>
                     @endif
+                @elseif($quotation->customer_name)
+                    <div class="client-name">{{ $quotation->customer_name }}</div>
+                    @if($quotation->company_name)
+                        <div class="client-detail">{{ $quotation->company_name }}</div>
+                    @endif
+                    @if($quotation->customer_phone)
+                        <div class="client-detail">{{ $quotation->customer_phone }}</div>
+                    @endif
+                    @if($quotation->customer_email)
+                        <div class="client-detail">{{ $quotation->customer_email }}</div>
+                    @endif
                 @else
                     <div class="client-name">Direct Quotation</div>
                 @endif

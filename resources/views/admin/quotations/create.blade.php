@@ -539,7 +539,7 @@
         }
         function customerSection() {
             return {
-                mode: '{{ old('client_id') ? 'existing' : 'new' }}',
+                mode: '{{ old('client_id') ? 'existing' : (old('customer_name') ? 'new' : 'existing') }}',  // default to Existing Client
                 clientSearch: '',
                 selectedClient: null,
                 dropdownOpen: false,
