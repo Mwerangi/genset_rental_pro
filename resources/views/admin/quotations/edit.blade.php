@@ -306,10 +306,14 @@
                                 <div class="text-sm font-medium text-slate-700">Zero Rated VAT</div>
                                 <div class="text-xs text-slate-500">Exempt from VAT (0%); leave off for standard 18%</div>
                             </div>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="is_zero_rated" value="1" x-model="isZeroRated" class="sr-only peer" {{ old('is_zero_rated', $quotation->is_zero_rated) ? 'checked' : '' }}>
-                                <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-green-400 peer-checked:bg-green-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
-                            </label>
+                            <button type="button" role="switch" :aria-checked="isZeroRated.toString()"
+                                    @click="isZeroRated = !isZeroRated"
+                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-1"
+                                    :class="isZeroRated ? 'bg-green-500' : 'bg-gray-200'">
+                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200"
+                                      :class="isZeroRated ? 'translate-x-5' : 'translate-x-0'"></span>
+                            </button>
+                            <input type="hidden" name="is_zero_rated" :value="isZeroRated ? 1 : 0">
                         </div>
 
                     </x-card>
