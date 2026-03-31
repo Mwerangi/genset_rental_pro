@@ -243,7 +243,7 @@
                 </td>
                 <td class="r">{{ $item->quantity }}</td>
                 <td class="r">{{ number_format($item->unit_price, 2) }}</td>
-                <td class="r">{{ $item->duration_days ?? '&mdash;' }}</td>
+                <td class="r">{{ $item->duration_days ?? '—' }}</td>
                 <td class="r">{{ number_format($item->subtotal, 2) }}</td>
             </tr>
             @empty
