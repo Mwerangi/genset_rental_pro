@@ -9,6 +9,7 @@ use Database\Seeders\ChartOfAccountsSeeder;
 use Database\Seeders\ExpenseCategorySeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -26,11 +27,14 @@ class DatabaseSeeder extends Seeder
             ExpenseCategorySeeder::class,
         ]);
 
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        User::firstOrCreate(
+            ['email' => 'admin@milelepower.co.tz'],
+            [
+                'name'     => 'Super Admin',
+                'password' => Hash::make('password123'),
+                'role'     => 'super_admin',
+                'status'   => 'active',
+            ]
+        );
     }
 }
