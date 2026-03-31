@@ -12,8 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            // client_id column already exists (created by a partial prior run), just add the FK constraint and extra columns
-            $table->foreign('client_id')->references('id')->on('clients')->nullOnDelete();
+            $table->foreignId('client_id')->nullable()->after('id')->constrained('clients')->nullOnDelete();
             $table->string('customer_name')->nullable()->after('client_id');
             $table->string('customer_email')->nullable()->after('customer_name');
             $table->string('customer_phone', 30)->nullable()->after('customer_email');
