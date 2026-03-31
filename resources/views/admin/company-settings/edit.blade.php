@@ -580,12 +580,9 @@
                                     </div>
                                     <div class="space-y-2">
                                         <p class="text-xs text-gray-500">Current logo</p>
-                                        <form method="POST" action="{{ route('admin.company-settings.logo.delete') }}" class="inline">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" onclick="return confirm('Remove company logo?')"
-                                                    class="text-xs text-red-600 hover:text-red-800 underline">Remove logo</button>
-                                        </form>
+                                        <button type="button"
+                                                onclick="if(confirm('Remove company logo?')) deleteLogo()"
+                                                class="text-xs text-red-600 hover:text-red-800 underline">Remove logo</button>
                                     </div>
                                 </div>
                             @endif
@@ -874,4 +871,15 @@
         </div>
 
     </div>
+
+<script>
+function deleteLogo() {
+    const form = new FormData();
+    form.append('_token', '{{ csrf_token() }}');
+    form.append('_method', 'DELETE');
+    fetch('{{ route('admin.company-settings.logo.delete') }}', { method: 'POST', body: form })
+        .then(r => { if (r.ok || r.redirected) window.location.reload(); else alert('Failed to remove logo.'); })
+        .catch(() => alert('Failed to remove logo.'));
+}
+</script>
 </x-admin-layout>
