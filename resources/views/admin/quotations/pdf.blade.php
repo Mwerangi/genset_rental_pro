@@ -1,6 +1,7 @@
 @php
     $cs = $companySetting;
-    $primaryColor = $cs?->primary_color ?: '#dc2626';
+    $accent = $cs?->primary_color ?: '#8B1A0A';
+    $logoLocalPath = $cs?->logo_path ? storage_path('app/public/' . $cs->logo_path) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -10,166 +11,125 @@
     <title>Quotation {{ $quotation->quotation_number }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1a1a1a; background: #ffffff; }
-        .page { padding: 22px 32px; min-height: 100vh; }
-
-        /* Header */
-        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-        .company-name { font-size: 15pt; font-weight: bold; color: #c00000; }
-        .company-sub { font-size: 8.5pt; color: #555; margin-top: 4px; }
-        .company-contact { font-size: 8pt; color: #666; margin-top: 6px; line-height: 1.6; }
-        .doc-label { font-size: 18pt; font-weight: bold; color: #c00000; text-align: right; }
-        .doc-meta td { font-size: 8.5pt; padding: 2px 0; }
-        .doc-meta .label { color: #888; width: 90px; }
-        .doc-meta .value { font-weight: bold; color: #1a1a1a; }
-
-        /* Divider */
-        .divider { border: none; border-top: 2px solid #c00000; margin: 10px 0; }
-
-        /* Billing */
-        .billing-row { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        .billing-box { background: #f8f8f8; border-left: 3px solid #c00000; padding: 8px 12px; width: 48%; vertical-align: top; }
-        .billing-box .section-title { font-size: 7.5pt; font-weight: bold; color: #c00000; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-        .billing-box .client-name { font-weight: bold; font-size: 9.5pt; color: #1a1a1a; }
-        .billing-box .client-detail { font-size: 8.5pt; color: #555; line-height: 1.7; margin-top: 3px; }
-        .billing-box .client-tax { font-size: 8.5pt; color: #1a1a1a; font-weight: bold; line-height: 1.7; margin-top: 3px; }
-        .info-box { vertical-align: top; width: 48%; padding-left: 24px; }
-        .info-row { border-collapse: collapse; width: 100%; }
-        .info-row td { font-size: 9pt; padding: 4px 0; border-bottom: 1px solid #f0f0f0; }
-        .info-row .lbl { color: #888; }
-        .info-row .val { font-weight: bold; text-align: right; }
-        .spacer-col { width: 4%; }
-
-        /* Status Badge */
-        .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 8.5pt; font-weight: bold; }
-
-        /* Items Table */
-        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        .items-table thead tr { background: #c00000; }
-        .items-table thead th { color: #ffffff; font-size: 8.5pt; font-weight: bold; padding: 6px 10px; text-align: left; }
-        .items-table thead th.right { text-align: right; }
-        .items-table tbody tr { border-bottom: 1px solid #f0f0f0; }
-        .items-table tbody tr:nth-child(even) { background: #fafafa; }
-        .items-table tbody td { padding: 6px 10px; font-size: 9pt; vertical-align: top; }
-        .items-table tbody td.right { text-align: right; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 9.5pt; color: #3a3a3a; background: #ffffff; }
+        .page { background: #ffffff; padding: 32px 36px 28px; }
+        .co-name { font-size: 13pt; font-weight: bold; color: #1a1a1a; margin-bottom: 3px; }
+        .co-contact { font-size: 8pt; color: #555; line-height: 1.7; margin-top: 4px; }
+        .co-contact strong { color: #2a2a2a; }
+        .doc-badge { font-size: 22pt; font-weight: bold; color: #1a1a1a; text-align: right; letter-spacing: 2px; }
+        .doc-meta-tbl { border-collapse: collapse; margin-left: auto; }
+        .doc-meta-tbl td { font-size: 8.5pt; padding: 2px 0 2px 14px; }
+        .doc-meta-tbl .lbl { color: #999; white-space: nowrap; }
+        .doc-meta-tbl .val { font-weight: bold; color: #1a1a1a; text-align: right; white-space: nowrap; }
+        .divider { border: none; border-top: 2px solid #1a1a1a; margin: 14px 0 24px; }
+        .divider-soft { border: none; border-top: 1px solid #e8e8e8; margin: 14px 0; }
+        .section-lbl { font-size: 9.5pt; font-weight: bold; margin-bottom: 8px; }
+        .client-name-big { font-size: 10.5pt; font-weight: bold; color: #1a1a1a; margin-bottom: 6px; }
+        .client-field { width: 100%; border-collapse: collapse; }
+        .client-field td { font-size: 8.5pt; padding: 2px 0; vertical-align: top; }
+        .client-field .fl { color: #999; width: 80px; white-space: nowrap; }
+        .client-field .fv { color: #1a1a1a; font-weight: bold; }
+        .meta-field { width: 100%; border-collapse: collapse; }
+        .meta-field td { font-size: 8.5pt; padding: 3.5px 0; border-bottom: 1px dashed #eeeeee; vertical-align: top; }
+        .meta-field .fl { color: #999; width: 90px; white-space: nowrap; }
+        .meta-field .fv { font-weight: bold; color: #1a1a1a; }
+        .meta-field tr:last-child td { border-bottom: none; }
+        .items-tbl { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .items-tbl thead tr { background: #EDEDF3; }
+        .items-tbl thead th { font-size: 8.5pt; font-weight: bold; color: #3D3A56; padding: 7px 10px; text-align: left; border: 1px solid #DCDCE8; }
+        .items-tbl thead th.r { text-align: right; }
+        .items-tbl tbody td { font-size: 9pt; padding: 7px 10px; border: 1px solid #e8e8e8; vertical-align: top; color: #3a3a3a; }
+        .items-tbl tbody td.r { text-align: right; }
+        .items-tbl tbody tr:nth-child(even) td { background: #fafafa; }
         .item-desc { font-weight: bold; color: #1a1a1a; }
-        .item-type { font-size: 8pt; color: #888; margin-top: 2px; }
-
-        /* Totals Summary */
-        .summary-table { width: 280px; float: right; margin-top: -4px; border-collapse: collapse; }
-        .summary-table td { padding: 3px 8px; font-size: 9pt; }
-        .summary-table .lbl { color: #555; }
-        .summary-table .val { text-align: right; font-weight: bold; }
-        .grand-total td { background: #c00000; color: #fff; font-weight: bold; font-size: 9.5pt; }
+        .item-sub { font-size: 8pt; color: #999; margin-top: 2px; }
+        .totals-tbl { border-collapse: collapse; float: right; min-width: 240px; margin-top: 6px; }
+        .totals-tbl td { font-size: 9pt; padding: 4px 10px; }
+        .totals-tbl .tl { color: #555; text-align: left; white-space: nowrap; }
+        .totals-tbl .tv { font-weight: bold; color: #1a1a1a; text-align: right; white-space: nowrap; }
+        .totals-tbl tr.gtrow td { font-weight: bold; font-size: 9.5pt; border-top: 2px solid #1a1a1a; padding-top: 6px; }
         .clearfix::after { content: ''; display: table; clear: both; }
-
-        /* Validity Notice */
-        .validity-notice { border-radius: 4px; padding: 7px 12px; text-align: center; margin: 10px 0; }
-        .validity-valid { background: #fef9c3; border: 1px solid #fbbf24; }
-        .validity-valid-text { font-weight: bold; font-size: 8pt; color: #854d0e; }
-        .validity-expired { background: #fef2f2; border: 1px solid #fca5a5; }
-        .validity-expired-text { font-weight: bold; font-size: 8pt; color: #c00000; }
-
-        /* Notes */
-        .notes-section { margin-top: 8px; font-size: 9pt; }
-        .notes-section .notes-title { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 4px; }
-        .notes-section .notes-body { color: #555; line-height: 1.6; }
-
-        /* Footer */
-        .footer { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 10px; text-align: center; font-size: 8pt; color: #aaa; }
-        .footer strong { color: #888; }
+        .status-badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 8pt; font-weight: bold; }
+        .validity-notice { border-radius: 3px; padding: 7px 14px; text-align: center; margin: 12px 0 6px; font-size: 9pt; font-weight: bold; }
+        .validity-valid { background: #fefce8; border: 1px solid #fde68a; color: #92400e; }
+        .validity-expired { background: #fff5f5; border: 1px solid #fca5a5; color: #7f1d1d; }
+        .bank-tbl { border-collapse: collapse; }
+        .bank-tbl td { font-size: 8.5pt; padding: 2.5px 0; vertical-align: top; }
+        .bank-tbl .bl { color: #999; width: 100px; white-space: nowrap; }
+        .bank-tbl .bv { font-weight: bold; color: #1a1a1a; }
+        .terms-title { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #999; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .terms-body { font-size: 8.5pt; color: #555; line-height: 1.65; }
+        .terms-list { margin: 0; padding-left: 14px; }
+        .terms-list li { margin-bottom: 3px; font-size: 8.5pt; color: #555; line-height: 1.55; }
+        .zero-rated { color: #166534; background: #f0fdf4; padding: 2px 6px; border-radius: 3px; font-size: 8pt; }
+        .footer { margin-top: 20px; border-top: 1px solid #e0e0e0; padding-top: 9px; text-align: center; font-size: 7.5pt; color: #bbbbbb; line-height: 1.7; }
     </style>
     <style>
-        .company-name { color: {{ $primaryColor }}; }
-        .doc-label { color: {{ $primaryColor }}; }
-        .billing-box .section-title { color: {{ $primaryColor }}; }
-        .divider { border-top-color: {{ $primaryColor }}; }
-        .billing-box { border-left-color: {{ $primaryColor }}; }
-        .items-table thead tr { background: {{ $primaryColor }}; }
-        .grand-total td { background: {{ $primaryColor }}; }
-        .validity-expired-text { color: {{ $primaryColor }}; }
-        .validity-expired { border-color: {{ $primaryColor }}; }
+        .section-lbl { color: {{ $accent }}; }
+        .totals-tbl tr.gtrow .tv { color: {{ $accent }}; }
     </style>
 </head>
 <body>
 <div class="page">
 
-    <!-- Header -->
-    <table class="header-table">
+    {{-- QUOTATION TITLE --}}
+    <div style="text-align:center; margin-bottom:16px;">
+        <div style="font-size:24pt; font-weight:bold; color:#1a1a1a; letter-spacing:4px;">QUOTATION</div>
+    </div>
+
+    {{-- HEADER --}}
+    <table style="width:100%; border-collapse:collapse;">
         <tr>
-            <td style="vertical-align:top; width:55%;">
-                @php
-                    $logoLocalPath = $cs?->logo_path
-                        ? storage_path('app/public/' . $cs->logo_path)
-                        : null;
-                @endphp
+            <td style="vertical-align:top; width:58%;">
                 @if($logoLocalPath && file_exists($logoLocalPath))
-                <img src="{{ $logoLocalPath }}" style="height:52px; max-width:160px; object-fit:contain; margin-bottom:5px;" alt="{{ $cs->company_name }}"><br>
+                    <div style="margin-bottom:7px;">
+                        <img src="{{ $logoLocalPath }}" style="height:52px; max-width:160px; object-fit:contain;" alt="logo">
+                    </div>
                 @endif
-                <div class="company-name">{{ $cs?->company_name ?? 'Milele Power' }}</div>
-                @if($cs?->trading_name && $cs->trading_name !== $cs->company_name)
-                <div class="company-sub">t/a {{ $cs->trading_name }}</div>
-                @endif
+                <div class="co-name">{{ $cs?->company_name ?? 'Milele Power' }}</div>
                 @if($cs?->tagline)
-                <div class="company-sub">{{ $cs->tagline }}</div>
-                @else
-                <div class="company-sub">Generator Rental &amp; Power Solutions</div>
+                    <div style="font-size:8pt; color:#888; margin-bottom:2px;">{{ $cs->tagline }}</div>
                 @endif
-                <div class="company-contact">
-                    @if($cs?->address_line1)
-                        {{ $cs->address_line1 }}@if($cs?->city), {{ $cs->city }}@endif<br>
-                    @elseif($cs?->city)
-                        {{ $cs->city }}, {{ $cs?->country ?? 'Tanzania' }}<br>
-                    @else
-                        Dar es Salaam, Tanzania<br>
-                    @endif
-                    @if($cs?->phone_primary)
-                        Tel: {{ $cs->phone_primary }}
-                        @if($cs?->email_general)
-                            &bull; {{ $cs->email_general }}
-                        @endif
-                        <br>
-                    @endif
-                    @if($cs?->website)
-                        {{ $cs->website }}<br>
-                    @endif
-                    @if($cs?->tin_number)
-                        <strong>TIN: {{ $cs->tin_number }}</strong>
-                        @if($cs?->vrn_number)
-                            &bull; <strong>VRN: {{ $cs->vrn_number }}</strong>
-                        @endif
+                <div class="co-contact">
+                    @if($cs?->vrn_number)<strong>VRN:</strong> {{ $cs->vrn_number }}<br>@endif
+                    @if($cs?->tin_number)<strong>TIN:</strong> {{ $cs->tin_number }}<br>@endif
+                    @if($cs?->phone_primary)<strong>Phone:</strong> {{ $cs->phone_primary }}<br>@endif
+                    @if($cs?->email_general)<strong>Email:</strong> {{ $cs->email_general }}<br>@endif
+                    @if($cs?->address_line1){{ $cs->address_line1 }}@if($cs?->city), {{ $cs->city }}@endif
+                    @elseif($cs?->city){{ $cs->city }}, {{ $cs?->country ?? 'Tanzania' }}
+                    @else Dar es Salaam, Tanzania
                     @endif
                 </div>
             </td>
-            <td style="vertical-align:top; text-align:right; width:45%;">
-                <div class="doc-label">QUOTATION</div>
-                <table class="doc-meta" style="float:right; margin-top:8px;">
+            <td style="vertical-align:top; text-align:right; width:42%;">
+                <table class="doc-meta-tbl" style="margin-top:0;">
+                    <tr><td class="lbl">Quote No:</td><td class="val">{{ $quotation->quotation_number }}</td></tr>
+                    <tr><td class="lbl">Date Issued:</td><td class="val">{{ $quotation->issue_date?->format('d/m/Y') ?? '—' }}</td></tr>
                     <tr>
-                        <td class="label">Quote #:</td>
-                        <td class="value">{{ $quotation->quotation_number }}</td>
+                        <td class="lbl">Valid Until:</td>
+                        <td class="val">
+                            @if($quotation->valid_until)
+                                {{ $quotation->valid_until->format('d/m/Y') }}
+                            @else N/A @endif
+                        </td>
                     </tr>
                     <tr>
-                        <td class="label">Date Issued:</td>
-                        <td class="value">{{ $quotation->created_at->format('d M Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Valid Until:</td>
-                        <td class="value">{{ $quotation->valid_until->format('d M Y') }}</td>
-                    </tr>
-                    <tr>
-                        <td class="label">Status:</td>
-                        <td class="value">
+                        <td class="lbl">Status:</td>
+                        <td class="val">
                             @php
-                                $colors = [
+                                $statusColors = [
                                     'draft'    => ['bg'=>'#f3f4f6','fg'=>'#374151'],
                                     'sent'     => ['bg'=>'#dbeafe','fg'=>'#1e40af'],
-                                    'accepted' => ['bg'=>'#dcfce7','fg'=>'#166534'],
+                                    'approved' => ['bg'=>'#dcfce7','fg'=>'#166534'],
                                     'rejected' => ['bg'=>'#fee2e2','fg'=>'#991b1b'],
                                     'expired'  => ['bg'=>'#fef9c3','fg'=>'#854d0e'],
+                                    'converted'=> ['bg'=>'#f3e8ff','fg'=>'#6b21a8'],
                                 ];
-                                $c = $colors[$quotation->status] ?? ['bg'=>'#f3f4f6','fg'=>'#374151'];
+                                $sc = $statusColors[$quotation->status] ?? ['bg'=>'#f3f4f6','fg'=>'#374151'];
                             @endphp
-                            <span class="status-badge" style="background:{{ $c['bg'] }};color:{{ $c['fg'] }};">{{ ucfirst($quotation->status) }}</span>
+                            <span class="status-badge" style="background:{{ $sc['bg'] }};color:{{ $sc['fg'] }};">
+                                {{ ucfirst($quotation->status) }}
+                            </span>
                         </td>
                     </tr>
                 </table>
@@ -179,102 +139,97 @@
 
     <hr class="divider">
 
-    <!-- Prepared For + Details -->
-    <table class="billing-row">
+    {{-- PREPARED FOR + META --}}
+    <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
         <tr>
-            <td class="billing-box">
-                <div class="section-title">Prepared For</div>
+            <td style="vertical-align:top; width:52%; padding-right:24px;">
+                <div class="section-lbl">Prepared For:</div>
                 @if($quotation->client)
-                    <div class="client-name">{{ $quotation->client->company_name ?? $quotation->client->full_name }}</div>
-                    @if($quotation->client->company_name)
-                        <div class="client-detail">{{ $quotation->client->full_name }}</div>
-                    @endif
-                    @if($quotation->client->phone)
-                        <div class="client-detail">{{ $quotation->client->phone }}</div>
-                    @endif
-                    @if($quotation->client->email)
-                        <div class="client-detail">{{ $quotation->client->email }}</div>
-                    @endif
-                    @if($quotation->client->tin_number)
-                        <div class="client-tax">TIN: {{ $quotation->client->tin_number }}</div>
-                    @endif
-                    @if($quotation->client->vrn)
-                        <div class="client-tax">VRN: {{ $quotation->client->vrn }}</div>
-                    @endif
+                    <div class="client-name-big">
+                        {{ $quotation->client->company_name ?? $quotation->client->full_name }}
+                    </div>
+                    <table class="client-field">
+                        @if($quotation->client->company_name)
+                        <tr><td class="fl">Contact:</td><td class="fv">{{ $quotation->client->full_name }}</td></tr>
+                        @endif
+                        @if($quotation->client->vrn)
+                        <tr><td class="fl">VRN:</td><td class="fv">{{ $quotation->client->vrn }}</td></tr>
+                        @endif
+                        @if($quotation->client->tin_number)
+                        <tr><td class="fl">TIN:</td><td class="fv">{{ $quotation->client->tin_number }}</td></tr>
+                        @endif
+                        @if($quotation->client->email)
+                        <tr><td class="fl">Email:</td><td class="fv">{{ $quotation->client->email }}</td></tr>
+                        @endif
+                        @if($quotation->client->phone)
+                        <tr><td class="fl">Phone:</td><td class="fv">{{ $quotation->client->phone }}</td></tr>
+                        @endif
+                    </table>
                 @elseif($quotation->quoteRequest)
-                    <div class="client-name">{{ $quotation->quoteRequest->full_name }}</div>
-                    @if($quotation->quoteRequest->company_name)
-                        <div class="client-detail">{{ $quotation->quoteRequest->company_name }}</div>
-                    @endif
-                    @if($quotation->quoteRequest->phone)
-                        <div class="client-detail">{{ $quotation->quoteRequest->phone }}</div>
-                    @endif
-                    @if($quotation->quoteRequest->email)
-                        <div class="client-detail">{{ $quotation->quoteRequest->email }}</div>
-                    @endif
-                    @php $reqClient = $quotation->quoteRequest->client; @endphp
-                    @if($reqClient && $reqClient->tin_number)
-                        <div class="client-tax">TIN: {{ $reqClient->tin_number }}</div>
-                    @endif
-                    @if($reqClient && $reqClient->vrn)
-                        <div class="client-tax">VRN: {{ $reqClient->vrn }}</div>
-                    @endif
+                    <div class="client-name-big">{{ $quotation->quoteRequest->contact_name }}</div>
+                    <table class="client-field">
+                        @if($quotation->quoteRequest->company_name)
+                        <tr><td class="fl">Company:</td><td class="fv">{{ $quotation->quoteRequest->company_name }}</td></tr>
+                        @endif
+                        @if($quotation->quoteRequest->email)
+                        <tr><td class="fl">Email:</td><td class="fv">{{ $quotation->quoteRequest->email }}</td></tr>
+                        @endif
+                        @if($quotation->quoteRequest->phone)
+                        <tr><td class="fl">Phone:</td><td class="fv">{{ $quotation->quoteRequest->phone }}</td></tr>
+                        @endif
+                    </table>
                 @elseif($quotation->customer_name)
-                    <div class="client-name">{{ $quotation->customer_name }}</div>
-                    @if($quotation->company_name)
-                        <div class="client-detail">{{ $quotation->company_name }}</div>
-                    @endif
-                    @if($quotation->customer_phone)
-                        <div class="client-detail">{{ $quotation->customer_phone }}</div>
-                    @endif
-                    @if($quotation->customer_email)
-                        <div class="client-detail">{{ $quotation->customer_email }}</div>
-                    @endif
+                    <div class="client-name-big">{{ $quotation->customer_name }}</div>
+                    <table class="client-field">
+                        @if($quotation->customer_email)
+                        <tr><td class="fl">Email:</td><td class="fv">{{ $quotation->customer_email }}</td></tr>
+                        @endif
+                        @if($quotation->customer_phone)
+                        <tr><td class="fl">Phone:</td><td class="fv">{{ $quotation->customer_phone }}</td></tr>
+                        @endif
+                    </table>
                 @else
-                    <div class="client-name">Direct Quotation</div>
+                    <div class="client-name-big" style="color:#999;">Direct Quotation</div>
                 @endif
             </td>
-            <td class="spacer-col"></td>
-            <td class="info-box">
-                <table class="info-row">
+            <td style="vertical-align:top; width:48%; padding-left:24px; border-left:1px solid #eeeeee;">
+                <table class="meta-field">
                     @if($quotation->quoteRequest)
-                    <tr>
-                        <td class="lbl">Request Ref:</td>
-                        <td class="val">{{ $quotation->quoteRequest->request_number }}</td>
-                    </tr>
+                    <tr><td class="fl">Request Ref:</td><td class="fv">{{ $quotation->quoteRequest->request_number }}</td></tr>
                     @endif
-                    @if($quotation->createdBy)
-                    <tr>
-                        <td class="lbl">Prepared By:</td>
-                        <td class="val">{{ $quotation->createdBy->name }}</td>
-                    </tr>
+                    @if($quotation->preparedBy ?? $quotation->user)
+                    <tr><td class="fl">Prepared By:</td><td class="fv">{{ ($quotation->preparedBy ?? $quotation->user)?->name }}</td></tr>
                     @endif
                     @if($quotation->payment_terms)
-                    <tr>
-                        <td class="lbl">Pay. Terms:</td>
-                        <td class="val">{{ $quotation->payment_terms }}</td>
-                    </tr>
+                    <tr><td class="fl">Pay. Terms:</td><td class="fv">{{ $quotation->payment_terms }}</td></tr>
                     @endif
-                    @if($quotation->currency === 'USD')
                     <tr>
-                        <td class="lbl">Currency:</td>
-                        <td class="val">USD &mdash; Rate: {{ number_format($quotation->exchange_rate_to_tzs, 0) }} TZS</td>
+                        <td class="fl">Currency:</td>
+                        <td class="fv">
+                            {{ $quotation->currency ?? 'TZS' }}
+                            @if($quotation->currency === 'USD' && $quotation->exchange_rate_to_tzs)
+                                &nbsp;<span style="font-weight:normal;color:#888;">(Rate: {{ number_format($quotation->exchange_rate_to_tzs, 0) }} TZS)</span>
+                            @endif
+                        </td>
                     </tr>
+                    @if($quotation->is_zero_rated ?? false)
+                    <tr><td class="fl">VAT Status:</td><td class="fv"><span class="zero-rated">Zero Rated (0%)</span></td></tr>
                     @endif
                 </table>
             </td>
         </tr>
     </table>
 
-    <!-- Items Table -->
-    <table class="items-table">
+    {{-- ITEMS TABLE --}}
+    <div class="section-lbl" style="margin-bottom:7px;">Quotation Details:</div>
+    <table class="items-tbl">
         <thead>
             <tr>
-                <th style="width:45%;">Description</th>
-                <th class="right" style="width:8%;">Qty</th>
-                <th class="right" style="width:13%;">Unit Price</th>
-                <th class="right" style="width:10%;">Days</th>
-                <th class="right" style="width:14%;">Amount ({{ $quotation->currencySymbol() }})</th>
+                <th style="width:44%;">Particulars</th>
+                <th class="r" style="width:8%;">Qty</th>
+                <th class="r" style="width:16%;">Unit Price ({{ $quotation->currencySymbol() }})</th>
+                <th class="r" style="width:9%;">Days</th>
+                <th class="r" style="width:15%;">Subtotal ({{ $quotation->currencySymbol() }})</th>
             </tr>
         </thead>
         <tbody>
@@ -282,140 +237,129 @@
             <tr>
                 <td>
                     <div class="item-desc">{{ $item->description }}</div>
-                    <div class="item-type">{{ $item->item_type_formatted }}</div>
+                    @if($item->item_type_label ?? null)
+                    <div class="item-sub">{{ $item->item_type_label }}</div>
+                    @endif
                 </td>
-                <td class="right">{{ $item->quantity }}</td>
-                <td class="right">{{ number_format($item->unit_price, 0) }}</td>
-                <td class="right">{{ $item->duration_days ?? '—' }}</td>
-                <td class="right">{{ number_format($item->subtotal, 0) }}</td>
+                <td class="r">{{ $item->quantity }}</td>
+                <td class="r">{{ number_format($item->unit_price, 2) }}</td>
+                <td class="r">{{ $item->duration_days ?? '&mdash;' }}</td>
+                <td class="r">{{ number_format($item->subtotal, 2) }}</td>
             </tr>
             @empty
             <tr>
-                <td colspan="5" style="text-align:center; color:#aaa; padding:16px;">No items</td>
+                <td colspan="5" style="text-align:center;color:#aaa;padding:18px;">No items found.</td>
             </tr>
             @endforelse
         </tbody>
     </table>
 
-    <!-- Totals -->
-    <div class="clearfix">
-        <table class="summary-table">
+    {{-- TOTALS --}}
+    <div class="clearfix" style="margin-bottom:6px;">
+        <table class="totals-tbl">
             <tr>
-                <td class="lbl">Subtotal:</td>
-                <td class="val">{{ $quotation->formatAmount($quotation->subtotal, 0) }}</td>
+                <td class="tl">Sub-Total:</td>
+                <td class="tv">{{ $quotation->formatAmount($quotation->subtotal ?? 0, 2) }}</td>
             </tr>
+            @if($quotation->is_zero_rated ?? false)
             <tr>
-                <td class="lbl">VAT ({{ $quotation->vat_rate }}%):</td>
-                <td class="val">{{ $quotation->formatAmount($quotation->vat_amount, 0) }}</td>
+                <td class="tl">VAT:</td>
+                <td class="tv" style="color:#166534;">Zero Rated (0%)</td>
             </tr>
-            <tr class="grand-total">
-                <td style="padding:8px 8px; font-weight:bold;">TOTAL:</td>
-                <td style="text-align:right; padding:8px 8px; font-size:9.5pt;">{{ $quotation->formatAmount($quotation->total_amount, 0) }}</td>
+            @else
+            <tr>
+                <td class="tl">VAT {{ $quotation->vat_rate ?? 18 }}%:</td>
+                <td class="tv">{{ $quotation->formatAmount($quotation->vat_amount ?? 0, 2) }}</td>
+            </tr>
+            @endif
+            <tr class="gtrow">
+                <td class="tl">Grand Total:</td>
+                <td class="tv">{{ $quotation->formatAmount($quotation->total_amount ?? 0, 2) }}</td>
             </tr>
         </table>
     </div>
 
-    <!-- Validity Notice -->
-    @if(!$quotation->isExpired())
-    <div class="validity-notice validity-valid" style="margin-top:16px;">
-        <div class="validity-valid-text">&#8987; Valid until {{ $quotation->valid_until->format('d M Y') }} &mdash; Please respond before this date. Prices and availability are subject to change.</div>
-    </div>
+    {{-- VALIDITY NOTICE --}}
+    @if($quotation->valid_until)
+        @if($quotation->valid_until->isPast())
+        <div class="validity-notice validity-expired">
+            This quotation expired on {{ $quotation->valid_until->format('d M Y') }}. Please request a renewed quotation.
+        </div>
+        @else
+        <div class="validity-notice validity-valid">
+            This quotation is valid until {{ $quotation->valid_until->format('d M Y') }}
+            ({{ $quotation->valid_until->diffForHumans() }}).
+        </div>
+        @endif
+    @endif
+
+    {{-- BANK DETAILS --}}
+    @if($cs?->bank_name || $cs?->bank_account_number || $cs?->bank_swift_code)
+    <hr class="divider-soft">
+    <div class="section-lbl" style="margin-bottom:7px;">Bank Details</div>
+    <table style="width:100%; border-collapse:collapse;">
+        <tr>
+            <td style="vertical-align:top; width:50%; padding-right:18px;">
+                <table class="bank-tbl">
+                    @if($cs->bank_swift_code)
+                    <tr><td class="bl">Swift Code:</td><td class="bv">{{ $cs->bank_swift_code }}</td></tr>
+                    @endif
+                    @if($cs->bank_name)
+                    <tr><td class="bl">Bank:</td><td class="bv">{{ $cs->bank_name }}@if($cs->bank_branch_name), {{ $cs->bank_branch_name }}@endif</td></tr>
+                    @endif
+                    @if($cs->bank_account_name)
+                    <tr><td class="bl">A/C Name:</td><td class="bv">{{ $cs->bank_account_name }}</td></tr>
+                    @endif
+                </table>
+            </td>
+            <td style="vertical-align:top; width:50%; padding-left:18px; border-left:1px dashed #e0e0e0;">
+                <table class="bank-tbl">
+                    @if($cs->bank_account_number)
+                    <tr><td class="bl">Account No.:</td><td class="bv">{{ $cs->bank_account_number }}</td></tr>
+                    @endif
+                    @if($cs?->payment_instructions)
+                    <tr><td colspan="2" style="font-size:8pt;color:#777;padding-top:5px;line-height:1.55;">{{ $cs->payment_instructions }}</td></tr>
+                    @endif
+                </table>
+            </td>
+        </tr>
+    </table>
+    @endif
+
+    {{-- TERMS & CONDITIONS --}}
+    <hr class="divider-soft">
+    <div class="section-lbl" style="margin-bottom:7px;">Terms &amp; Conditions:</div>
+    @if($quotation->terms_conditions)
+        <div class="terms-body">{{ $quotation->terms_conditions }}</div>
+    @elseif($cs?->quotation_terms)
+        <div class="terms-body">{{ $cs->quotation_terms }}</div>
     @else
-    <div class="validity-notice validity-expired" style="margin-top:16px;">
-        <div class="validity-expired-text">&#9888; This quotation expired on {{ $quotation->valid_until->format('d M Y') }} &mdash; Please contact us for an updated quotation.</div>
-    </div>
+        <ul class="terms-list">
+            <li>The above quoted price is exclusive of VAT unless otherwise stated.</li>
+            <li>The rental period begins from the date of generator delivery to the client's site.</li>
+            <li>Payment is due within 7 days of invoice date unless otherwise agreed.</li>
+            <li>Fuel and consumables are the responsibility of the client unless stated otherwise.</li>
+            <li>{{ $cs?->company_name ?? 'Milele Power' }} reserves the right to withdraw this quotation if not accepted within the validity period.</li>
+            <li>All prices are subject to change without prior notice after the validity date.</li>
+        </ul>
     @endif
 
-    <!-- Bank Details & Payment Instructions -->
-    @if($cs?->bank_name || $cs?->bank_account_number || $cs?->payment_instructions)
-    <div style="margin-top:12px; border:1px solid #e5e7eb; border-left:3px solid {{ $primaryColor }}; border-radius:4px; padding:10px 14px; background:#fafafa;">
-        <div style="font-size:7.5pt; font-weight:bold; color:{{ $primaryColor }}; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:7px;">Payment Details</div>
-        @if($cs->bank_name || $cs->bank_account_number)
-        <table style="border-collapse:collapse; width:100%; font-size:8.5pt;">
-            @if($cs->bank_name)
-            <tr><td style="color:#888; padding:1px 0; width:110px;">Bank:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_name }}</td></tr>
-            @endif
-            @if($cs->bank_branch_name)
-            <tr><td style="color:#888; padding:1px 0;">Branch:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_branch_name }}</td></tr>
-            @endif
-            @if($cs->bank_account_name)
-            <tr><td style="color:#888; padding:1px 0;">Account Name:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_account_name }}</td></tr>
-            @endif
-            @if($cs->bank_account_number)
-            <tr><td style="color:#888; padding:1px 0;">Account No.:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_account_number }}</td></tr>
-            @endif
-            @if($cs->bank_swift_code)
-            <tr><td style="color:#888; padding:1px 0;">SWIFT/BIC:</td><td style="font-weight:bold; color:#1a1a1a;">{{ $cs->bank_swift_code }}</td></tr>
-            @endif
-        </table>
-        @endif
-        @if($cs?->payment_instructions)
-        <div style="margin-top:6px; font-size:8.5pt; color:#555; line-height:1.5;">{{ $cs->payment_instructions }}</div>
-        @endif
-    </div>
-    @endif
+    {{-- SIGNATURE --}}
+    <table style="width:100%; border-collapse:collapse; margin-top:28px;">
+        <tr>
+            <td style="width:55%;"></td>
+            <td style="width:45%; text-align:center;">
+                <div style="border-top:1px solid #888; width:180px; margin:0 auto 5px;"></div>
+                <div style="font-size:8.5pt; color:#666;">Authorized Signature</div>
+                <div style="font-size:8pt; color:#aaa; margin-top:2px;">{{ $cs?->company_name ?? '' }}</div>
+            </td>
+        </tr>
+    </table>
 
-    <!-- Notes & Terms -->
-    @if($quotation->payment_terms || $quotation->terms_conditions)
-    <div style="margin-top:12px; border-top: 1px solid #e5e7eb; padding-top:8px;">
-        @if($quotation->payment_terms)
-        <div class="notes-section">
-            <div class="notes-title">Payment Terms</div>
-            <div class="notes-body">{{ $quotation->payment_terms }}</div>
-        </div>
-        @endif
-        @if($quotation->terms_conditions)
-        <div class="notes-section" style="margin-top:6px;">
-            <div class="notes-title">Terms &amp; Conditions</div>
-            <div class="notes-body">{{ $quotation->terms_conditions }}</div>
-        </div>
-        @endif
-    </div>
-    @else
-    <div style="margin-top:12px; border-top: 1px solid #e5e7eb; padding-top:8px;">
-        <div class="notes-section">
-            <div class="notes-title">Payment Terms</div>
-            <div class="notes-body">Payment due within 30 days of acceptance. All prices are in {{ $quotation->currency === 'USD' ? 'US Dollars (USD)' : 'Tanzanian Shillings (TZS)' }}.</div>
-        </div>
-        <div class="notes-section" style="margin-top:8px;">
-            <div class="notes-title">Terms &amp; Conditions</div>
-            <div class="notes-body">
-                1. This quotation is valid for the period specified above.<br>
-                2. Prices are subject to change without notice after the validity period.<br>
-                3. Generator rental includes basic maintenance during the rental period.<br>
-                4. Delivery and pickup charges may apply based on location.<br>
-                5. Full payment is required before equipment delivery.<br>
-                6. Security deposit may be required for rental equipment.
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- Footer -->
+    {{-- FOOTER --}}
     <div class="footer">
-        <strong>
-            {{ $cs?->company_name ?? 'Milele Power' }}
-            @if($cs?->tagline)
-                &bull; {{ $cs->tagline }}
-            @endif
-        </strong><br>
-        @if($cs?->city)
-            {{ $cs->city }}, {{ $cs?->country ?? 'Tanzania' }}
-        @else
-            Dar es Salaam, Tanzania
-        @endif
-        @if($cs?->phone_primary)
-            &bull; Tel: {{ $cs->phone_primary }}
-        @endif
-        @if($cs?->email_general)
-            &bull; {{ $cs->email_general }}
-        @endif
-        <br>
-        @if($cs?->quotation_terms)
-            {{ $cs->quotation_terms }}
-        @else
-            Thank you for choosing {{ $cs?->company_name ?? 'Milele Power' }}.
-        @endif
+        This quotation was generated by the {{ $cs?->company_name ?? 'Milele Power' }} Rental System.<br>
+        Thank you for your trust and partnership!
     </div>
 
 </div>
