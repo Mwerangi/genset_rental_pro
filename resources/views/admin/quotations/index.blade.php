@@ -176,7 +176,12 @@
                                     <span class="font-mono text-sm font-medium text-slate-900">{{ $quotation->quotation_number }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    @if($quotation->quoteRequest)
+                                    @if($quotation->client)
+                                        <div>
+                                            <p class="font-medium text-slate-900">{{ $quotation->client->company_name ?? $quotation->client->full_name }}</p>
+                                            <p class="text-sm text-slate-600">{{ $quotation->client->client_number }}</p>
+                                        </div>
+                                    @elseif($quotation->quoteRequest)
                                         <div>
                                             <p class="font-medium text-slate-900">{{ $quotation->quoteRequest->full_name }}</p>
                                             <p class="text-sm text-slate-600">{{ $quotation->quoteRequest->company_name ?? $quotation->quoteRequest->email }}</p>

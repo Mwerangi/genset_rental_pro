@@ -177,7 +177,57 @@
         <!-- Main Content (2/3 width) -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Customer Information -->
-            @if($quotation->quoteRequest)
+            <!-- Customer / Client Information -->
+            @if($quotation->client)
+                <x-card>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-slate-900">Client Information</h2>
+                        <div class="flex items-center gap-2">
+                            @if($quotation->quoteRequest)
+                                <x-badge color="blue">From Request: {{ $quotation->quoteRequest->request_number }}</x-badge>
+                            @endif
+                            <a href="{{ route('admin.clients.show', $quotation->client) }}"
+                               class="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                </svg>
+                                View Profile
+                            </a>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Client</p>
+                            <p class="text-slate-900 font-medium">{{ $quotation->client->company_name ?? $quotation->client->full_name }}</p>
+                            @if($quotation->client->company_name)
+                                <p class="text-sm text-slate-500">{{ $quotation->client->full_name }}</p>
+                            @endif
+                            <p class="text-xs text-slate-400 font-mono mt-0.5">{{ $quotation->client->client_number }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Email</p>
+                            <p class="text-slate-900">{{ $quotation->client->email ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Phone Number</p>
+                            <p class="text-slate-900">{{ $quotation->client->phone ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-600 mb-1">Tax ID (TIN / VRN)</p>
+                            @if($quotation->client->tin_number || $quotation->client->vrn)
+                                @if($quotation->client->tin_number)
+                                    <p class="text-slate-900 text-sm">TIN: <span class="font-mono">{{ $quotation->client->tin_number }}</span></p>
+                                @endif
+                                @if($quotation->client->vrn)
+                                    <p class="text-slate-900 text-sm">VRN: <span class="font-mono">{{ $quotation->client->vrn }}</span></p>
+                                @endif
+                            @else
+                                <p class="text-slate-400">—</p>
+                            @endif
+                        </div>
+                    </div>
+                </x-card>
+            @elseif($quotation->quoteRequest)
                 <x-card>
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-semibold text-slate-900">Customer Information</h2>

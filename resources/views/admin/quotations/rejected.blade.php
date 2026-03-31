@@ -82,7 +82,10 @@
                                     <span class="font-mono text-sm font-semibold text-slate-900">{{ $quotation->quotation_number }}</span>
                                 </td>
                                 <td class="py-3 px-4">
-                                    @if($quotation->quoteRequest)
+                                    @if($quotation->client)
+                                        <p class="font-medium text-slate-900 text-sm">{{ $quotation->client->company_name ?? $quotation->client->full_name }}</p>
+                                        <p class="text-xs text-slate-500">{{ $quotation->client->client_number }}</p>
+                                    @elseif($quotation->quoteRequest)
                                         <p class="font-medium text-slate-900 text-sm">{{ $quotation->quoteRequest->full_name }}</p>
                                         <p class="text-xs text-slate-500">{{ $quotation->quoteRequest->company_name ?? $quotation->quoteRequest->email }}</p>
                                     @elseif($quotation->customer_name)

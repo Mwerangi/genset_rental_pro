@@ -28,7 +28,7 @@ class QuotationController extends Controller
         // Only users who manage quotations see all; others see only their own
         $seeAll = PermissionService::can($user, 'view_all_quotations');
 
-        $query = Quotation::with(['quoteRequest', 'createdBy'])
+        $query = Quotation::with(['quoteRequest', 'createdBy', 'client'])
             ->whereIn('status', ['draft', 'sent', 'viewed'])
             ->latest();
 
@@ -46,10 +46,17 @@ class QuotationController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('quotation_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('company_name', 'like', "%{$search}%")
                   ->orWhereHas('quoteRequest', function($q) use ($search) {
                       $q->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('client', function($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('client_number', 'like', "%{$search}%");
                   });
             });
         }
@@ -80,7 +87,7 @@ class QuotationController extends Controller
      */
     public function approved(Request $request)
     {
-        $query = Quotation::with(['quoteRequest', 'createdBy'])
+        $query = Quotation::with(['quoteRequest', 'createdBy', 'client'])
             ->where('status', 'accepted')
             ->latest('accepted_at');
 
@@ -88,10 +95,17 @@ class QuotationController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('quotation_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('company_name', 'like', "%{$search}%")
                   ->orWhereHas('quoteRequest', function($q) use ($search) {
                       $q->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('client', function($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('client_number', 'like', "%{$search}%");
                   });
             });
         }
@@ -127,7 +141,7 @@ class QuotationController extends Controller
      */
     public function rejected(Request $request)
     {
-        $query = Quotation::with(['quoteRequest', 'createdBy'])
+        $query = Quotation::with(['quoteRequest', 'createdBy', 'client'])
             ->where('status', 'rejected')
             ->latest('rejected_at');
 
@@ -135,10 +149,17 @@ class QuotationController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('quotation_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('company_name', 'like', "%{$search}%")
                   ->orWhereHas('quoteRequest', function($q) use ($search) {
                       $q->where('full_name', 'like', "%{$search}%")
                         ->orWhere('email', 'like', "%{$search}%")
                         ->orWhere('company_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('client', function($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('client_number', 'like', "%{$search}%");
                   });
             });
         }
