@@ -22,9 +22,41 @@
             .nav-dd > div > button, .nav-dd > button { padding: 0.2rem 0.75rem !important; }
             .nav-dd .nav-section { font-size: 0.6rem !important; padding: 0.25rem 0.75rem 0.1rem !important; }
             .nav-dd .nav-divider { margin: 0.2rem 0 !important; }
+
+            /* ── Page loader ── */
+            #page-loader {
+                position: fixed; inset: 0; z-index: 9999;
+                background: rgba(255,255,255,0.92);
+                display: flex; align-items: center; justify-content: center;
+                transition: opacity 0.3s ease;
+            }
+            #page-loader.hide { opacity: 0; pointer-events: none; }
+            .dot-loader { display: flex; gap: 8px; align-items: center; }
+            .dot-loader span {
+                display: inline-block; width: 12px; height: 12px;
+                border-radius: 50%; background: #dc2626;
+                animation: dotBounce 1.2s ease-in-out infinite;
+            }
+            .dot-loader span:nth-child(1) { animation-delay: 0s;    background: #dc2626; }
+            .dot-loader span:nth-child(2) { animation-delay: 0.2s;   background: #ef4444; }
+            .dot-loader span:nth-child(3) { animation-delay: 0.4s;   background: #f87171; }
+            .dot-loader span:nth-child(4) { animation-delay: 0.6s;   background: #ef4444; }
+            .dot-loader span:nth-child(5) { animation-delay: 0.8s;   background: #dc2626; }
+            @keyframes dotBounce {
+                0%, 80%, 100% { transform: translateY(0);   opacity: 0.4; }
+                40%           { transform: translateY(-14px); opacity: 1; }
+            }
         </style>
     </head>
     <body class="font-sans antialiased bg-gray-100">
+
+        <!-- Page loader -->
+        <div id="page-loader">
+            <div class="dot-loader">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+        </div>
+
         <div class="min-h-screen flex flex-col">
 
             {{-- ═══════════════════════════════════════════════════════════
@@ -514,5 +546,39 @@
             <script>document.addEventListener('DOMContentLoaded', () => toast.info(@js(session('info'))))</script>
         @endif
         @stack('scripts')
+
+        <script>
+            (function () {
+                var loader = document.getElementById('page-loader');
+
+                // Hide once page is fully ready
+                function hideLoader() {
+                    loader.classList.add('hide');
+                    setTimeout(function () { loader.style.display = 'none'; }, 320);
+                }
+
+                if (document.readyState === 'complete') {
+                    hideLoader();
+                } else {
+                    window.addEventListener('load', hideLoader);
+                }
+
+                // Show again when navigating away (link/form submits)
+                document.addEventListener('click', function (e) {
+                    var a = e.target.closest('a[href]');
+                    if (a && !a.target && !a.href.startsWith('#') &&
+                        !a.href.startsWith('javascript') &&
+                        !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                        loader.style.display = 'flex';
+                        loader.classList.remove('hide');
+                    }
+                });
+
+                document.addEventListener('submit', function () {
+                    loader.style.display = 'flex';
+                    loader.classList.remove('hide');
+                });
+            })();
+        </script>
     </body>
 </html>
