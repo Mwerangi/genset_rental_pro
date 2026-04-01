@@ -12,19 +12,19 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; font-size: 9.5pt; color: #3a3a3a; background: #ffffff; }
-        .page { background: #ffffff; padding: 32px 36px 28px; }
+        .page { background: #ffffff; padding: 20px 28px 20px; }
         .co-name { font-size: 13pt; font-weight: bold; color: #1a1a1a; margin-bottom: 3px; }
-        .co-contact { font-size: 8pt; color: #555; line-height: 1.7; margin-top: 4px; }
+        .co-contact { font-size: 8pt; color: #555; line-height: 1.5; margin-top: 2px; }
         .co-contact strong { color: #2a2a2a; }
         .doc-badge { font-size: 22pt; font-weight: bold; color: #1a1a1a; text-align: right; letter-spacing: 2px; }
         .doc-meta-tbl { border-collapse: collapse; margin-left: auto; }
         .doc-meta-tbl td { font-size: 8.5pt; padding: 2px 0 2px 14px; }
         .doc-meta-tbl .lbl { color: #999; white-space: nowrap; }
         .doc-meta-tbl .val { font-weight: bold; color: #1a1a1a; text-align: right; white-space: nowrap; }
-        .divider { border: none; border-top: 2px solid #1a1a1a; margin: 14px 0 24px; }
+        .divider { border: none; border-top: 2px solid #1a1a1a; margin: 10px 0 12px; }
         .divider-soft { border: none; border-top: 1px solid #e8e8e8; margin: 14px 0; }
-        .section-lbl { font-size: 9.5pt; font-weight: bold; margin-bottom: 8px; }
-        .client-name-big { font-size: 10.5pt; font-weight: bold; color: #1a1a1a; margin-bottom: 6px; }
+        .section-lbl { font-size: 9.5pt; font-weight: bold; margin-bottom: 5px; }
+        .client-name-big { font-size: 10.5pt; font-weight: bold; color: #1a1a1a; margin-bottom: 3px; }
         .client-field { width: 100%; border-collapse: collapse; }
         .client-field td { font-size: 8.5pt; padding: 2px 0; vertical-align: top; }
         .client-field .fl { color: #999; width: 80px; white-space: nowrap; }
@@ -72,7 +72,7 @@
 <div class="page">
 
     {{-- INVOICE TITLE --}}
-    <div style="text-align:center; margin-bottom:16px;">
+    <div style="text-align:center; margin-bottom:8px;">
         <div style="font-size:24pt; font-weight:bold; color:#1a1a1a; letter-spacing:4px;">INVOICE</div>
     </div>
 
@@ -81,8 +81,8 @@
         <tr>
             <td style="vertical-align:top; width:58%;">
                 @if($logoLocalPath && file_exists($logoLocalPath))
-                    <div style="margin-bottom:7px;">
-                        <img src="{{ $logoLocalPath }}" style="height:52px; max-width:160px; object-fit:contain;" alt="logo">
+                    <div style="margin-bottom:4px;">
+                        <img src="{{ $logoLocalPath }}" style="height:40px; max-width:140px; object-fit:contain;" alt="logo">
                     </div>
                 @endif
                 <div class="co-name">{{ $cs?->company_name ?? 'Milele Power' }}</div>
@@ -130,7 +130,7 @@
     <hr class="divider">
 
     {{-- ATTENTION TO + META --}}
-    <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
+    <table style="width:100%; border-collapse:collapse; margin-bottom:10px;">
         <tr>
             <td style="vertical-align:top; width:52%; padding-right:24px;">
                 <div class="section-lbl">Attention To:</div>
