@@ -464,7 +464,7 @@
     <!-- Record Payment Modal -->
     @if(!in_array($invoice->status, ['void','declined','paid']))
     <div id="payment-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.4);" onclick="if(event.target===this) this.classList.add('hidden')">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md" onclick="event.stopPropagation()">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between px-6 py-5 border-b">
                 <h3 class="font-bold text-gray-900 text-lg">Record Payment</h3>
                 <button onclick="document.getElementById('payment-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
@@ -473,44 +473,50 @@
             </div>
             <form method="POST" action="{{ route('admin.invoices.payments.store', $invoice) }}" class="p-6 space-y-4">
                 @csrf
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date <span style="color:#dc2626;">*</span></label>
-                    <input type="date" name="payment_date" value="{{ date('Y-m-d') }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date <span style="color:#dc2626;">*</span></label>
+                        <input type="date" name="payment_date" value="{{ date('Y-m-d') }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
+                        <input type="number" name="amount" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <p class="text-xs text-gray-400 mt-1">Balance due: {{ $invoice->formatAmount($invoice->balance_due, 0) }}</p>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount ({{ $invoice->currencySymbol() }}) <span style="color:#dc2626;">*</span></label>
-                    <input type="number" name="amount" step="0.01" min="0.01" max="{{ $invoice->balance_due }}" value="{{ $invoice->balance_due }}" required placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <p class="text-xs text-gray-400 mt-1">Balance due: {{ $invoice->formatAmount($invoice->balance_due, 0) }}</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span style="color:#dc2626;">*</span></label>
+                        <select name="payment_method" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="cash">Cash</option>
+                            <option value="mpesa">M-Pesa</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Received Into Account <span style="color:#dc2626;">*</span>
+                        </label>
+                        <select name="bank_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— Select account —</option>
+                            @foreach($bankAccounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->name }}{{ $ba->currency !== 'TZS' ? ' (' . $ba->currency . ')' : '' }}</option>
+                            @endforeach
+                        </select>
+                        <p class="text-xs text-gray-400 mt-1">DR Bank / CR Accounts Receivable.</p>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method <span style="color:#dc2626;">*</span></label>
-                    <select name="payment_method" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="cash">Cash</option>
-                        <option value="mpesa">M-Pesa</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Received Into Account <span style="color:#dc2626;">*</span>
-                    </label>
-                    <select name="bank_account_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="">— Select account —</option>
-                        @foreach($bankAccounts as $ba)
-                            <option value="{{ $ba->id }}">{{ $ba->name }}{{ $ba->currency !== 'TZS' ? ' (' . $ba->currency . ')' : '' }}</option>
-                        @endforeach
-                    </select>
-                    <p class="text-xs text-gray-400 mt-1">Required to record the ledger entry (DR Bank / CR Accounts Receivable).</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Receipt Number</label>
-                    <input type="text" name="receipt_number" placeholder="e.g. RCPT-0042" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Transaction ID</label>
-                    <input type="text" name="reference" placeholder="e.g. TXN123456" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Receipt Number</label>
+                        <input type="text" name="receipt_number" placeholder="e.g. RCPT-0042" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Transaction ID</label>
+                        <input type="text" name="reference" placeholder="e.g. TXN123456" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>

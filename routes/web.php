@@ -75,6 +75,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/quotations', [QuotationController::class, 'index'])->name('quotations.index');
         Route::get('/quotations/approved', [QuotationController::class, 'approved'])->name('quotations.approved');
         Route::get('/quotations/rejected', [QuotationController::class, 'rejected'])->name('quotations.rejected');
+        Route::get('/quotations/cancelled', [QuotationController::class, 'cancelled'])->name('quotations.cancelled');
         Route::middleware('permission:create_quotations')->group(function () {
             Route::get('/quotations/create', [QuotationController::class, 'create'])->name('quotations.create');
             Route::post('/quotations', [QuotationController::class, 'store'])->name('quotations.store');

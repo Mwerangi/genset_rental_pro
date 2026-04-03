@@ -75,8 +75,22 @@ class QuotationController extends Controller
             'draft'   => Quotation::where('status', 'draft')->count(),
             'sent'    => Quotation::where('status', 'sent')->count(),
             'viewed'  => Quotation::where('status', 'viewed')->count(),
-            'accepted' => Quotation::where('status', 'accepted')->count(),
-            'total_value' => Quotation::where('status', 'accepted')->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
+            'accepted' => Quotation::where('status', 'accepted')
+                            ->where(function ($q) {
+                                $q->doesntHave('booking')
+                                  ->orWhereHas('booking', fn ($bq) => $bq->where('status', '!=', 'cancelled'));
+                            })
+                            ->count(),
+            'cancelled' => Quotation::where('status', 'accepted')
+                            ->whereHas('booking', fn ($q) => $q->where('status', 'cancelled'))
+                            ->count(),
+            'total_value' => Quotation::where('status', 'accepted')
+                            ->where(function ($q) {
+                                $q->doesntHave('booking')
+                                  ->orWhereHas('booking', fn ($bq) => $bq->where('status', '!=', 'cancelled'));
+                            })
+                            ->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')
+                            ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
         return view('admin.quotations.index', compact('quotations', 'stats'));
@@ -175,6 +189,61 @@ class QuotationController extends Controller
         ];
 
         return view('admin.quotations.rejected', compact('quotations', 'stats'));
+    }
+
+    /**
+     * Display quotations whose bookings have been cancelled
+     */
+    public function cancelled(Request $request)
+    {
+        $query = Quotation::with(['quoteRequest', 'createdBy', 'client', 'booking'])
+            ->where('status', 'accepted')
+            ->whereHas('booking', fn ($q) => $q->where('status', 'cancelled'))
+            ->latest('accepted_at');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('quotation_number', 'like', "%{$search}%")
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('company_name', 'like', "%{$search}%")
+                  ->orWhereHas('quoteRequest', function ($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('client', function ($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('client_number', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('accepted_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('accepted_at', '<=', $request->date_to);
+        }
+
+        $quotations = $query->paginate(25);
+
+        $cancelledBase = Quotation::where('status', 'accepted')
+            ->whereHas('booking', fn ($q) => $q->where('status', 'cancelled'));
+
+        $stats = [
+            'total'      => $cancelledBase->count(),
+            'this_month' => (clone $cancelledBase)
+                                ->whereMonth('accepted_at', now()->month)
+                                ->whereYear('accepted_at', now()->year)
+                                ->count(),
+            'total_value' => (clone $cancelledBase)
+                                ->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')
+                                ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
+        ];
+
+        return view('admin.quotations.cancelled', compact('quotations', 'stats'));
     }
 
     /**
