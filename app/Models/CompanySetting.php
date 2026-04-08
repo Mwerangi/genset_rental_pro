@@ -52,6 +52,14 @@ class CompanySetting extends Model
     }
 
     /**
+     * URL of the company stamp or null if not set.
+     */
+    public function getStampUrlAttribute(): ?string
+    {
+        return $this->stamp_path ? Storage::url($this->stamp_path) : null;
+    }
+
+    /**
      * Single-line full address string.
      */
     public function getFullAddressAttribute(): string

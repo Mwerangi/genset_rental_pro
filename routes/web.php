@@ -538,6 +538,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/settings/company', [CompanySettingController::class, 'edit'])->name('company-settings.edit');
         Route::put('/settings/company', [CompanySettingController::class, 'update'])->name('company-settings.update');
         Route::delete('/settings/company/logo', [CompanySettingController::class, 'deleteLogo'])->name('company-settings.logo.delete');
+        Route::delete('/settings/company/stamp', [CompanySettingController::class, 'deleteStamp'])->name('company-settings.stamp.delete');
 
         // ─── LINE ITEM TYPES ─────────────────────────────────────────────────
         Route::get('/settings/item-types', [QuotationItemTypeController::class, 'index'])->name('item-types.index');

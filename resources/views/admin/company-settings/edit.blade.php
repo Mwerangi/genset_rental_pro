@@ -612,6 +612,48 @@
                             <p class="text-xs text-gray-400 mt-2">Logo will be used on invoices, quotations, contracts and the admin panel header.</p>
                         </div>
 
+                        {{-- Stamp Upload --}}
+                        <div class="mb-6 border-t border-gray-100 pt-5">
+                            <label class="block text-xs font-semibold text-gray-600 mb-2">Company Stamp</label>
+                            @if($settings->stamp_url)
+                                <div class="flex items-start gap-4 mb-3">
+                                    <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                                        <img src="{{ $settings->stamp_url }}" alt="Current Stamp" class="h-20 w-auto object-contain max-w-40">
+                                    </div>
+                                    <div class="space-y-2">
+                                        <p class="text-xs text-gray-500">Current stamp</p>
+                                        <button type="button"
+                                                onclick="if(confirm('Remove company stamp?')) deleteStamp()"
+                                                class="text-xs text-red-600 hover:text-red-800 underline">Remove stamp</button>
+                                    </div>
+                                </div>
+                            @endif
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-red-400 transition-colors"
+                                 x-data="{ dragover: false }" @dragover.prevent="dragover = true" @dragleave="dragover = false"
+                                 :class="dragover ? 'border-red-400 bg-red-50' : ''">
+                                <input type="file" name="stamp" id="stamp-upload" accept="image/*" class="sr-only"
+                                       @change="
+                                            const file = $event.target.files[0];
+                                            if (file) {
+                                                const reader = new FileReader();
+                                                reader.onload = e => $refs.stampPreview.src = e.target.result;
+                                                reader.readAsDataURL(file);
+                                                $refs.stampPreviewWrapper.classList.remove('hidden');
+                                            }
+                                       ">
+                                <label for="stamp-upload" class="cursor-pointer">
+                                    <svg class="mx-auto w-10 h-10 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                    <p class="text-sm text-gray-600">Click to upload or drag and drop</p>
+                                    <p class="text-xs text-gray-400 mt-1">PNG, JPG or WebP with transparent background recommended, max 2 MB</p>
+                                </label>
+                                <div x-ref="stampPreviewWrapper" class="hidden mt-4">
+                                    <img x-ref="stampPreview" class="mx-auto h-24 w-auto object-contain rounded-lg border border-gray-200" alt="Stamp Preview">
+                                    <p class="text-xs text-green-600 mt-1 font-medium">New stamp selected</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-2">Stamp will be used on invoices, quotations, contracts and other official documents.</p>
+                        </div>
+
                         {{-- Colours --}}
                         <div class="border-t border-gray-100 pt-5">
                             <p class="text-xs font-semibold text-gray-800 uppercase tracking-wide mb-4">Brand Colours</p>
@@ -880,6 +922,14 @@ function deleteLogo() {
     fetch('{{ route('admin.company-settings.logo.delete') }}', { method: 'POST', body: form })
         .then(r => { if (r.ok || r.redirected) window.location.reload(); else alert('Failed to remove logo.'); })
         .catch(() => alert('Failed to remove logo.'));
+}
+function deleteStamp() {
+    const form = new FormData();
+    form.append('_token', '{{ csrf_token() }}');
+    form.append('_method', 'DELETE');
+    fetch('{{ route('admin.company-settings.stamp.delete') }}', { method: 'POST', body: form })
+        .then(r => { if (r.ok || r.redirected) window.location.reload(); else alert('Failed to remove stamp.'); })
+        .catch(() => alert('Failed to remove stamp.'));
 }
 </script>
 </x-admin-layout>

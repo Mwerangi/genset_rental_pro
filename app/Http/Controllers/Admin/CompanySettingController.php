@@ -77,6 +77,7 @@ class CompanySettingController extends Controller
 
             // Branding
             'logo'                   => 'nullable|image|mimes:png,jpg,jpeg,svg,webp|max:2048',
+            'stamp'                  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'primary_color'          => 'nullable|string|max:20',
             'secondary_color'        => 'nullable|string|max:20',
         ]);
@@ -92,8 +93,16 @@ class CompanySettingController extends Controller
             $validated['logo_path'] = $request->file('logo')->store('company', 'public');
         }
 
-        // Remove the raw 'logo' key (not a DB column)
-        unset($validated['logo']);
+        // Handle stamp upload
+        if ($request->hasFile('stamp')) {
+            if ($settings->stamp_path) {
+                Storage::disk('public')->delete($settings->stamp_path);
+            }
+            $validated['stamp_path'] = $request->file('stamp')->store('company', 'public');
+        }
+
+        // Remove raw file keys (not DB columns)
+        unset($validated['logo'], $validated['stamp']);
 
         $settings->update($validated);
 
@@ -110,5 +119,17 @@ class CompanySettingController extends Controller
         }
 
         return back()->with('success', 'Company logo removed.');
+    }
+
+    public function deleteStamp()
+    {
+        $settings = CompanySetting::current();
+
+        if ($settings->stamp_path) {
+            Storage::disk('public')->delete($settings->stamp_path);
+            $settings->update(['stamp_path' => null]);
+        }
+
+        return back()->with('success', 'Company stamp removed.');
     }
 }

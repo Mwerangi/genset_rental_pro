@@ -1,7 +1,8 @@
 @php
     $cs = $companySetting;
     $accent = $cs?->primary_color ?: '#8B1A0A';
-    $logoLocalPath = $cs?->logo_path ? storage_path('app/public/' . $cs->logo_path) : null;
+    $logoLocalPath  = $cs?->logo_path  ? storage_path('app/public/' . $cs->logo_path)  : null;
+    $stampLocalPath = $cs?->stamp_path ? storage_path('app/public/' . $cs->stamp_path) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -349,6 +350,11 @@
         <tr>
             <td style="width:55%;"></td>
             <td style="width:45%; text-align:center;">
+                @if($stampLocalPath && file_exists($stampLocalPath))
+                    <div style="margin-bottom:6px;">
+                        <img src="{{ $stampLocalPath }}" style="height:160px; max-width:240px; object-fit:contain; opacity:0.85;" alt="Company Stamp">
+                    </div>
+                @endif
                 <div style="border-top:1px solid #888; width:180px; margin:0 auto 5px;"></div>
                 <div style="font-size:8.5pt; color:#666;">Authorized Signature</div>
                 <div style="font-size:8pt; color:#aaa; margin-top:2px;">{{ $cs?->company_name ?? '' }}</div>
