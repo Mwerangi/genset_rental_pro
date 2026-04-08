@@ -96,6 +96,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware('permission:view_bookings')->group(function () {
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
+        Route::get('/bookings/cancelled', [BookingController::class, 'cancelled'])->name('bookings.cancelled');
         Route::middleware('permission:edit_bookings')->group(function () {
             Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
             Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
@@ -124,6 +125,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ── Invoices ──────────────────────────────────────────────────────────────
     Route::middleware('permission:view_invoices')->group(function () {
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/invoices/voided', [InvoiceController::class, 'voided'])->name('invoices.voided');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
         Route::middleware('permission:edit_invoices')->group(function () {
@@ -334,11 +336,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::middleware('permission:view_accounting|view_journal_entries')->group(function () {
         Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
         Route::get('/accounting/journal-entries/export', [JournalEntryController::class, 'export'])->name('accounting.journal-entries.export');
-        Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
         Route::middleware('permission:create_journal_entries')->group(function () {
             Route::get('/accounting/journal-entries/create', [JournalEntryController::class, 'create'])->name('accounting.journal-entries.create');
             Route::post('/accounting/journal-entries', [JournalEntryController::class, 'store'])->name('accounting.journal-entries.store');
         });
+        Route::get('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'show'])->name('accounting.journal-entries.show');
         Route::middleware('permission:post_journal_entries')->group(function () {
             Route::post('/accounting/journal-entries/{journalEntry}/post', [JournalEntryController::class, 'post'])->name('accounting.journal-entries.post');
         });

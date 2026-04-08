@@ -20,7 +20,11 @@ class InvoiceController extends Controller
         // Managers who can manage invoices see all; view-only users see only their own
         $seeAll = PermissionService::can($user, 'view_all_invoices');
 
-        $query = Invoice::with(['client', 'booking', 'createdBy'])->latest();
+        $cancelledStatuses = ['void', 'declined', 'written_off'];
+
+        $query = Invoice::with(['client', 'booking', 'createdBy'])
+            ->whereNotIn('status', $cancelledStatuses)
+            ->latest();
 
         if (!$seeAll) {
             $query->where('created_by', $user->id);
@@ -41,7 +45,9 @@ class InvoiceController extends Controller
 
         $invoices = $query->paginate(25);
 
-        $base = $seeAll ? Invoice::query() : Invoice::where('created_by', $user->id);
+        $base = $seeAll
+            ? Invoice::whereNotIn('status', $cancelledStatuses)
+            : Invoice::where('created_by', $user->id)->whereNotIn('status', $cancelledStatuses);
         $stats = [
             'total'          => (clone $base)->count(),
             'draft'          => (clone $base)->where('status', 'draft')->count(),
@@ -56,6 +62,50 @@ class InvoiceController extends Controller
         ];
 
         return view('admin.invoices.index', compact('invoices', 'stats', 'seeAll'));
+    }
+
+    public function voided(Request $request)
+    {
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'view_all_invoices');
+
+        $cancelledStatuses = ['void', 'declined', 'written_off'];
+
+        $query = Invoice::with(['client', 'booking', 'createdBy'])
+            ->whereIn('status', $cancelledStatuses)
+            ->latest();
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('invoice_number', 'like', "%{$s}%")
+                  ->orWhereHas('client', fn($q) => $q->where('name', 'like', "%{$s}%")->orWhere('company_name', 'like', "%{$s}%"))
+                  ->orWhereHas('booking', fn($q) => $q->where('booking_number', 'like', "%{$s}%"));
+            });
+        }
+
+        $invoices = $query->paginate(25);
+
+        $base = $seeAll
+            ? Invoice::whereIn('status', $cancelledStatuses)
+            : Invoice::where('created_by', $user->id)->whereIn('status', $cancelledStatuses);
+
+        $stats = [
+            'total'        => (clone $base)->count(),
+            'void'         => (clone $base)->where('status', 'void')->count(),
+            'declined'     => (clone $base)->where('status', 'declined')->count(),
+            'written_off'  => (clone $base)->where('status', 'written_off')->count(),
+        ];
+
+        return view('admin.invoices.voided', compact('invoices', 'stats', 'seeAll'));
     }
 
     public function show(Invoice $invoice)

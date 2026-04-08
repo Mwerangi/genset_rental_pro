@@ -84,6 +84,7 @@ class QuotationController extends Controller
             'cancelled' => Quotation::where('status', 'accepted')
                             ->whereHas('booking', fn ($q) => $q->where('status', 'cancelled'))
                             ->count(),
+            'rejected'  => Quotation::where('status', 'rejected')->count(),
             'total_value' => Quotation::where('status', 'accepted')
                             ->where(function ($q) {
                                 $q->doesntHave('booking')

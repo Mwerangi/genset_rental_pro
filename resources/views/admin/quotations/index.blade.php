@@ -97,6 +97,22 @@
             </x-card>
             </a>
 
+            <a href="{{ route('admin.quotations.rejected') }}" class="flex-1 min-w-[200px] block hover:opacity-80 transition">
+            <x-card class="h-full">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-slate-600">Rejected</p>
+                        <p class="text-3xl font-bold text-red-700 mt-1">{{ $stats['rejected'] }}</p>
+                    </div>
+                    <div class="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </x-card>
+            </a>
+
             <a href="{{ route('admin.quotations.index') }}" class="flex-1 min-w-[200px] block hover:opacity-80 transition">
             <x-card class="h-full">
                 <div class="flex items-center justify-between">
@@ -138,9 +154,6 @@
                         <option value="draft" {{ request('status') === 'draft' ? 'selected' : '' }}>Draft</option>
                         <option value="sent" {{ request('status') === 'sent' ? 'selected' : '' }}>Sent</option>
                         <option value="viewed" {{ request('status') === 'viewed' ? 'selected' : '' }}>Viewed</option>
-                        <option value="accepted" {{ request('status') === 'accepted' ? 'selected' : '' }}>Accepted</option>
-                        <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Rejected</option>
-                        <option value="expired" {{ request('status') === 'expired' ? 'selected' : '' }}>Expired</option>
                     </x-select>
                 </div>
 

@@ -20,7 +20,11 @@ class BookingController extends Controller
         // Managers/approvers see all bookings; limited users see only their own created bookings
         $seeAll = PermissionService::can($user, 'view_all_bookings');
 
-        $query = Booking::with(['quoteRequest', 'createdBy', 'approvedBy'])->latest();
+        $cancelledStatuses = ['cancelled', 'rejected'];
+
+        $query = Booking::with(['quoteRequest', 'createdBy', 'approvedBy'])
+            ->whereNotIn('status', $cancelledStatuses)
+            ->latest();
 
         if (!$seeAll) {
             $query->where('created_by', $user->id);
@@ -44,7 +48,9 @@ class BookingController extends Controller
 
         $bookings = $query->paginate(25);
 
-        $base = $seeAll ? Booking::query() : Booking::where('created_by', $user->id);
+        $base = $seeAll
+            ? Booking::whereNotIn('status', $cancelledStatuses)
+            : Booking::where('created_by', $user->id)->whereNotIn('status', $cancelledStatuses);
         $stats = [
             'total'    => (clone $base)->count(),
             'created'  => (clone $base)->where('status', 'created')->count(),
@@ -53,6 +59,51 @@ class BookingController extends Controller
         ];
 
         return view('admin.bookings.index', compact('bookings', 'stats', 'seeAll'));
+    }
+
+    public function cancelled(Request $request)
+    {
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'view_all_bookings');
+
+        $cancelledStatuses = ['cancelled', 'rejected'];
+
+        $query = Booking::with(['quoteRequest', 'createdBy', 'cancelledBy'])
+            ->whereIn('status', $cancelledStatuses)
+            ->latest();
+
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('booking_number', 'like', "%{$search}%")
+                  ->orWhereHas('quoteRequest', function ($q) use ($search) {
+                      $q->where('full_name', 'like', "%{$search}%")
+                        ->orWhere('company_name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $bookings = $query->paginate(25);
+
+        $base = $seeAll
+            ? Booking::whereIn('status', $cancelledStatuses)
+            : Booking::where('created_by', $user->id)->whereIn('status', $cancelledStatuses);
+        $stats = [
+            'total'     => (clone $base)->count(),
+            'cancelled' => (clone $base)->where('status', 'cancelled')->count(),
+            'rejected'  => (clone $base)->where('status', 'rejected')->count(),
+        ];
+
+        return view('admin.bookings.cancelled', compact('bookings', 'stats', 'seeAll'));
     }
 
     public function show(Booking $booking)
