@@ -26,6 +26,7 @@ class Booking extends Model
         'currency',
         'exchange_rate_to_tzs',
         'notes',
+        'is_historical',
         'customer_name',
         'customer_email',
         'customer_phone',
@@ -38,6 +39,7 @@ class Booking extends Model
     protected $casts = [
         'rental_start_date'   => 'date',
         'rental_end_date'     => 'date',
+        'is_historical'       => 'boolean',
         'approved_at'         => 'datetime',
         'cancelled_at'        => 'datetime',
         'total_amount'        => 'decimal:2',

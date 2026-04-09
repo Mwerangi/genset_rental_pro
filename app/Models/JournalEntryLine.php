@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class JournalEntryLine extends Model
 {
     protected $fillable = [
-        'journal_entry_id', 'account_id', 'description', 'debit', 'credit',
+        'journal_entry_id', 'account_id', 'description',
+        'partner_type', 'partner_id',
+        'debit', 'credit',
     ];
 
     protected $casts = [
@@ -24,5 +26,25 @@ class JournalEntryLine extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function partner(): BelongsTo|null
+    {
+        if ($this->partner_type === 'client') {
+            return $this->belongsTo(\App\Models\Client::class, 'partner_id');
+        }
+        if ($this->partner_type === 'supplier') {
+            return $this->belongsTo(\App\Models\Supplier::class, 'partner_id');
+        }
+        return null;
+    }
+
+    public function getPartnerNameAttribute(): ?string
+    {
+        if (!$this->partner_type || !$this->partner_id) return null;
+        $relation = $this->partner();
+        if (!$relation) return null;
+        $model = $relation->first();
+        return $model?->company_name ?? $model?->name ?? null;
     }
 }

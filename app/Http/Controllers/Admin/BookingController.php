@@ -5,7 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\Booking;
+use App\Models\Client;
 use App\Models\Genset;
+use App\Models\Invoice;
+use App\Models\InvoiceItem;
+use App\Models\InvoicePayment;
 use App\Models\QuoteRequest;
 use App\Models\UserActivityLog;
 use App\Services\PermissionService;
@@ -22,7 +26,7 @@ class BookingController extends Controller
 
         $cancelledStatuses = ['cancelled', 'rejected'];
 
-        $query = Booking::with(['quoteRequest', 'createdBy', 'approvedBy'])
+        $query = Booking::with(['quoteRequest', 'client', 'createdBy', 'approvedBy'])
             ->whereNotIn('status', $cancelledStatuses)
             ->latest();
 
@@ -532,5 +536,534 @@ class BookingController extends Controller
         return redirect()
             ->route('admin.bookings.show', $booking)
             ->with($flashKey, $message);
+    }
+
+    // ── Historical Sales ──────────────────────────────────────────────────────
+
+    public function recordHistoricalForm()
+    {
+        $clients = Client::orderBy('company_name')->orderBy('full_name')->get(['id', 'company_name', 'full_name', 'client_number']);
+        $gensets = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name', 'kva_rating', 'type']);
+        return view('admin.bookings.record-historical', compact('clients', 'gensets'));
+    }
+
+    public function storeHistorical(Request $request)
+    {
+        $validated = $request->validate([
+            'client_id'            => 'required|exists:clients,id',
+            'genset_id'            => 'nullable|exists:gensets,id',
+            'genset_type'          => 'nullable|string|max:100',
+            'rental_start_date'    => 'required|date',
+            'rental_end_date'      => 'required|date|after_or_equal:rental_start_date',
+            'delivery_location'    => 'required|string|max:500',
+            'pickup_location'      => 'nullable|string|max:500',
+            'currency'             => 'required|in:TZS,USD',
+            'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
+            'subtotal'             => 'required|numeric|min:0',
+            'is_zero_rated'        => 'nullable|boolean',
+            'description'          => 'required|string|max:500',
+            'payment_date'         => 'required|date',
+            'payment_method'       => 'required|in:cash,mpesa,bank_transfer,cheque,other',
+            'payment_reference'    => 'nullable|string|max:100',
+            'issue_date'           => 'required|date',
+            'notes'                => 'nullable|string',
+        ]);
+
+        $startDate = \Carbon\Carbon::parse($validated['rental_start_date']);
+        $endDate   = \Carbon\Carbon::parse($validated['rental_end_date']);
+        $durationDays = $startDate->diffInDays($endDate);
+
+        $currency    = $validated['currency'];
+        $exRate      = $currency === 'USD' ? (float) $validated['exchange_rate_to_tzs'] : 1.0;
+        $subtotal    = (float) $validated['subtotal'];
+        $isZeroRated = !empty($validated['is_zero_rated']);
+        $vatRate     = $isZeroRated ? 0 : 18.00;
+        $vatAmount   = $isZeroRated ? 0 : round($subtotal * $vatRate / 100, 2);
+        $total       = $subtotal + $vatAmount;
+
+        DB::transaction(function () use ($validated, $startDate, $endDate, $durationDays, $currency, $exRate, $subtotal, $isZeroRated, $vatRate, $vatAmount, $total) {
+            // Create booking (pre-completed)
+            $booking = Booking::create([
+                'client_id'            => $validated['client_id'],
+                'genset_id'            => $validated['genset_id'] ?? null,
+                'genset_type'          => $validated['genset_type'] ?? null,
+                'status'               => 'paid',
+                'is_historical'        => true,
+                'rental_start_date'    => $startDate,
+                'rental_end_date'      => $endDate,
+                'rental_duration_days' => $durationDays,
+                'delivery_location'    => $validated['delivery_location'],
+                'pickup_location'      => $validated['pickup_location'] ?? null,
+                'total_amount'         => $total,
+                'currency'             => $currency,
+                'exchange_rate_to_tzs' => $exRate,
+                'notes'                => $validated['notes'] ?? null,
+                'created_by'           => auth()->id(),
+            ]);
+
+            // Create invoice (already paid)
+            $invoice = Invoice::create([
+                'booking_id'           => $booking->id,
+                'client_id'            => $validated['client_id'],
+                'status'               => 'paid',
+                'issue_date'           => $validated['issue_date'],
+                'due_date'             => $validated['issue_date'],
+                'subtotal'             => $subtotal,
+                'is_zero_rated'        => $isZeroRated,
+                'vat_rate'             => $vatRate,
+                'vat_amount'           => $vatAmount,
+                'currency'             => $currency,
+                'exchange_rate_to_tzs' => $exRate,
+                'total_amount'         => $total,
+                'amount_paid'          => $total,
+                'created_by'           => auth()->id(),
+            ]);
+
+            // Single line item
+            InvoiceItem::create([
+                'invoice_id'    => $invoice->id,
+                'item_type'     => 'genset_rental',
+                'description'   => $validated['description'],
+                'quantity'      => 1,
+                'unit_price'    => $subtotal,
+                'duration_days' => $durationDays,
+                'subtotal'      => $subtotal,
+            ]);
+
+            // Payment record
+            InvoicePayment::create([
+                'invoice_id'     => $invoice->id,
+                'payment_date'   => $validated['payment_date'],
+                'amount'         => $total,
+                'payment_method' => $validated['payment_method'],
+                'reference'      => $validated['payment_reference'] ?? null,
+                'notes'          => 'Historical record imported',
+                'recorded_by'    => auth()->id(),
+            ]);
+
+            // Link invoice back to booking
+            $booking->update(['invoice_id' => $invoice->id]);
+
+            UserActivityLog::record(
+                auth()->id(), 'created',
+                'Recorded historical sale: booking ' . $booking->booking_number . ' / invoice ' . $invoice->invoice_number,
+                Booking::class, $booking->id
+            );
+
+            session()->flash('success', 'Historical sale recorded: ' . $booking->booking_number . ' / Invoice ' . $invoice->invoice_number);
+        });
+
+        return redirect()->route('admin.bookings.index');
+    }
+
+    // ── Bulk Historical Import ─────────────────────────────────────────────
+
+    public function historicalTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Historical Sales');
+
+        // Headers
+        $headers = [
+            'client_identifier',   // Client number (CL-YYYY-####) OR company/person name
+            'client_phone',        // Required only when creating a new client
+            'client_email',        // Required only when creating a new client
+            'genset_type',         // e.g. 45 KVA Clip-on
+            'rental_start_date',   // YYYY-MM-DD
+            'rental_end_date',     // YYYY-MM-DD
+            'delivery_location',
+            'currency',            // TZS or USD
+            'exchange_rate',       // Leave blank for TZS; e.g. 2550 for USD
+            'subtotal',            // Excl. VAT, numeric
+            'zero_rated',          // YES or NO
+            'description',         // Invoice line-item description
+            'invoice_date',        // YYYY-MM-DD
+            'payment_date',        // YYYY-MM-DD
+            'payment_method',      // cash / bank_transfer / mpesa / cheque / other
+            'payment_reference',   // Optional
+            'notes',               // Optional
+        ];
+
+        foreach ($headers as $col => $header) {
+            $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $sheet->setCellValue($cell, $header);
+        }
+
+        // Style header row
+        $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'DC2626']],
+        ]);
+
+        // Column widths
+        $widths = [28, 16, 26, 22, 16, 16, 30, 10, 14, 14, 11, 35, 14, 14, 16, 20, 30];
+        foreach ($widths as $col => $width) {
+            $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
+            $sheet->getColumnDimension($letter)->setWidth($width);
+        }
+
+        // Two sample rows
+        $samples = [
+            [
+                'ABC Logistics Ltd',        // client_identifier
+                '+255 712 000 001',         // client_phone
+                'abc@abclogistics.co.tz',   // client_email
+                '45 KVA Clip-on',           // genset_type
+                '2024-01-15',               // rental_start_date
+                '2024-02-15',               // rental_end_date
+                'Dar Es Salaam Port, Gate 3', // delivery_location
+                'TZS',                      // currency
+                '',                         // exchange_rate
+                '3500000',                  // subtotal
+                'NO',                       // zero_rated
+                'Genset Rental — 45 KVA, Jan 2024', // description
+                '2024-02-16',               // invoice_date
+                '2024-02-20',               // payment_date
+                'bank_transfer',            // payment_method
+                'REF-20240220-001',         // payment_reference
+                '',                         // notes
+            ],
+            [
+                'Kilimanjaro Breweries',
+                '+255 754 000 002',
+                'info@kilibreweries.co.tz',
+                '100 KVA Underslung',
+                '2024-03-01',
+                '2024-05-31',
+                'Moshi Industrial Area',
+                'USD',
+                '2550',
+                '4200',
+                'NO',
+                'Genset Rental — 100 KVA, Mar–May 2024',
+                '2024-06-01',
+                '2024-06-05',
+                'bank_transfer',
+                'REF-USD-001',
+                'Long-term rental contract',
+            ],
+        ];
+
+        foreach ($samples as $rowIndex => $row) {
+            foreach ($row as $col => $value) {
+                $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($rowIndex + 2);
+                $sheet->setCellValueExplicit($cell, $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            }
+        }
+
+        // Style data rows
+        $sheet->getStyle("A2:{$lastCol}3")->applyFromArray([
+            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'FEF3C7']],
+        ]);
+
+        // Instructions sheet
+        $info = $spreadsheet->createSheet();
+        $info->setTitle('Instructions');
+        $infoRows = [
+            ['Column', 'Required?', 'Notes'],
+            ['client_identifier', 'Yes', 'Use existing client number (CL-YYYY-####) OR type the exact company/person name. If not found, a new client is created.'],
+            ['client_phone', 'Only for new clients', 'Phone number for the new client.'],
+            ['client_email', 'Only for new clients', 'Email address for the new client. Required when creating a new client.'],
+            ['genset_type', 'No', 'Text description of the generator.'],
+            ['rental_start_date', 'Yes', 'Format: YYYY-MM-DD (e.g. 2024-01-15)'],
+            ['rental_end_date', 'Yes', 'Format: YYYY-MM-DD. Must be on or after start date.'],
+            ['delivery_location', 'Yes', 'Site where genset was delivered.'],
+            ['currency', 'Yes', 'TZS or USD'],
+            ['exchange_rate', 'Only for USD', 'How many TZS per 1 USD (e.g. 2550). Leave blank for TZS.'],
+            ['subtotal', 'Yes', 'Amount excluding VAT. Numeric only, no commas.'],
+            ['zero_rated', 'Yes', 'YES = 0% VAT (exempt). NO = 18% VAT applies.'],
+            ['description', 'Yes', 'Invoice line-item description.'],
+            ['invoice_date', 'Yes', 'Format: YYYY-MM-DD'],
+            ['payment_date', 'Yes', 'Format: YYYY-MM-DD'],
+            ['payment_method', 'Yes', 'One of: cash, bank_transfer, mpesa, cheque, other'],
+            ['payment_reference', 'No', 'Receipt number, transfer ref, cheque number, etc.'],
+            ['notes', 'No', 'Any additional context.'],
+        ];
+        foreach ($infoRows as $r => $cols) {
+            foreach ($cols as $c => $val) {
+                $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + 1) . ($r + 1);
+                $info->setCellValue($cell, $val);
+            }
+        }
+        $info->getStyle('A1:C1')->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'DBEAFE']],
+        ]);
+        foreach (['A' => 28, 'B' => 22, 'C' => 80] as $col => $w) {
+            $info->getColumnDimension($col)->setWidth($w);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, 'historical_sales_template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    public function bulkHistoricalPreview(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'bulk_file' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        ini_set('memory_limit', '256M');
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($request->file('bulk_file')->getRealPath());
+        $sheet = $spreadsheet->getSheet(0);
+        $rows  = $sheet->toArray(null, true, false, false);
+
+        // Row 0 = headers, rows 1+ = data
+        $headerRow = array_map(fn($h) => strtolower(trim((string) $h)), $rows[0] ?? []);
+        $colMap = array_flip($headerRow);
+
+        $get = function (array $row, string $key) use ($colMap): string {
+            $idx = $colMap[$key] ?? null;
+            return $idx !== null ? trim((string) ($row[$idx] ?? '')) : '';
+        };
+
+        // Date-aware getter: handles Excel serial numbers (e.g. 45307.0) that Excel
+        // auto-creates when the user types a date into a non-text cell.
+        // $rowIndex is the 1-based sheet row number (header = 1, first data row = 2).
+        $getDate = function (array $row, string $key, int $sheetRowNumber) use ($colMap, $sheet): string {
+            $idx = $colMap[$key] ?? null;
+            if ($idx === null) return '';
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+            $cell = $sheet->getCell($colLetter . $sheetRowNumber);
+            $value = $cell->getValue();
+            if ($value === null || $value === '') return '';
+            // If Excel stored it as a date/time serial number, convert to Y-m-d
+            if ((is_float($value) || is_int($value))
+                && \PhpOffice\PhpSpreadsheet\Shared\Date::isDateTime($cell)) {
+                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$value)
+                    ->format('Y-m-d');
+            }
+            return trim((string) $value);
+        };
+
+        $parsed = [];
+        $allClients = Client::orderBy('company_name')->get(['id', 'client_number', 'company_name', 'full_name']);
+
+        for ($i = 1; $i < count($rows); $i++) {
+            $row = $rows[$i];
+            // Skip completely empty rows
+            if (implode('', array_map('trim', array_map('strval', $row))) === '') {
+                continue;
+            }
+
+            // Sheet row index: header is row 1, data rows start at row 2. So sheet row = $i + 1.
+            $sheetRow = $i + 1;
+
+            $clientId        = $get($row, 'client_identifier');
+            $clientPhone     = $get($row, 'client_phone');
+            $clientEmail     = $get($row, 'client_email');
+            $currency        = strtoupper($get($row, 'currency')) ?: 'TZS';
+            $zeroRated       = strtoupper($get($row, 'zero_rated')) === 'YES';
+            $subtotal        = (float) str_replace([',', ' '], '', $get($row, 'subtotal'));
+            $vatRate         = $zeroRated ? 0 : 18.0;
+            $vatAmount       = $zeroRated ? 0 : round($subtotal * $vatRate / 100, 2);
+            $total           = $subtotal + $vatAmount;
+            $exRate          = $currency === 'USD' ? (float) str_replace([',', ' '], '', $get($row, 'exchange_rate')) : 1.0;
+            $rentalStartDate = $getDate($row, 'rental_start_date', $sheetRow);
+            $rentalEndDate   = $getDate($row, 'rental_end_date',   $sheetRow);
+            $invoiceDate     = $getDate($row, 'invoice_date',      $sheetRow);
+            $paymentDate     = $getDate($row, 'payment_date',      $sheetRow);
+
+            // Resolve client
+            $matchedClient = null;
+            $clientStatus  = 'existing'; // 'existing' | 'new'
+            if (!empty($clientId)) {
+                // Try client_number first, then company_name, then full_name
+                $matchedClient = $allClients->first(fn($c) => strtolower($c->client_number) === strtolower($clientId))
+                    ?? $allClients->first(fn($c) => strtolower($c->company_name ?? '') === strtolower($clientId))
+                    ?? $allClients->first(fn($c) => strtolower($c->full_name ?? '') === strtolower($clientId));
+                if (!$matchedClient) {
+                    $clientStatus = 'new';
+                }
+            }
+
+            $errors = [];
+            if (empty($clientId)) $errors[] = 'client_identifier is required';
+            if ($clientStatus === 'new' && empty($clientEmail)) $errors[] = 'client_email required for new client';
+            // phone is optional
+            if (empty($rentalStartDate)) $errors[] = 'rental_start_date required';
+            if (empty($rentalEndDate))   $errors[] = 'rental_end_date required';
+            if (empty($get($row, 'delivery_location'))) $errors[] = 'delivery_location required';
+            if ($subtotal <= 0) $errors[] = 'subtotal must be > 0';
+            if (empty($get($row, 'description'))) $errors[] = 'description required';
+            if (empty($invoiceDate))  $errors[] = 'invoice_date required';
+            if (empty($paymentDate))  $errors[] = 'payment_date required';
+            if (!in_array(strtolower($get($row, 'payment_method')), ['cash', 'bank_transfer', 'mpesa', 'cheque', 'other'])) {
+                $errors[] = 'invalid payment_method';
+            }
+            if ($currency === 'USD' && $exRate <= 0) $errors[] = 'exchange_rate required for USD';
+
+            $parsed[] = [
+                'row'               => $i + 1,
+                'client_identifier' => $clientId,
+                'client_phone'      => $clientPhone,
+                'client_email'      => $clientEmail,
+                'client_id'         => $matchedClient?->id,
+                'client_label'      => $matchedClient
+                    ? ($matchedClient->company_name ?? $matchedClient->full_name) . ' (' . $matchedClient->client_number . ')'
+                    : null,
+                'client_status'     => $clientStatus,
+                'genset_type'       => $get($row, 'genset_type'),
+                'rental_start_date' => $rentalStartDate,
+                'rental_end_date'   => $rentalEndDate,
+                'delivery_location' => $get($row, 'delivery_location'),
+                'pickup_location'   => $get($row, 'pickup_location'),
+                'currency'          => $currency,
+                'exchange_rate'     => $exRate,
+                'subtotal'          => $subtotal,
+                'zero_rated'        => $zeroRated,
+                'vat_amount'        => $vatAmount,
+                'total'             => $total,
+                'description'       => $get($row, 'description'),
+                'invoice_date'      => $invoiceDate,
+                'payment_date'      => $paymentDate,
+                'payment_method'    => strtolower($get($row, 'payment_method')),
+                'payment_reference' => $get($row, 'payment_reference'),
+                'notes'             => $get($row, 'notes'),
+                'errors'            => $errors,
+            ];
+        }
+
+        session(['bulk_historical' => $parsed]);
+
+        return view('admin.bookings.bulk-historical-preview', [
+            'rows'       => $parsed,
+            'validCount' => count(array_filter($parsed, fn($r) => empty($r['errors']))),
+        ]);
+    }
+
+    public function bulkHistoricalConfirm(\Illuminate\Http\Request $request)
+    {
+        $rows = session('bulk_historical', []);
+        if (empty($rows)) {
+            return redirect()->route('admin.bookings.record-historical')
+                ->with('error', 'Session expired. Please upload the file again.');
+        }
+
+        $saved = 0;
+        $failed = 0;
+
+        foreach ($rows as $row) {
+            if (!empty($row['errors'])) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                DB::transaction(function () use ($row) {
+                    // Resolve or create client
+                    if ($row['client_id']) {
+                        $clientId = $row['client_id'];
+                    } else {
+                        $newClient = Client::create(array_filter([
+                            'full_name'          => $row['client_identifier'],
+                            'phone'              => $row['client_phone'] ?: null,
+                            'email'              => $row['client_email'] ?: null,
+                            'status'             => 'active',
+                            'risk_level'         => 'low',
+                            'credit_limit'       => 0,
+                            'payment_terms_days' => 30,
+                            'source'             => 'manual',
+                            'created_by'         => auth()->id(),
+                        ], fn($v) => $v !== null));
+                        $clientId = $newClient->id;
+                    }
+
+                    $startDate    = \Carbon\Carbon::parse($row['rental_start_date']);
+                    $endDate      = \Carbon\Carbon::parse($row['rental_end_date']);
+                    $durationDays = $startDate->diffInDays($endDate);
+                    $subtotal     = (float) $row['subtotal'];
+                    $vatAmount    = (float) $row['vat_amount'];
+                    $total        = $subtotal + $vatAmount;
+                    $currency     = $row['currency'];
+                    $exRate       = (float) $row['exchange_rate'];
+                    $vatRate      = $row['zero_rated'] ? 0 : 18.0;
+
+                    $booking = Booking::create([
+                        'client_id'            => $clientId,
+                        'genset_type'          => $row['genset_type'] ?: null,
+                        'status'               => 'paid',
+                        'is_historical'        => true,
+                        'rental_start_date'    => $startDate,
+                        'rental_end_date'      => $endDate,
+                        'rental_duration_days' => $durationDays,
+                        'delivery_location'    => $row['delivery_location'],
+                        'pickup_location'      => $row['pickup_location'] ?: null,
+                        'total_amount'         => $total,
+                        'currency'             => $currency,
+                        'exchange_rate_to_tzs' => $exRate,
+                        'notes'                => $row['notes'] ?: null,
+                        'created_by'           => auth()->id(),
+                    ]);
+
+                    $invoice = Invoice::create([
+                        'booking_id'           => $booking->id,
+                        'client_id'            => $clientId,
+                        'status'               => 'paid',
+                        'issue_date'           => $row['invoice_date'],
+                        'due_date'             => $row['invoice_date'],
+                        'subtotal'             => $subtotal,
+                        'is_zero_rated'        => $row['zero_rated'],
+                        'vat_rate'             => $vatRate,
+                        'vat_amount'           => $vatAmount,
+                        'currency'             => $currency,
+                        'exchange_rate_to_tzs' => $exRate,
+                        'total_amount'         => $total,
+                        'amount_paid'          => $total,
+                        'created_by'           => auth()->id(),
+                    ]);
+
+                    InvoiceItem::create([
+                        'invoice_id'    => $invoice->id,
+                        'item_type'     => 'genset_rental',
+                        'description'   => $row['description'],
+                        'quantity'      => 1,
+                        'unit_price'    => $subtotal,
+                        'duration_days' => $durationDays,
+                        'subtotal'      => $subtotal,
+                    ]);
+
+                    InvoicePayment::create([
+                        'invoice_id'     => $invoice->id,
+                        'payment_date'   => $row['payment_date'],
+                        'amount'         => $total,
+                        'payment_method' => $row['payment_method'],
+                        'reference'      => $row['payment_reference'] ?: null,
+                        'notes'          => 'Bulk historical import',
+                        'recorded_by'    => auth()->id(),
+                    ]);
+
+                    $booking->update(['invoice_id' => $invoice->id]);
+                });
+                $saved++;
+            } catch (\Throwable $e) {
+                \Log::error('Bulk historical import row failed: ' . $e->getMessage(), ['exception' => $e]);
+                $failed++;
+            }
+        }
+
+        session()->forget('bulk_historical');
+
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            "Bulk historical import: {$saved} sales saved, {$failed} skipped.",
+            Booking::class, null
+        );
+
+        $message = "Bulk import complete: {$saved} sales recorded" . ($failed ? ", {$failed} skipped due to errors." : '.');
+        $flashKey = ($saved > 0) ? 'success' : 'error';
+
+        return redirect()->route('admin.bookings.index')->with($flashKey, $message);
     }
 }

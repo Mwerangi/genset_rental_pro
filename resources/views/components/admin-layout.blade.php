@@ -307,7 +307,7 @@
                         </button>
                         <div x-show="open" @click.away="open = false" x-cloak
                              x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
-                             class="nav-dd absolute top-full left-1/2 -translate-x-1/2 mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
+                             class="nav-dd absolute top-full left-1/2 -translate-x-1/2 mt-1 w-64 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
                             <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Operations</p>
                             {{-- Invoices sub-dropdown --}}
                             @permission('view_invoices')
@@ -361,6 +361,9 @@
                             @permission('view_accounting', 'view_journal_entries')
                             <a href="{{ route('admin.accounting.journal-entries.index') }}" class="{{ request()->routeIs('admin.accounting.journal-entries.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>Journal Entries
+                            </a>
+                            <a href="{{ route('admin.accounting.bank-statements.index') }}" class="{{ request()->routeIs('admin.accounting.bank-statements.*') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-2 text-sm">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Bank Statements
                             </a>
                             @endpermission
                             @permission('view_accounting')

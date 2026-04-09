@@ -57,10 +57,10 @@
 
     <!-- Description & Notes -->
     <div class="bg-white border border-gray-200 rounded-xl p-4 mb-5 shadow-sm">
-        <p class="text-sm font-medium text-gray-700 mb-1">Description</p>
-        <p class="text-gray-800">{{ $journalEntry->description }}</p>
+        <p class="text-sm font-medium text-gray-700 mb-1">Recorded By</p>
+        <p class="text-gray-800 font-semibold">{{ $journalEntry->createdBy?->name ?? $journalEntry->description }}</p>
         @if($journalEntry->notes)
-        <p class="text-sm text-gray-500 mt-2">{{ $journalEntry->notes }}</p>
+        <p class="text-sm text-gray-500 mt-2 border-t border-gray-100 pt-2">{{ $journalEntry->notes }}</p>
         @endif
     </div>
 
@@ -73,6 +73,7 @@
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Account</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Partner</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Debit (Tsh)</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Credit (Tsh)</th>
@@ -84,6 +85,16 @@
                     <td class="px-4 py-3">
                         <span class="font-mono text-xs text-gray-500">{{ $line->account?->code }}</span>
                         <span class="ml-2 font-medium text-gray-800">{{ $line->account?->name }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        @if($line->partner_type && $line->partner_id)
+                            <span class="inline-flex items-center gap-1">
+                                <span class="text-xs px-1.5 py-0.5 rounded font-semibold {{ $line->partner_type === 'client' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700' }}">{{ ucfirst($line->partner_type) }}</span>
+                                {{ $line->partner_name ?? '—' }}
+                            </span>
+                        @else
+                            <span class="text-gray-300">—</span>
+                        @endif
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $line->description ?? '—' }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold {{ $line->debit > 0 ? 'text-gray-900' : 'text-gray-300' }}">
@@ -97,13 +108,13 @@
             </tbody>
             <tfoot class="bg-gray-50 border-t border-gray-200">
                 <tr>
-                    <td colspan="2" class="px-4 py-3 font-semibold text-gray-700 text-right">Totals</td>
+                    <td colspan="3" class="px-4 py-3 font-semibold text-gray-700 text-right">Totals</td>
                     <td class="px-4 py-3 text-right font-bold text-gray-900 font-mono">{{ number_format($journalEntry->lines->sum('debit'), 2) }}</td>
                     <td class="px-4 py-3 text-right font-bold text-gray-900 font-mono">{{ number_format($journalEntry->lines->sum('credit'), 2) }}</td>
                 </tr>
                 @if(round($journalEntry->lines->sum('debit'), 2) !== round($journalEntry->lines->sum('credit'), 2))
                 <tr>
-                    <td colspan="4" class="px-4 py-2 text-center text-xs text-red-600 font-semibold">⚠ Entry is NOT balanced — debits do not equal credits</td>
+                    <td colspan="5" class="px-4 py-2 text-center text-xs text-red-600 font-semibold">⚠ Entry is NOT balanced — debits do not equal credits</td>
                 </tr>
                 @endif
             </tfoot>

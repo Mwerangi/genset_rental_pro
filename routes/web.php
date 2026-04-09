@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\FuelLogController;
 use App\Http\Controllers\Admin\AccountController;
 use App\Http\Controllers\Admin\AccountTransferController;
 use App\Http\Controllers\Admin\BankAccountController;
+use App\Http\Controllers\Admin\BankStatementController;
 use App\Http\Controllers\Admin\JournalEntryController;
 use App\Http\Controllers\Admin\ExpenseController;
 use App\Http\Controllers\Admin\ExpenseCategoryController;
@@ -97,6 +98,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('/bookings/active-rentals', [BookingController::class, 'activeRentals'])->name('bookings.active-rentals');
         Route::get('/bookings/cancelled', [BookingController::class, 'cancelled'])->name('bookings.cancelled');
+        Route::get('/bookings/record-historical', [BookingController::class, 'recordHistoricalForm'])->name('bookings.record-historical');
+        Route::post('/bookings/record-historical', [BookingController::class, 'storeHistorical'])->name('bookings.store-historical');
+        Route::get('/bookings/historical-template', [BookingController::class, 'historicalTemplate'])->name('bookings.historical-template');
+        Route::post('/bookings/bulk-historical-preview', [BookingController::class, 'bulkHistoricalPreview'])->name('bookings.bulk-historical-preview');
+        Route::post('/bookings/bulk-historical-confirm', [BookingController::class, 'bulkHistoricalConfirm'])->name('bookings.bulk-historical-confirm');
         Route::middleware('permission:edit_bookings')->group(function () {
             Route::get('/bookings/{booking}/edit', [BookingController::class, 'edit'])->name('bookings.edit');
             Route::put('/bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
@@ -159,6 +165,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::middleware('permission:create_clients')->group(function () {
             Route::get('/clients/create', [ClientController::class, 'create'])->name('clients.create');
             Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+            Route::post('/clients/quick-store', [ClientController::class, 'quickStore'])->name('clients.quick-store');
         });
         Route::middleware('permission:edit_clients')->group(function () {
             Route::get('/clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
@@ -330,6 +337,19 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         });
         Route::get('/accounting/accounts/{account}', [AccountController::class, 'show'])->name('accounting.accounts.show');
         Route::get('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'show'])->name('accounting.bank-accounts.show');
+
+        // Bank Statements
+        Route::get('/accounting/bank-statements', [BankStatementController::class, 'index'])->name('accounting.bank-statements.index');
+        Route::get('/accounting/bank-statements/create', [BankStatementController::class, 'create'])->name('accounting.bank-statements.create');
+        Route::post('/accounting/bank-statements', [BankStatementController::class, 'store'])->name('accounting.bank-statements.store');
+        Route::post('/accounting/bank-statements/preview-import', [BankStatementController::class, 'previewImport'])->name('accounting.bank-statements.preview-import');
+        Route::post('/accounting/bank-statements/confirm-import', [BankStatementController::class, 'confirmImport'])->name('accounting.bank-statements.confirm-import');
+        Route::get('/accounting/bank-statements/{bankStatement}', [BankStatementController::class, 'show'])->name('accounting.bank-statements.show');
+        Route::post('/accounting/bank-statements/{bankStatement}/import-csv', [BankStatementController::class, 'importCsv'])->name('accounting.bank-statements.import-csv');
+        Route::post('/accounting/bank-statements/{bankStatement}/post-all', [BankStatementController::class, 'postAll'])->name('accounting.bank-statements.post-all');
+        Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/post', [BankStatementController::class, 'postTransaction'])->name('accounting.bank-statements.transactions.post');
+        Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/ignore', [BankStatementController::class, 'ignoreTransaction'])->name('accounting.bank-statements.transactions.ignore');
+        Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/update', [BankStatementController::class, 'updateTransaction'])->name('accounting.bank-statements.transactions.update');
     });
 
     // Journal Entries

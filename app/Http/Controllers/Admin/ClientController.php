@@ -240,4 +240,43 @@ class ClientController extends Controller
         $address->delete();
         return back()->with('success', 'Address removed.');
     }
+
+    /**
+     * Quick-create a client via JSON (used by inline modals on other pages).
+     */
+    public function quickStore(Request $request)
+    {
+        $validated = $request->validate([
+            'full_name'    => 'required|string|max:255',
+            'company_name' => 'nullable|string|max:255',
+            'email'        => 'nullable|email|unique:clients,email|max:255',
+            'phone'        => 'required|string|max:30',
+            'tin_number'   => 'nullable|string|max:50',
+        ]);
+
+        $client = Client::create([
+            'full_name'          => $validated['full_name'],
+            'company_name'       => $validated['company_name'] ?? null,
+            'email'              => $validated['email'] ?? null,
+            'phone'              => $validated['phone'],
+            'tin_number'         => $validated['tin_number'] ?? null,
+            'status'             => 'active',
+            'risk_level'         => 'low',
+            'credit_limit'       => 0,
+            'payment_terms_days' => 30,
+            'source'             => 'manual',
+            'created_by'         => auth()->id(),
+        ]);
+
+        UserActivityLog::record(
+            auth()->id(), 'created',
+            'Quick-added client ' . $client->client_number . ' (' . ($client->company_name ?: $client->full_name) . ')',
+            Client::class, $client->id
+        );
+
+        return response()->json([
+            'id'    => $client->id,
+            'label' => ($client->company_name ?? $client->full_name) . ' (' . $client->client_number . ')',
+        ]);
+    }
 }

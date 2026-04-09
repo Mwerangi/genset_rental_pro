@@ -9,6 +9,12 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
                 Cancelled / Rejected
             </a>
+            <a href="{{ route('admin.bookings.record-historical') }}" class="inline-flex items-center gap-2 px-4 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-lg hover:bg-amber-100 transition font-medium text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Record Historical Sale
+            </a>
             @permission('view_quotations')
             <a href="{{ route('admin.quotations.index') }}" class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -126,6 +132,9 @@
                             <tr class="hover:bg-slate-50 transition">
                                 <td class="py-3 px-4">
                                     <span class="font-mono text-sm font-bold text-slate-900">{{ $booking->booking_number }}</span>
+                                    @if($booking->is_historical)
+                                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-medium rounded">Historical</span>
+                                    @endif
                                     <p class="text-xs text-slate-500 mt-0.5">{{ $booking->created_at->format('M d, Y') }}</p>
                                 </td>
                                 <td class="py-3 px-4">
@@ -133,7 +142,7 @@
                                         <p class="font-medium text-slate-900 text-sm">{{ $booking->quoteRequest->full_name }}</p>
                                         <p class="text-xs text-slate-500">{{ $booking->quoteRequest->company_name ?? $booking->quoteRequest->email }}</p>
                                     @elseif($booking->client)
-                                        <p class="font-medium text-slate-900 text-sm">{{ $booking->client->company_name ?? $booking->client->name }}</p>
+                                        <p class="font-medium text-slate-900 text-sm">{{ $booking->client->company_name ?? $booking->client->full_name }}</p>
                                     @elseif($booking->customer_name)
                                         <p class="font-medium text-slate-900 text-sm">{{ $booking->customer_name }}</p>
                                         <p class="text-xs text-slate-500">{{ $booking->company_name ?? $booking->customer_email ?? '' }}</p>

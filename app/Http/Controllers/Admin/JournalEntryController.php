@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\Client;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -117,19 +119,29 @@ class JournalEntryController extends Controller
 
     public function create()
     {
-        $accounts = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
-        return view('admin.accounting.journal-entries.create', compact('accounts'));
+        $accounts     = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
+        $clients      = Client::orderBy('company_name')->get(['id', 'company_name', 'full_name']);
+        $suppliers    = Supplier::orderBy('name')->get(['id', 'name']);
+        $suggestedRef = static::generateReferenceNumber();
+        return view('admin.accounting.journal-entries.create', compact('accounts', 'clients', 'suppliers', 'suggestedRef'));
+    }
+
+    private static function generateReferenceNumber(): string
+    {
+        $prefix = 'MJE-' . now()->format('Y') . '-' . now()->format('md') . '-';
+        $count  = JournalEntry::whereDate('created_at', today())->count();
+        return $prefix . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'entry_date'              => 'required|date',
-            'description'             => 'required|string|max:500',
             'reference'               => 'nullable|string|max:100',
             'notes'                   => 'nullable|string',
             'lines'                   => 'required|array|min:2',
             'lines.*.account_id'      => 'required|exists:accounts,id',
+            'lines.*.partner'         => 'nullable|string',
             'lines.*.description'     => 'nullable|string|max:500',
             'lines.*.debit'           => 'required|numeric|min:0',
             'lines.*.credit'          => 'required|numeric|min:0',
@@ -145,7 +157,7 @@ class JournalEntryController extends Controller
         DB::transaction(function () use ($request) {
             $je = JournalEntry::create([
                 'entry_date'  => $request->entry_date,
-                'description' => $request->description,
+                'description' => auth()->user()->name,
                 'reference'   => $request->reference,
                 'source_type' => 'manual',
                 'notes'       => $request->notes,
@@ -155,11 +167,14 @@ class JournalEntryController extends Controller
 
             foreach ($request->lines as $line) {
                 if ($line['debit'] > 0 || $line['credit'] > 0) {
+                    [$partnerType, $partnerId] = static::parsePartner($line['partner'] ?? null);
                     $je->lines()->create([
-                        'account_id'  => $line['account_id'],
-                        'description' => $line['description'] ?? null,
-                        'debit'       => $line['debit'],
-                        'credit'      => $line['credit'],
+                        'account_id'   => $line['account_id'],
+                        'partner_type' => $partnerType,
+                        'partner_id'   => $partnerId,
+                        'description'  => $line['description'] ?? null,
+                        'debit'        => $line['debit'],
+                        'credit'       => $line['credit'],
                     ]);
                 }
             }
@@ -167,6 +182,13 @@ class JournalEntryController extends Controller
 
         return redirect()->route('admin.accounting.journal-entries.index')
                          ->with('success', 'Journal entry saved as draft.');
+    }
+
+    private static function parsePartner(?string $value): array
+    {
+        if (!$value || !str_contains($value, ':')) return [null, null];
+        [$type, $id] = explode(':', $value, 2);
+        return in_array($type, ['client', 'supplier']) ? [$type, (int) $id] : [null, null];
     }
 
     public function show(JournalEntry $journalEntry)
