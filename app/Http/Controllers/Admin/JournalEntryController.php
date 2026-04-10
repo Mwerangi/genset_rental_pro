@@ -222,10 +222,96 @@ class JournalEntryController extends Controller
             return back()->with('error', 'Entry has already been reversed.');
         }
 
-        $reason = $request->input('reason', 'Manual reversal');
+        $reason = trim((string) $request->input('reason', '')) ?: 'Manual reversal';
         $reversed = $journalEntry->reverse($reason, auth()->id());
 
         return redirect()->route('admin.accounting.journal-entries.show', $reversed)
                          ->with('success', "Reversal entry {$reversed->entry_number} created and posted.");
+    }
+
+    public function edit(JournalEntry $journalEntry)
+    {
+        if ($journalEntry->status !== 'draft') {
+            return redirect()->route('admin.accounting.journal-entries.show', $journalEntry)
+                             ->with('error', 'Only draft entries can be edited.');
+        }
+
+        $journalEntry->load('lines');
+        $accounts  = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
+        $clients   = Client::orderBy('company_name')->get(['id', 'company_name', 'full_name']);
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+
+        return view('admin.accounting.journal-entries.edit', compact('journalEntry', 'accounts', 'clients', 'suppliers'));
+    }
+
+    public function update(Request $request, JournalEntry $journalEntry)
+    {
+        if ($journalEntry->status !== 'draft') {
+            return back()->with('error', 'Only draft entries can be edited.');
+        }
+
+        $request->validate([
+            'entry_date'              => 'required|date',
+            'reference'               => 'nullable|string|max:100',
+            'notes'                   => 'nullable|string',
+            'lines'                   => 'required|array|min:2',
+            'lines.*.account_id'      => 'required|exists:accounts,id',
+            'lines.*.partner'         => 'nullable|string',
+            'lines.*.description'     => 'nullable|string|max:500',
+            'lines.*.debit'           => 'required|numeric|min:0',
+            'lines.*.credit'          => 'required|numeric|min:0',
+        ]);
+
+        $totalDebit  = collect($request->lines)->sum('debit');
+        $totalCredit = collect($request->lines)->sum('credit');
+
+        if (round($totalDebit, 2) !== round($totalCredit, 2)) {
+            return back()->withErrors(['lines' => 'Debits must equal credits.'])->withInput();
+        }
+
+        DB::transaction(function () use ($request, $journalEntry) {
+            $journalEntry->update([
+                'entry_date' => $request->entry_date,
+                'reference'  => $request->reference,
+                'notes'      => $request->notes,
+            ]);
+
+            $journalEntry->lines()->delete();
+
+            foreach ($request->lines as $line) {
+                if ($line['debit'] > 0 || $line['credit'] > 0) {
+                    [$partnerType, $partnerId] = static::parsePartner($line['partner'] ?? null);
+                    $journalEntry->lines()->create([
+                        'account_id'   => $line['account_id'],
+                        'partner_type' => $partnerType,
+                        'partner_id'   => $partnerId,
+                        'description'  => $line['description'] ?? null,
+                        'debit'        => $line['debit'],
+                        'credit'       => $line['credit'],
+                    ]);
+                }
+            }
+        });
+
+        return redirect()->route('admin.accounting.journal-entries.show', $journalEntry)
+                         ->with('success', 'Journal entry updated successfully.');
+    }
+
+    public function destroy(JournalEntry $journalEntry)
+    {
+        $user = auth()->user();
+
+        if ($journalEntry->status === 'posted') {
+            if (!$user->hasPermission('force_delete_journal_entries')) {
+                return back()->with('error', 'You do not have permission to delete posted journal entries.');
+            }
+        }
+
+        $number = $journalEntry->entry_number;
+        $label  = $journalEntry->status === 'posted' ? 'Posted' : 'Draft';
+        $journalEntry->delete();
+
+        return redirect()->route('admin.accounting.journal-entries.index')
+                         ->with('success', "{$label} entry {$number} deleted.");
     }
 }

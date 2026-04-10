@@ -42,6 +42,106 @@ class BankStatementController extends Controller
         return view('admin.accounting.bank-statements.create', compact('bankAccounts', 'accounts', 'clients', 'suppliers'));
     }
 
+    // ── Download Excel import template ───────────────────────────────
+    public function downloadTemplate()
+    {
+        try {
+            if (!class_exists('ZipArchive')) {
+                throw new \RuntimeException('The php-zip extension is required to generate Excel files. Please enable it on this server.');
+            }
+
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Transactions');
+
+            // ── Headers ──────────────────────────────────────────────
+            $headers = ['date', 'description', 'debit', 'credit', 'reference', 'notes'];
+            foreach ($headers as $col => $header) {
+                $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+                $sheet->setCellValue($cell, $header);
+            }
+
+            $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(count($headers));
+
+            // Style header row
+            $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'DC2626']],
+            ]);
+
+            // Column widths: date, description, debit, credit, reference, notes
+            foreach (['A' => 14, 'B' => 40, 'C' => 16, 'D' => 16, 'E' => 22, 'F' => 35] as $col => $w) {
+                $sheet->getColumnDimension($col)->setWidth($w);
+            }
+
+            // ── Sample data rows ─────────────────────────────────────
+            $samples = [
+                ['2025-01-15', 'Cash deposit — client payment',            '5000000', '',        'BNK-REF-001', ''],
+                ['2025-01-18', 'Fuel purchase — Generator site A',         '',        '850000',  'RCP-2025-01', 'Monthly fuel run'],
+                ['2025-01-22', 'Bank transfer received — MileleInv-00045', '2500000', '',        'TRF-45',      ''],
+                ['2025-01-28', 'Bank charges',                             '',        '15000',   '',            'Monthly service fee'],
+            ];
+
+            foreach ($samples as $rowIndex => $row) {
+                foreach ($row as $col => $value) {
+                    $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($rowIndex + 2);
+                    $sheet->setCellValueExplicit($cell, $value, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+            }
+
+            // Light yellow background on sample rows
+            $sheet->getStyle("A2:{$lastCol}" . (count($samples) + 1))->applyFromArray([
+                'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'FEF9C3']],
+            ]);
+
+            // ── Instructions sheet ────────────────────────────────────
+            $info = $spreadsheet->createSheet();
+            $info->setTitle('Instructions');
+
+            $infoRows = [
+                ['Column',      'Required?', 'Notes'],
+                ['date',        'Yes',       'Transaction date. Format: YYYY-MM-DD (e.g. 2025-01-15)'],
+                ['description', 'Yes',       'Narrative / payee description for the transaction.'],
+                ['debit',       'Yes*',      'Amount received / money in. Numeric only, no commas. Use 0 or leave blank for credit-side entries.'],
+                ['credit',      'Yes*',      'Amount paid / money out. Numeric only, no commas. Use 0 or leave blank for debit-side entries.'],
+                ['reference',   'No',        'Bank reference number, receipt number, or transaction ID.'],
+                ['notes',       'No',        'Any additional context or memo for this line.'],
+                ['',            '',          ''],
+                ['* Each row must have exactly one of debit or credit greater than zero.', '', ''],
+                ['* Rows where both debit and credit are 0 will be skipped.', '', ''],
+            ];
+
+            foreach ($infoRows as $r => $cols) {
+                foreach ($cols as $c => $val) {
+                    $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c + 1) . ($r + 1);
+                    $info->setCellValue($cell, $val);
+                }
+            }
+            $info->getStyle('A1:C1')->applyFromArray([
+                'font' => ['bold' => true],
+                'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'DBEAFE']],
+            ]);
+            foreach (['A' => 14, 'B' => 14, 'C' => 80] as $col => $w) {
+                $info->getColumnDimension($col)->setWidth($w);
+            }
+
+            $spreadsheet->setActiveSheetIndex(0);
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+            return response()->streamDownload(function () use ($writer) {
+                $writer->save('php://output');
+            }, 'bank_statement_template.xlsx', [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'max-age=0',
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('Bank statement template generation failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->back()->with('error', 'Template generation failed: ' . $e->getMessage());
+        }
+    }
+
     // ── Store (create statement + transactions) ──────────────────────
     public function store(Request $request)
     {
@@ -55,12 +155,37 @@ class BankStatementController extends Controller
             'transactions.*.date'          => 'required|date',
             'transactions.*.description'   => 'required|string|max:500',
             'transactions.*.reference'     => 'nullable|string|max:150',
-            'transactions.*.amount'        => 'required|numeric|min:0.01',
-            'transactions.*.type'          => 'required|in:debit,credit',
+            'transactions.*.debit'         => 'required|numeric|min:0',
+            'transactions.*.credit'        => 'required|numeric|min:0',
             'transactions.*.contra_account_id' => 'nullable|exists:accounts,id',
             'transactions.*.partner'       => 'nullable|string',
             'transactions.*.notes'         => 'nullable|string|max:500',
         ]);
+
+        // Ensure at least one side has a value per row
+        foreach ($request->transactions as $i => $row) {
+            $dr = (float) ($row['debit'] ?? 0);
+            $cr = (float) ($row['credit'] ?? 0);
+            if ($dr <= 0 && $cr <= 0) {
+                return back()->withErrors(["transactions.{$i}.debit" => 'Each transaction must have a debit or credit amount greater than zero.'])->withInput();
+            }
+            if ($dr > 0 && $cr > 0) {
+                return back()->withErrors(["transactions.{$i}.debit" => 'Each transaction can have either a debit or a credit, not both.'])->withInput();
+            }
+        }
+
+        // Warn if another statement already covers an overlapping period for this bank account
+        $overlapWarning = null;
+        if ($request->period_from && $request->period_to) {
+            $overlap = BankStatement::where('bank_account_id', $request->bank_account_id)
+                ->whereNotNull('period_from')->whereNotNull('period_to')
+                ->where('period_from', '<=', $request->period_to)
+                ->where('period_to', '>=', $request->period_from)
+                ->first();
+            if ($overlap) {
+                $overlapWarning = "Another statement ({$overlap->reference}) already covers an overlapping period for this bank account — check for duplicate transactions.";
+            }
+        }
 
         $statement = DB::transaction(function () use ($request) {
             $statement = BankStatement::create([
@@ -74,12 +199,14 @@ class BankStatementController extends Controller
 
             foreach ($request->transactions as $row) {
                 [$partnerType, $partnerId] = static::parsePartner($row['partner'] ?? null);
+                $debit  = (float) ($row['debit']  ?? 0);
+                $credit = (float) ($row['credit'] ?? 0);
                 $statement->transactions()->create([
                     'transaction_date'  => $row['date'],
                     'description'       => $row['description'],
                     'reference'         => $row['reference'] ?? null,
-                    'amount'            => $row['amount'],
-                    'type'              => $row['type'],
+                    'amount'            => $debit > 0 ? $debit : $credit,
+                    'type'              => $debit > 0 ? 'debit' : 'credit',
                     'status'            => 'pending',
                     'contra_account_id' => $row['contra_account_id'] ?? null ?: null,
                     'partner_type'      => $partnerType,
@@ -91,8 +218,12 @@ class BankStatementController extends Controller
             return $statement;
         });
 
-        return redirect()->route('admin.accounting.bank-statements.show', $statement)
-                         ->with('success', "Statement created with {$statement->transactions()->count()} transactions. Review and post pending items.");
+        $msg = "Statement created with {$statement->transactions()->count()} transactions. Review and post pending items.";
+        $redirect = redirect()->route('admin.accounting.bank-statements.show', $statement)->with('success', $msg);
+        if ($overlapWarning) {
+            $redirect->with('warning', $overlapWarning);
+        }
+        return $redirect;
     }
 
     // ── Show statement + transactions ────────────────────────────────
@@ -117,6 +248,7 @@ class BankStatementController extends Controller
     {
         abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
         abort_if($transaction->status === 'posted', 422, 'Already posted.');
+        abort_if($transaction->status === 'reconciled', 422, 'This transaction has been reconciled against an existing payment. Use the reconciled payment\'s journal entry — do not post again.');
 
         $request->validate([
             'contra_account_id' => 'required|exists:accounts,id',
@@ -184,11 +316,16 @@ class BankStatementController extends Controller
     // ── Post ALL pending transactions at once ────────────────────────
     public function postAll(Request $request, BankStatement $bankStatement)
     {
+        $skipped = $bankStatement->transactions()->where('status', 'pending')
+            ->whereNull('contra_account_id')->count();
+
         $pending = $bankStatement->transactions()->where('status', 'pending')
             ->whereNotNull('contra_account_id')->get();
 
         if ($pending->isEmpty()) {
-            return back()->with('error', 'No pending transactions with a contra account selected.');
+            $msg = 'No pending transactions with a contra account selected.';
+            if ($skipped) $msg .= " ({$skipped} pending transaction(s) are missing a contra account — set them individually first.)";
+            return back()->with('error', $msg);
         }
 
         $bankAccount = $bankStatement->bankAccount;
@@ -240,7 +377,9 @@ class BankStatementController extends Controller
             }
         });
 
-        return back()->with('success', "{$posted} transaction(s) posted successfully.");
+        $msg = "{$posted} transaction(s) posted successfully.";
+        if ($skipped) $msg .= " {$skipped} pending transaction(s) were skipped — set their contra account to post them.";
+        return back()->with('success', $msg);
     }
 
     // ── Ignore a transaction ─────────────────────────────────────────
@@ -248,6 +387,7 @@ class BankStatementController extends Controller
     {
         abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
         abort_if($transaction->status === 'posted', 422, 'Cannot ignore a posted transaction.');
+        abort_if($transaction->status === 'reconciled', 422, 'Cannot ignore a reconciled transaction. Un-reconcile it first.');
 
         $transaction->update(['status' => $transaction->status === 'ignored' ? 'pending' : 'ignored']);
 
@@ -276,6 +416,184 @@ class BankStatementController extends Controller
         ]);
 
         return back()->with('success', 'Transaction updated.');
+    }
+
+    // ── Suggest matching payments for reconciliation ─────────────────
+    // Returns JSON list of candidate InvoicePayments / SupplierPayments
+    // that match this bank transaction (same bank account, amount ±1%, date ±7 days, not yet reconciled)
+    public function suggestMatches(Request $request, BankStatement $bankStatement, BankTransaction $transaction)
+    {
+        abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
+        abort_if(!in_array($transaction->status, ['pending', 'ignored']), 422, 'Only pending transactions can be reconciled.');
+
+        $bankAccountId = $bankStatement->bank_account_id;
+        $amount        = (float) $transaction->amount;
+        $date          = $transaction->transaction_date;
+        $isCredit      = $transaction->type === 'credit';
+        $q             = trim((string) $request->query('q', ''));
+        $isSearch      = $q !== '';
+
+        // Already-reconciled payment IDs (to exclude)
+        $usedInvoiceIds   = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\InvoicePayment::class)
+                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+        $usedSupplierIds  = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\SupplierPayment::class)
+                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+
+        $results = [];
+
+        if ($isCredit || $isSearch) {
+            // For credit lines (money in) or free-text search: look at InvoicePayments
+            $query = \App\Models\InvoicePayment::with(['invoice.client'])
+                ->where('bank_account_id', $bankAccountId)
+                ->where('is_reversed', false)
+                ->whereNotIn('id', $usedInvoiceIds);
+
+            if ($isSearch) {
+                // Free-text: match against reference, receipt_number, invoice number, client name
+                $query->where(function ($w) use ($q) {
+                    $w->where('reference', 'like', "%{$q}%")
+                      ->orWhere('receipt_number', 'like', "%{$q}%")
+                      ->orWhereHas('invoice', fn($i) => $i->where('invoice_number', 'like', "%{$q}%"))
+                      ->orWhereHas('invoice.client', fn($c) =>
+                            $c->where('company_name', 'like', "%{$q}%")
+                              ->orWhere('full_name', 'like', "%{$q}%")
+                      );
+                });
+            } else {
+                // Auto-match: same bank, ±7 days, ±1% amount
+                $tolerance = max($amount * 0.01, 1);
+                $query->whereBetween('payment_date', [
+                    $date->copy()->subDays(7)->toDateString(),
+                    $date->copy()->addDays(7)->toDateString(),
+                ])->whereBetween('amount', [$amount - $tolerance, $amount + $tolerance]);
+            }
+
+            $matches = $query
+                ->orderByRaw('ABS(DATEDIFF(payment_date, ?))', [$date->toDateString()])
+                ->orderByRaw('ABS(amount - ?)', [$amount])
+                ->limit(15)
+                ->get();
+
+            foreach ($matches as $pmt) {
+                $results[] = [
+                    'type'           => 'invoice_payment',
+                    'id'             => $pmt->id,
+                    'date'           => $pmt->payment_date->format('d M Y'),
+                    'amount'         => (float) $pmt->amount,
+                    'reference'      => $pmt->reference ?? $pmt->receipt_number ?? '—',
+                    'method'         => ucfirst(str_replace('_', ' ', $pmt->payment_method)),
+                    'description'    => ($pmt->invoice?->client?->company_name ?? $pmt->invoice?->client?->full_name ?? 'Unknown Client')
+                                        . ' — Invoice ' . ($pmt->invoice?->invoice_number ?? '#'),
+                    'invoice_number' => $pmt->invoice?->invoice_number ?? null,
+                ];
+            }
+        }
+
+        if (!$isCredit || $isSearch) {
+            // For debit lines (money out) or free-text search: look at SupplierPayments
+            $query = \App\Models\SupplierPayment::with(['supplier'])
+                ->where('bank_account_id', $bankAccountId)
+                ->where('status', '!=', 'cancelled')
+                ->whereNotIn('id', $usedSupplierIds);
+
+            if ($isSearch) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('reference', 'like', "%{$q}%")
+                      ->orWhere('payment_number', 'like', "%{$q}%")
+                      ->orWhereHas('supplier', fn($s) => $s->where('name', 'like', "%{$q}%"));
+                });
+            } else {
+                $tolerance = max($amount * 0.01, 1);
+                $query->whereBetween('payment_date', [
+                    $date->copy()->subDays(7)->toDateString(),
+                    $date->copy()->addDays(7)->toDateString(),
+                ])->whereBetween('amount', [$amount - $tolerance, $amount + $tolerance]);
+            }
+
+            $matches = $query
+                ->orderByRaw('ABS(DATEDIFF(payment_date, ?))', [$date->toDateString()])
+                ->orderByRaw('ABS(amount - ?)', [$amount])
+                ->limit(15)
+                ->get();
+
+            foreach ($matches as $pmt) {
+                $results[] = [
+                    'type'           => 'supplier_payment',
+                    'id'             => $pmt->id,
+                    'date'           => $pmt->payment_date->format('d M Y'),
+                    'amount'         => (float) $pmt->amount,
+                    'reference'      => $pmt->reference ?? $pmt->payment_number ?? '—',
+                    'method'         => ucfirst(str_replace('_', ' ', $pmt->payment_method)),
+                    'description'    => ($pmt->supplier?->name ?? 'Unknown Supplier')
+                                        . ($pmt->payment_number ? ' — ' . $pmt->payment_number : ''),
+                    'invoice_number' => null,
+                ];
+            }
+        }
+
+        return response()->json(['matches' => $results]);
+    }
+
+    // ── Reconcile a transaction against an existing payment ──────────
+    public function reconcileTransaction(Request $request, BankStatement $bankStatement, BankTransaction $transaction)
+    {
+        abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
+        abort_if($transaction->status === 'posted', 422, 'Already posted — cannot reconcile.');
+        abort_if($transaction->status === 'reconciled', 422, 'Already reconciled.');
+
+        $request->validate([
+            'payment_type' => 'required|in:invoice_payment,supplier_payment',
+            'payment_id'   => 'required|integer|min:1',
+        ]);
+
+        $modelClass = $request->payment_type === 'invoice_payment'
+            ? \App\Models\InvoicePayment::class
+            : \App\Models\SupplierPayment::class;
+
+        $payment = $modelClass::findOrFail($request->payment_id);
+
+        // Guard: ensure payment is for the same bank account
+        abort_if($payment->bank_account_id !== $bankStatement->bank_account_id, 422,
+            'The selected payment is not for the same bank account as this statement.');
+
+        // Guard: ensure this payment isn't already reconciled to another transaction
+        $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', $modelClass)
+            ->where('reconciled_payment_id', $payment->id)
+            ->exists();
+        abort_if($alreadyUsed, 409, 'This payment is already reconciled to another bank transaction.');
+
+        $transaction->update([
+            'status'                   => 'reconciled',
+            'reconciled_payment_type'  => $modelClass,
+            'reconciled_payment_id'    => $payment->id,
+            'reconciled_at'            => now(),
+            'reconciled_by'            => auth()->id(),
+            // Link to the payment's JE for traceability — no new JE created
+            'journal_entry_id'         => $payment->journal_entry_id ?? $transaction->journal_entry_id,
+        ]);
+
+        $label = $request->payment_type === 'invoice_payment' ? 'Invoice payment' : 'Supplier payment';
+
+        return back()->with('success',
+            "Transaction reconciled → linked to existing {$label}. No duplicate journal entry was created.");
+    }
+
+    // ── Un-reconcile a transaction → reset to pending ────────────────
+    public function unreconcileTransaction(BankStatement $bankStatement, BankTransaction $transaction)
+    {
+        abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
+        abort_if($transaction->status !== 'reconciled', 422, 'Transaction is not reconciled.');
+
+        $transaction->update([
+            'status'                  => 'pending',
+            'reconciled_payment_type' => null,
+            'reconciled_payment_id'   => null,
+            'reconciled_at'           => null,
+            'reconciled_by'           => null,
+            'journal_entry_id'        => null,
+        ]);
+
+        return back()->with('success', 'Reconciliation removed — transaction reset to pending.');
     }
 
     // ── Parse uploaded file (CSV or XLSX) → array of rows ───────────
@@ -593,6 +911,19 @@ class BankStatementController extends Controller
             'transactions.*.partner'           => 'nullable|string',
         ]);
 
+        // Warn if period overlaps an existing statement for the same bank account
+        $overlapWarning = null;
+        if (!empty($import['period_from']) && !empty($import['period_to'])) {
+            $overlap = BankStatement::where('bank_account_id', $import['bank_account_id'])
+                ->whereNotNull('period_from')->whereNotNull('period_to')
+                ->where('period_from', '<=', $import['period_to'])
+                ->where('period_to', '>=', $import['period_from'])
+                ->first();
+            if ($overlap) {
+                $overlapWarning = "Another statement ({$overlap->reference}) already covers an overlapping period for this bank account — check for duplicate transactions.";
+            }
+        }
+
         $statement = DB::transaction(function () use ($request, $import) {
             $statement = BankStatement::create([
                 'bank_account_id' => $import['bank_account_id'],
@@ -624,8 +955,12 @@ class BankStatementController extends Controller
         session()->forget('bs_import');
 
         $count = $statement->transactions()->count();
-        return redirect()->route('admin.accounting.bank-statements.show', $statement)
+        $redirect = redirect()->route('admin.accounting.bank-statements.show', $statement)
             ->with('success', "Statement created with {$count} transactions imported from file. Review and post when ready.");
+        if ($overlapWarning) {
+            $redirect->with('warning', $overlapWarning);
+        }
+        return $redirect;
     }
 
     // ── CSV import ───────────────────────────────────────────────────

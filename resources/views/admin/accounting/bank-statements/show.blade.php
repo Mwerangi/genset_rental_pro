@@ -43,12 +43,13 @@
 
     {{-- Summary strip --}}
     @php
-        $totalIn     = $transactions->where('type','credit')->sum('amount');
-        $totalOut    = $transactions->where('type','debit')->sum('amount');
-        $pendingCnt  = $transactions->where('status','pending')->count();
-        $postedCnt   = $transactions->where('status','posted')->count();
-        $ignoredCnt  = $transactions->where('status','ignored')->count();
-        $net         = $totalIn - $totalOut;
+        $totalIn       = $transactions->where('type','credit')->sum('amount');
+        $totalOut      = $transactions->where('type','debit')->sum('amount');
+        $pendingCnt    = $transactions->where('status','pending')->count();
+        $postedCnt     = $transactions->where('status','posted')->count();
+        $reconciledCnt = $transactions->where('status','reconciled')->count();
+        $ignoredCnt    = $transactions->where('status','ignored')->count();
+        $net           = $totalIn - $totalOut;
     @endphp
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 flex divide-x divide-gray-100 overflow-hidden">
         {{-- Total In --}}
@@ -101,6 +102,16 @@
                 <p class="text-base font-bold text-green-700 leading-tight">{{ $postedCnt }}</p>
             </div>
         </div>
+        {{-- Reconciled --}}
+        <div class="flex-1 flex items-center gap-3 px-5 py-4">
+            <div class="flex-shrink-0 w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center">
+                <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </div>
+            <div>
+                <p class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Reconciled</p>
+                <p class="text-base font-bold text-purple-700 leading-tight">{{ $reconciledCnt }}</p>
+            </div>
+        </div>
         {{-- Ignored --}}
         <div class="flex-1 flex items-center gap-3 px-5 py-4">
             <div class="flex-shrink-0 w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
@@ -136,6 +147,12 @@
                     <td class="px-3 py-2 text-gray-600 text-xs">{{ $tx->transaction_date->format('d M Y') }}</td>
                     <td class="px-3 py-2 text-gray-900">
                         {{ $tx->description }}
+                        @if($tx->status === 'reconciled')
+                            <span class="inline-flex items-center gap-1 text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-full px-2 py-0.5 ml-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                Reconciled {{ $tx->reconciled_at?->format('d M Y') }}
+                            </span>
+                        @endif
                         @if($tx->notes) <span class="text-xs text-gray-400 block">{{ $tx->notes }}</span> @endif
                     </td>
                     <td class="px-3 py-2 text-gray-500 text-xs font-mono">{{ $tx->reference ?: '—' }}</td>
@@ -173,11 +190,25 @@
                     <td class="px-3 py-2">
                         @if($tx->status === 'posted')
                             <span class="text-xs text-gray-400 italic">Posted</span>
+                        @elseif($tx->status === 'reconciled')
+                            <div class="flex items-center gap-1 flex-wrap">
+                                <span class="text-xs text-purple-600 italic">Reconciled</span>
+                                <form method="POST" action="{{ route('admin.accounting.bank-statements.transactions.unreconcile', [$bankStatement, $tx]) }}"
+                                      onsubmit="return confirm('Remove reconciliation and reset this transaction to pending?')">
+                                    @csrf
+                                    <button type="submit" class="px-2 py-1 border border-red-200 text-red-500 rounded text-xs hover:bg-red-50">
+                                        Un-reconcile
+                                    </button>
+                                </form>
+                            </div>
                         @else
-                            <div class="flex items-center gap-1">
+                            <div class="flex items-center gap-1 flex-wrap">
                                 <button type="button"
                                     onclick="openPostModal({{ $tx->id }}, '{{ addslashes($tx->description) }}', '{{ $tx->type }}', {{ $tx->amount }}, '{{ $tx->contra_account_id }}', '{{ $tx->partner_type ? $tx->partner_type.':'.$tx->partner_id : '' }}')"
                                     class="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">Post</button>
+                                <button type="button"
+                                    onclick="openReconcileModal({{ $tx->id }}, '{{ addslashes($tx->description) }}', '{{ $tx->type }}', {{ $tx->amount }})"
+                                    class="px-2 py-1 bg-purple-600 text-white rounded text-xs hover:bg-purple-700">Reconcile</button>
                                 <form method="POST" action="{{ route('admin.accounting.bank-statements.transactions.ignore', [$bankStatement, $tx]) }}">
                                     @csrf
                                     <button type="submit" class="px-2 py-1 border border-gray-200 text-gray-500 rounded text-xs hover:bg-gray-50">
@@ -251,6 +282,64 @@
                     <button type="button" onclick="document.getElementById('csvModal').classList.add('hidden')" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
                     <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Import</button>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ── Reconcile modal ───────────────────────────────────────────── --}}
+    <div id="reconcileModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/40">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+            <div class="px-6 pt-6 pb-4">
+                <div class="flex items-start justify-between mb-1">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Reconcile Transaction</h3>
+                        <p id="reconcileModalDesc" class="text-sm text-gray-500 mt-0.5"></p>
+                    </div>
+                    <button type="button" onclick="closeReconcileModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                </div>
+
+                {{-- Explanation banner --}}
+                <div class="mt-3 bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-xs text-purple-700">
+                    <strong>What is Reconcile?</strong> Use this when a payment was <em>already recorded</em> in the system
+                    (e.g. from an invoice or supplier payment) and this bank line confirms the same money moved.
+                    Reconciling links the two records — <strong>no new journal entry is created</strong>, preventing double-counting.
+                </div>
+
+                {{-- Candidate matches section --}}
+                <div class="mt-4">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Matching payments found</p>
+                    <div id="reconcileMatchList" class="space-y-2 max-h-56 overflow-y-auto">
+                        <div class="flex items-center justify-center py-6 text-sm text-gray-400" id="reconcileLoadingState">
+                            <svg class="animate-spin w-4 h-4 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                            Searching for matches…
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Manual search fallback --}}
+                <div class="mt-4 border-t border-gray-100 pt-4">
+                    <p class="text-xs font-semibold text-gray-500 mb-2">Not in the list above? Search by invoice number, reference, or client / supplier name:</p>
+                    <div class="relative">
+                        <input type="text" id="reconcileSearchInput"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm pr-8 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                            placeholder="e.g. INV-2026-0042, REF-001, Kilimanjaro…"
+                            autocomplete="off">
+                        <svg id="reconcileSearchSpinner" class="hidden absolute right-2 top-2.5 w-4 h-4 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+                <button type="button" onclick="closeReconcileModal()" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button type="button" id="reconcileConfirmBtn" onclick="submitReconcile()"
+                    class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    Reconcile (no new JE)
+                </button>
+            </div>
+            <form id="reconcileForm" method="POST" class="hidden">
+                @csrf
+                <input type="hidden" name="payment_type" id="reconcilePaymentType">
+                <input type="hidden" name="payment_id"   id="reconcilePaymentId">
             </form>
         </div>
     </div>
@@ -431,5 +520,136 @@
     document.getElementById('postAllModal').addEventListener('click', e => {
         if (e.target === document.getElementById('postAllModal')) closePostAllModal();
     });
+
+    // ── Reconcile modal ───────────────────────────────────────────────
+    let reconcileCurrentTxId = null;
+    let selectedPaymentType  = null;
+    let selectedPaymentId    = null;
+    let reconcileSearchTimer = null;
+
+    function openReconcileModal(txId, desc, type, amount) {
+        reconcileCurrentTxId = txId;
+        selectedPaymentType  = null;
+        selectedPaymentId    = null;
+
+        const amtDir = type === 'credit' ? 'Money IN' : 'Money OUT';
+        document.getElementById('reconcileModalDesc').textContent =
+            desc + ' — ' + amtDir + ' ' + Number(amount).toLocaleString('en', {minimumFractionDigits: 2});
+
+        document.getElementById('reconcileSearchInput').value = '';
+        showReconcileLoading();
+        document.getElementById('reconcileModal').classList.remove('hidden');
+
+        // Auto-fetch date+amount matches immediately
+        fetchReconcileMatches(txId, '');
+    }
+
+    function showReconcileLoading() {
+        document.getElementById('reconcileMatchList').innerHTML =
+            '<div class="flex items-center justify-center py-6 text-sm text-gray-400">' +
+            '<svg class="animate-spin w-4 h-4 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>' +
+            'Searching for matches…</div>';
+    }
+
+    function fetchReconcileMatches(txId, q) {
+        if (q) document.getElementById('reconcileSearchSpinner').classList.remove('hidden');
+        const url = `/admin/accounting/bank-statements/{{ $bankStatement->id }}/transactions/${txId}/suggest-matches` +
+                    (q ? `?q=${encodeURIComponent(q)}` : '');
+        fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => { renderReconcileMatches(data.matches); })
+            .catch(() => {
+                document.getElementById('reconcileMatchList').innerHTML =
+                    '<p class="text-xs text-red-500 py-3 px-2">Failed to load. Please try again.</p>';
+            })
+            .finally(() => document.getElementById('reconcileSearchSpinner').classList.add('hidden'));
+    }
+
+    // Debounced search input
+    document.getElementById('reconcileSearchInput').addEventListener('input', function () {
+        clearTimeout(reconcileSearchTimer);
+        const q = this.value.trim();
+        if (q.length > 0 && q.length < 2) return; // wait for at least 2 chars
+        selectedPaymentType = null;
+        selectedPaymentId   = null;
+        if (q === '') {
+            showReconcileLoading();
+            reconcileSearchTimer = setTimeout(() => fetchReconcileMatches(reconcileCurrentTxId, ''), 300);
+        } else {
+            reconcileSearchTimer = setTimeout(() => fetchReconcileMatches(reconcileCurrentTxId, q), 400);
+        }
+    });
+
+    function renderReconcileMatches(matches) {
+        const list = document.getElementById('reconcileMatchList');
+        if (!matches || !matches.length) {
+            list.innerHTML = '<p class="text-xs text-gray-400 italic py-3 px-2">No payments found. Try searching by invoice number, reference, or client/supplier name in the box below.</p>';
+            return;
+        }
+
+        // Group by type for clarity
+        const inv = matches.filter(m => m.type === 'invoice_payment');
+        const sup = matches.filter(m => m.type === 'supplier_payment');
+        let html = '';
+
+        if (inv.length) {
+            html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mb-1">Invoice Payments</p>`;
+            html += inv.map(m => matchCard(m)).join('');
+        }
+        if (sup.length) {
+            if (inv.length) html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mt-3 mb-1">Supplier Payments</p>`;
+            html += sup.map(m => matchCard(m)).join('');
+        }
+        list.innerHTML = html;
+    }
+
+    function matchCard(m) {
+        const label = m.type === 'invoice_payment' ? 'Invoice' : 'Payment';
+        const ref   = m.invoice_number ? `${label} ${escH(m.invoice_number)} · Ref: ${escH(m.reference)}` : `Ref: ${escH(m.reference)}`;
+        return `<button type="button"
+            onclick="selectReconcilePayment('${m.type}', ${m.id}, this)"
+            data-type="${m.type}" data-id="${m.id}"
+            class="reconcile-match-btn w-full text-left border border-gray-200 rounded-lg px-4 py-3 mb-1.5 hover:border-purple-400 hover:bg-purple-50 transition-colors">
+            <div class="flex items-center justify-between">
+                <div class="min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">${escH(m.description)}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">${m.date} &nbsp;·&nbsp; ${escH(m.method)} &nbsp;·&nbsp; ${ref}</p>
+                </div>
+                <span class="text-sm font-bold font-mono text-gray-800 shrink-0 ml-4">${Number(m.amount).toLocaleString('en', {minimumFractionDigits:2})}</span>
+            </div>
+        </button>`;
+    }
+
+    function selectReconcilePayment(type, id, btnEl) {
+        document.querySelectorAll('.reconcile-match-btn').forEach(b =>
+            b.classList.remove('border-purple-500', 'ring-2', 'ring-purple-300', '!bg-purple-50'));
+        btnEl.classList.add('border-purple-500', 'ring-2', 'ring-purple-300', '!bg-purple-50');
+        selectedPaymentType = type;
+        selectedPaymentId   = id;
+    }
+
+    function closeReconcileModal() {
+        document.getElementById('reconcileModal').classList.add('hidden');
+        reconcileCurrentTxId = null;
+        selectedPaymentType  = null;
+        selectedPaymentId    = null;
+    }
+    document.getElementById('reconcileModal').addEventListener('click', e => {
+        if (e.target === document.getElementById('reconcileModal')) closeReconcileModal();
+    });
+
+    function submitReconcile() {
+        if (!selectedPaymentType || !selectedPaymentId) {
+            alert('Please select a payment from the list above to reconcile against.\n\nCan\'t find it? Use the search box to search by invoice number, reference, or client/supplier name.');
+            return;
+        }
+        if (!reconcileCurrentTxId) return;
+
+        document.getElementById('reconcileForm').action =
+            `/admin/accounting/bank-statements/{{ $bankStatement->id }}/transactions/${reconcileCurrentTxId}/reconcile`;
+        document.getElementById('reconcilePaymentType').value = selectedPaymentType;
+        document.getElementById('reconcilePaymentId').value   = selectedPaymentId;
+        document.getElementById('reconcileForm').submit();
+    }
     </script>
 </x-admin-layout>

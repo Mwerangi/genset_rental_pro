@@ -341,6 +341,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         // Bank Statements
         Route::get('/accounting/bank-statements', [BankStatementController::class, 'index'])->name('accounting.bank-statements.index');
         Route::get('/accounting/bank-statements/create', [BankStatementController::class, 'create'])->name('accounting.bank-statements.create');
+        Route::get('/accounting/bank-statements/template', [BankStatementController::class, 'downloadTemplate'])->name('accounting.bank-statements.template');
         Route::post('/accounting/bank-statements', [BankStatementController::class, 'store'])->name('accounting.bank-statements.store');
         Route::post('/accounting/bank-statements/preview-import', [BankStatementController::class, 'previewImport'])->name('accounting.bank-statements.preview-import');
         Route::post('/accounting/bank-statements/confirm-import', [BankStatementController::class, 'confirmImport'])->name('accounting.bank-statements.confirm-import');
@@ -350,6 +351,9 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/post', [BankStatementController::class, 'postTransaction'])->name('accounting.bank-statements.transactions.post');
         Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/ignore', [BankStatementController::class, 'ignoreTransaction'])->name('accounting.bank-statements.transactions.ignore');
         Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/update', [BankStatementController::class, 'updateTransaction'])->name('accounting.bank-statements.transactions.update');
+        Route::get('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/suggest-matches', [BankStatementController::class, 'suggestMatches'])->name('accounting.bank-statements.transactions.suggest-matches');
+        Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/reconcile', [BankStatementController::class, 'reconcileTransaction'])->name('accounting.bank-statements.transactions.reconcile');
+        Route::post('/accounting/bank-statements/{bankStatement}/transactions/{transaction}/unreconcile', [BankStatementController::class, 'unreconcileTransaction'])->name('accounting.bank-statements.transactions.unreconcile');
     });
 
     // Journal Entries
@@ -366,6 +370,13 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         });
         Route::middleware('permission:reverse_journal_entries')->group(function () {
             Route::post('/accounting/journal-entries/{journalEntry}/reverse', [JournalEntryController::class, 'reverse'])->name('accounting.journal-entries.reverse');
+        });
+        Route::middleware('permission:edit_journal_entries')->group(function () {
+            Route::get('/accounting/journal-entries/{journalEntry}/edit', [JournalEntryController::class, 'edit'])->name('accounting.journal-entries.edit');
+            Route::put('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'update'])->name('accounting.journal-entries.update');
+        });
+        Route::middleware('permission:delete_journal_entries')->group(function () {
+            Route::delete('/accounting/journal-entries/{journalEntry}', [JournalEntryController::class, 'destroy'])->name('accounting.journal-entries.destroy');
         });
     });
 

@@ -660,6 +660,11 @@ class BookingController extends Controller
 
     public function historicalTemplate()
     {
+        try {
+        if (!class_exists('ZipArchive')) {
+            throw new \RuntimeException('The php-zip extension is not enabled on this server. Please ask your hosting provider to enable it.');
+        }
+
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Historical Sales');
@@ -805,6 +810,11 @@ class BookingController extends Controller
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Cache-Control' => 'max-age=0',
         ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('Historical template generation failed: ' . $e->getMessage(), ['exception' => $e]);
+            return redirect()->back()->with('error', 'Template generation failed: ' . $e->getMessage());
+        }
     }
 
     public function bulkHistoricalPreview(\Illuminate\Http\Request $request)

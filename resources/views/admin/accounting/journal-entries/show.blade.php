@@ -15,15 +15,32 @@
         </div>
         <div class="flex gap-2">
             @if($journalEntry->status === 'draft')
+            @permission('edit_journal_entries')
+            <a href="{{ route('admin.accounting.journal-entries.edit', $journalEntry) }}"
+               class="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">Edit</a>
+            @endpermission
             <form method="POST" action="{{ route('admin.accounting.journal-entries.post', $journalEntry) }}">
                 @csrf
                 <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Post Entry</button>
             </form>
+            @permission('delete_journal_entries')
+            <button onclick="document.getElementById('deleteModal').classList.remove('hidden')"
+                    class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">Delete</button>
+            @endpermission
             @elseif($journalEntry->status === 'posted' && !$journalEntry->is_reversed)
             <button onclick="document.getElementById('reverseModal').classList.remove('hidden')"
                     class="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50">
                 Reverse Entry
             </button>
+            @permission('force_delete_journal_entries')
+            <button onclick="document.getElementById('deleteModal').classList.remove('hidden')"
+                    class="px-4 py-2 border border-red-300 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100">Force Delete</button>
+            @endpermission
+            @elseif($journalEntry->status === 'posted' && $journalEntry->is_reversed)
+            @permission('force_delete_journal_entries')
+            <button onclick="document.getElementById('deleteModal').classList.remove('hidden')"
+                    class="px-4 py-2 border border-red-300 bg-red-50 text-red-700 rounded-lg text-sm font-medium hover:bg-red-100">Force Delete</button>
+            @endpermission
             @endif
         </div>
     </div>
@@ -127,6 +144,31 @@
         Reversed by journal entry <a href="{{ route('admin.accounting.journal-entries.show', $journalEntry->reversedBy) }}" class="font-semibold underline">{{ $journalEntry->reversedBy->entry_number }}</a>
     </div>
     @endif
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
+            @if($journalEntry->status === 'posted')
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-red-600 text-xl">⚠</span>
+                <h3 class="font-bold text-gray-900">Force-Delete Posted Entry</h3>
+            </div>
+            <p class="text-sm text-gray-600 mb-2">You are about to permanently delete the posted entry <strong>{{ $journalEntry->entry_number }}</strong>.</p>
+            <p class="text-xs text-red-600 font-semibold mb-5">Warning: This will not reverse account balances. Use Reverse Entry unless you are certain this entry was posted in error.</p>
+            @else
+            <h3 class="font-bold text-gray-900 mb-2">Delete Draft Entry</h3>
+            <p class="text-sm text-gray-600 mb-5">Are you sure you want to delete <strong>{{ $journalEntry->entry_number }}</strong>? This cannot be undone.</p>
+            @endif
+            <form method="POST" action="{{ route('admin.accounting.journal-entries.destroy', $journalEntry) }}">
+                @csrf
+                @method('DELETE')
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="document.getElementById('deleteModal').classList.add('hidden')" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Reverse Modal -->
     <div id="reverseModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">

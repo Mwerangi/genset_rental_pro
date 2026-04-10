@@ -11,11 +11,13 @@ class BankTransaction extends Model
         'bank_statement_id', 'transaction_date', 'description', 'reference',
         'amount', 'type', 'status', 'contra_account_id', 'journal_entry_id',
         'partner_type', 'partner_id', 'notes',
+        'reconciled_payment_type', 'reconciled_payment_id', 'reconciled_at', 'reconciled_by',
     ];
 
     protected $casts = [
         'transaction_date' => 'date',
         'amount'           => 'decimal:2',
+        'reconciled_at'    => 'datetime',
     ];
 
     // ── Relationships ────────────────────────────────────────────────
@@ -33,6 +35,29 @@ class BankTransaction extends Model
     public function journalEntry(): BelongsTo
     {
         return $this->belongsTo(JournalEntry::class);
+    }
+
+    public function reconciledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reconciled_by');
+    }
+
+    /**
+     * Returns the InvoicePayment or SupplierPayment this transaction was reconciled against.
+     */
+    public function reconciledPayment(): ?Model
+    {
+        if (!$this->reconciled_payment_type || !$this->reconciled_payment_id) return null;
+
+        $allowed = [
+            \App\Models\InvoicePayment::class  => \App\Models\InvoicePayment::class,
+            \App\Models\SupplierPayment::class => \App\Models\SupplierPayment::class,
+        ];
+
+        $class = $allowed[$this->reconciled_payment_type] ?? null;
+        if (!$class) return null;
+
+        return $class::find($this->reconciled_payment_id);
     }
 
     public function partner(): ?BelongsTo
@@ -56,9 +81,10 @@ class BankTransaction extends Model
     public function getStatusBadgeAttribute(): string
     {
         return match ($this->status) {
-            'posted'  => 'bg-green-100 text-green-700',
-            'ignored' => 'bg-gray-100 text-gray-500',
-            default   => 'bg-yellow-100 text-yellow-700',
+            'posted'       => 'bg-green-100 text-green-700',
+            'ignored'      => 'bg-gray-100 text-gray-500',
+            'reconciled'   => 'bg-purple-100 text-purple-700',
+            default        => 'bg-yellow-100 text-yellow-700',
         };
     }
 

@@ -160,10 +160,24 @@
                         <div class="flex items-center justify-end gap-2">
                             <a href="{{ route('admin.accounting.journal-entries.show', $je) }}" class="text-xs text-blue-600 hover:underline">View</a>
                             @if($je->status === 'draft')
+                            @permission('edit_journal_entries')
+                            <a href="{{ route('admin.accounting.journal-entries.edit', $je) }}" class="text-xs text-amber-600 hover:underline">Edit</a>
+                            @endpermission
                             <form method="POST" action="{{ route('admin.accounting.journal-entries.post', $je) }}">
                                 @csrf
                                 <button type="submit" class="text-xs text-green-600 hover:underline">Post</button>
                             </form>
+                            @permission('delete_journal_entries')
+                            <button type="button"
+                                    onclick="openDeleteModal('{{ $je->id }}', '{{ $je->entry_number }}', false)"
+                                    class="text-xs text-red-500 hover:underline">Delete</button>
+                            @endpermission
+                            @elseif($je->status === 'posted')
+                            @permission('force_delete_journal_entries')
+                            <button type="button"
+                                    onclick="openDeleteModal('{{ $je->id }}', '{{ $je->entry_number }}', true)"
+                                    class="text-xs text-red-600 font-semibold hover:underline">Force Delete</button>
+                            @endpermission
                             @endif
                         </div>
                     </td>
@@ -182,4 +196,48 @@
             @endif
         </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)closeDeleteModal()">
+        <div class="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
+            <div id="deleteModalDraftHead">
+                <h3 class="font-bold text-gray-900 mb-2">Delete Draft Entry</h3>
+                <p class="text-sm text-gray-600 mb-1">Are you sure you want to delete</p>
+                <p class="text-sm font-semibold text-gray-900 mb-4" id="deleteModalEntryNumber"></p>
+                <p class="text-xs text-gray-400 mb-5">This action cannot be undone.</p>
+            </div>
+            <div id="deleteModalPostedHead" class="hidden">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="text-red-600 text-xl">⚠</span>
+                    <h3 class="font-bold text-gray-900">Force-Delete Posted Entry</h3>
+                </div>
+                <p class="text-sm text-gray-600 mb-1">You are about to permanently delete posted entry</p>
+                <p class="text-sm font-semibold text-gray-900 mb-3" id="deleteModalEntryNumberPosted"></p>
+                <p class="text-xs text-red-600 font-semibold mb-5">Warning: This will not reverse account balances. Use Reverse Entry unless you are certain this entry was posted in error.</p>
+            </div>
+            <form id="deleteModalForm" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="flex justify-end gap-3">
+                    <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+    function openDeleteModal(id, entryNumber, isPosted) {
+        document.getElementById('deleteModalEntryNumber').textContent = entryNumber;
+        document.getElementById('deleteModalEntryNumberPosted').textContent = entryNumber;
+        document.getElementById('deleteModalForm').action = '/admin/accounting/journal-entries/' + id;
+        document.getElementById('deleteModalDraftHead').classList.toggle('hidden', isPosted);
+        document.getElementById('deleteModalPostedHead').classList.toggle('hidden', !isPosted);
+        document.getElementById('deleteModal').classList.remove('hidden');
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').classList.add('hidden');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDeleteModal(); });
+    </script>
 </x-admin-layout>

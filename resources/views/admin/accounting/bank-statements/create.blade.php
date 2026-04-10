@@ -16,8 +16,12 @@
 
     {{-- ── Statement header (shared by both modes) ─────────────────── --}}
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-5">
-        <p class="text-sm font-semibold text-gray-700 mb-4">Statement Details</p>
         <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Statement ID</label>
+                <input type="text" name="reference" id="sharedReference" value="{{ old('reference') }}" placeholder="e.g. March 2026 Statement" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                <p class="text-xs text-gray-400 mt-1">e.g. March 2026 Statement</p>
+            </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Bank Account <span class="text-red-500">*</span></label>
                 <select name="bank_account_id" id="sharedBankAccount" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
@@ -26,10 +30,6 @@
                     <option value="{{ $ba->id }}" @selected(old('bank_account_id') == $ba->id)>{{ $ba->name }} ({{ $ba->bank_name }})</option>
                     @endforeach
                 </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Reference / Statement ID</label>
-                <input type="text" name="reference" id="sharedReference" value="{{ old('reference') }}" placeholder="e.g. March 2026 Statement" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Period From</label>
@@ -90,11 +90,29 @@
                     After upload, you'll see a preview table to review, adjust COA, and remove unwanted rows before anything is saved.
                 </div>
 
+                <div class="mt-3 flex items-center gap-2">
+                    <a href="{{ route('admin.accounting.bank-statements.template') }}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M8 12l4 4 4-4M12 4v12"/>
+                        </svg>
+                        Download Excel Template
+                    </a>
+                    <span class="text-xs text-gray-400">— fill in your transactions and upload the file above</span>
+                </div>
+
+                {{-- Inline error shown when bank account is not selected --}}
+                <div id="uploadBankError" class="hidden mt-4 bg-red-50 border border-red-300 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                    <span>Please select a <strong>Bank Account</strong> in the Statement Details section above before uploading.</span>
+                </div>
+
                 <div class="flex justify-end gap-3 mt-5">
                     <a href="{{ route('admin.accounting.bank-statements.index') }}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">Cancel</a>
-                    <button type="submit" id="uploadSubmitBtn" class="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 inline-flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                        Parse & Preview
+                    <button type="submit" id="uploadSubmitBtn" class="px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2">
+                        <svg id="uploadSubmitIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <svg id="uploadSubmitSpinner" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                        <span id="uploadSubmitLabel">Parse & Preview</span>
                     </button>
                 </div>
             </form>
@@ -124,20 +142,19 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="text-left px-3 py-2 font-semibold text-gray-600 w-32">Date <span class="text-red-500">*</span></th>
-                                    <th class="text-left px-3 py-2 font-semibold text-gray-600">Description <span class="text-red-500">*</span></th>
-                                    <th class="text-left px-3 py-2 font-semibold text-gray-600 w-28">Reference</th>
-                                    <th class="text-right px-3 py-2 font-semibold text-gray-600 w-32">Amount <span class="text-red-500">*</span></th>
-                                    <th class="text-center px-3 py-2 font-semibold text-gray-600 w-24">Type <span class="text-red-500">*</span></th>
-                                    <th class="text-left px-3 py-2 font-semibold text-gray-600 w-44">Contra Account</th>
+                                    <th class="text-left px-3 py-2 font-semibold text-gray-600 w-44">Account</th>
                                     <th class="text-left px-3 py-2 font-semibold text-gray-600 w-40">Partner</th>
+                                    <th class="text-left px-3 py-2 font-semibold text-gray-600">Description <span class="text-red-500">*</span></th>
+                                    <th class="text-right px-3 py-2 font-semibold text-gray-600 w-32">Dr (Tsh)</th>
+                                    <th class="text-right px-3 py-2 font-semibold text-gray-600 w-32">Cr (Tsh)</th>
                                     <th class="px-3 py-2 w-8"></th>
                                 </tr>
                             </thead>
                             <tbody id="txBody">
                                 @php
                                     $oldTx = old('transactions', [
-                                        ['date'=>'','description'=>'','reference'=>'','amount'=>'','type'=>'credit','contra_account_id'=>'','partner'=>'','notes'=>''],
-                                        ['date'=>'','description'=>'','reference'=>'','amount'=>'','type'=>'credit','contra_account_id'=>'','partner'=>'','notes'=>''],
+                                        ['date'=>'','contra_account_id'=>'','partner'=>'','description'=>'','debit'=>'','credit'=>''],
+                                        ['date'=>'','contra_account_id'=>'','partner'=>'','description'=>'','debit'=>'','credit'=>''],
                                     ]);
                                 @endphp
                                 @foreach($oldTx as $i => $tx)
@@ -146,24 +163,9 @@
                                         <input type="date" name="transactions[{{ $i }}][date]" value="{{ $tx['date'] ?? '' }}" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
                                     </td>
                                     <td class="px-2 py-1.5">
-                                        <input type="text" name="transactions[{{ $i }}][description]" value="{{ $tx['description'] ?? '' }}" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
-                                    </td>
-                                    <td class="px-2 py-1.5">
-                                        <input type="text" name="transactions[{{ $i }}][reference]" value="{{ $tx['reference'] ?? '' }}" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
-                                    </td>
-                                    <td class="px-2 py-1.5">
-                                        <input type="number" name="transactions[{{ $i }}][amount]" value="{{ $tx['amount'] ?? '' }}" step="0.01" min="0.01" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400">
-                                    </td>
-                                    <td class="px-2 py-1.5 text-center">
-                                        <select name="transactions[{{ $i }}][type]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 type-select">
-                                            <option value="credit" @selected(($tx['type']??'credit')==='credit')>Credit (In)</option>
-                                            <option value="debit"  @selected(($tx['type']??'')==='debit')>Debit (Out)</option>
-                                        </select>
-                                    </td>
-                                    <td class="px-2 py-1.5">
                                         <div class="account-wrap relative">
                                             <input type="hidden" name="transactions[{{ $i }}][contra_account_id]" class="account-value" value="{{ $tx['contra_account_id'] ?? '' }}">
-                                            <input type="text" class="account-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search…" autocomplete="off">
+                                            <input type="text" class="account-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search account…" autocomplete="off">
                                             <button type="button" class="account-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button>
                                         </div>
                                     </td>
@@ -171,9 +173,18 @@
                                         <div class="partner-wrap relative">
                                             <input type="hidden" name="transactions[{{ $i }}][partner]" class="partner-value" value="{{ $tx['partner'] ?? '' }}">
                                             <span class="partner-badge hidden"></span>
-                                            <input type="text" class="partner-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search…" autocomplete="off">
+                                            <input type="text" class="partner-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search partner…" autocomplete="off">
                                             <button type="button" class="partner-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button>
                                         </div>
+                                    </td>
+                                    <td class="px-2 py-1.5">
+                                        <input type="text" name="transactions[{{ $i }}][description]" value="{{ $tx['description'] ?? '' }}" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
+                                    </td>
+                                    <td class="px-2 py-1.5">
+                                        <input type="number" name="transactions[{{ $i }}][debit]" value="{{ $tx['debit'] ?? 0 }}" step="0.01" min="0" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400 debit-input" oninput="updateTotals()">
+                                    </td>
+                                    <td class="px-2 py-1.5">
+                                        <input type="number" name="transactions[{{ $i }}][credit]" value="{{ $tx['credit'] ?? 0 }}" step="0.01" min="0" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400 credit-input" oninput="updateTotals()">
                                     </td>
                                     <td class="px-2 py-1.5 text-center">
                                         <button type="button" class="remove-row text-red-400 hover:text-red-600 text-xs" @if($i < 2) disabled @endif>&times;</button>
@@ -181,6 +192,14 @@
                                 </tr>
                                 @endforeach
                             </tbody>
+                            <tfoot class="bg-gray-50 border-t border-gray-200">
+                                <tr>
+                                    <td colspan="4" class="px-3 py-2 text-right text-sm font-semibold text-gray-700">Totals</td>
+                                    <td class="px-3 py-2 text-right font-bold font-mono" id="totalDebit">0</td>
+                                    <td class="px-3 py-2 text-right font-bold font-mono" id="totalCredit">0</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
@@ -308,14 +327,21 @@
     function newRowHTML(idx) {
         return `<tr class="tx-row border-t border-gray-100">
         <td class="px-2 py-1.5"><input type="date" name="transactions[${idx}][date]" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"></td>
+        <td class="px-2 py-1.5"><div class="account-wrap relative"><input type="hidden" name="transactions[${idx}][contra_account_id]" class="account-value" value=""><input type="text" class="account-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search account\u2026" autocomplete="off"><button type="button" class="account-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button></div></td>
+        <td class="px-2 py-1.5"><div class="partner-wrap relative"><input type="hidden" name="transactions[${idx}][partner]" class="partner-value" value=""><span class="partner-badge hidden"></span><input type="text" class="partner-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search partner\u2026" autocomplete="off"><button type="button" class="partner-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button></div></td>
         <td class="px-2 py-1.5"><input type="text" name="transactions[${idx}][description]" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"></td>
-        <td class="px-2 py-1.5"><input type="text" name="transactions[${idx}][reference]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400"></td>
-        <td class="px-2 py-1.5"><input type="number" name="transactions[${idx}][amount]" step="0.01" min="0.01" required class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400"></td>
-        <td class="px-2 py-1.5"><select name="transactions[${idx}][type]" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 type-select"><option value="credit">Credit (In)</option><option value="debit">Debit (Out)</option></select></td>
-        <td class="px-2 py-1.5"><div class="account-wrap relative"><input type="hidden" name="transactions[${idx}][contra_account_id]" class="account-value" value=""><input type="text" class="account-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search\u2026" autocomplete="off"><button type="button" class="account-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button></div></td>
-        <td class="px-2 py-1.5"><div class="partner-wrap relative"><input type="hidden" name="transactions[${idx}][partner]" class="partner-value" value=""><span class="partner-badge hidden"></span><input type="text" class="partner-search w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-5 truncate" placeholder="Search\u2026" autocomplete="off"><button type="button" class="partner-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button></div></td>
+        <td class="px-2 py-1.5"><input type="number" name="transactions[${idx}][debit]" value="0" step="0.01" min="0" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400 debit-input" oninput="updateTotals()"></td>
+        <td class="px-2 py-1.5"><input type="number" name="transactions[${idx}][credit]" value="0" step="0.01" min="0" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-1 focus:ring-red-400 credit-input" oninput="updateTotals()"></td>
         <td class="px-2 py-1.5 text-center"><button type="button" class="remove-row text-red-400 hover:text-red-600 text-xs">&times;</button></td>
         </tr>`;
+    }
+
+    function updateTotals() {
+        let dr = 0, cr = 0;
+        document.querySelectorAll('.debit-input').forEach(i => dr += parseFloat(i.value) || 0);
+        document.querySelectorAll('.credit-input').forEach(i => cr += parseFloat(i.value) || 0);
+        document.getElementById('totalDebit').textContent  = dr.toLocaleString('en', {minimumFractionDigits: 2});
+        document.getElementById('totalCredit').textContent = cr.toLocaleString('en', {minimumFractionDigits: 2});
     }
 
     document.getElementById('addRow').addEventListener('click', () => {
@@ -354,11 +380,33 @@
     document.getElementById('uploadForm').addEventListener('submit', e => {
         if (!document.getElementById('sharedBankAccount').value) {
             e.preventDefault();
-            document.getElementById('sharedBankAccount').focus();
-            document.getElementById('sharedBankAccount').classList.add('ring-2', 'ring-red-500', 'border-red-400');
+            // Show inline error near the button
+            document.getElementById('uploadBankError').classList.remove('hidden');
+            // Scroll to and highlight the bank account select
+            const sel = document.getElementById('sharedBankAccount');
+            sel.classList.add('ring-2', 'ring-red-500', 'border-red-400');
+            sel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => sel.focus(), 400);
             return;
         }
+        // Clear any previous error state
+        document.getElementById('uploadBankError').classList.add('hidden');
+        document.getElementById('sharedBankAccount').classList.remove('ring-2', 'ring-red-500', 'border-red-400');
+        // Show loading state on button
+        const btn = document.getElementById('uploadSubmitBtn');
+        btn.disabled = true;
+        document.getElementById('uploadSubmitIcon').classList.add('hidden');
+        document.getElementById('uploadSubmitSpinner').classList.remove('hidden');
+        document.getElementById('uploadSubmitLabel').textContent = 'Processing…';
         syncHeader('upload');
+    });
+
+    // Clear bank error highlight when user selects an account
+    document.getElementById('sharedBankAccount').addEventListener('change', () => {
+        if (document.getElementById('sharedBankAccount').value) {
+            document.getElementById('uploadBankError').classList.add('hidden');
+            document.getElementById('sharedBankAccount').classList.remove('ring-2', 'ring-red-500', 'border-red-400');
+        }
     });
 
     document.getElementById('bsForm').addEventListener('submit', () => syncHeader('manual'));

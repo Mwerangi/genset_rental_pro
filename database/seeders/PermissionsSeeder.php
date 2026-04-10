@@ -102,10 +102,13 @@ class PermissionsSeeder extends Seeder
         'manage_expense_categories' => ['Manage Expense Categories',                   'Accounting', 4],
 
         // ── Journal Entries ───────────────────────────────────────────
-        'view_journal_entries'     => ['View Journal Entries',                          'Accounting', 5],
-        'create_journal_entries'   => ['Create Journal Entries',                        'Accounting', 6],
-        'post_journal_entries'     => ['Post Journal Entries to Ledger',                'Accounting', 7],
-        'reverse_journal_entries'  => ['Reverse Journal Entries',                       'Accounting', 8],
+        'view_journal_entries'          => ['View Journal Entries',                     'Accounting', 5],
+        'create_journal_entries'        => ['Create Journal Entries',                   'Accounting', 6],
+        'edit_journal_entries'          => ['Edit Draft Journal Entries',               'Accounting', 7],
+        'delete_journal_entries'        => ['Delete Draft Journal Entries',             'Accounting', 8],
+        'force_delete_journal_entries'  => ['Force-Delete Posted Journal Entries',      'Accounting', 9],
+        'post_journal_entries'          => ['Post Journal Entries to Ledger',           'Accounting', 10],
+        'reverse_journal_entries'       => ['Reverse Journal Entries',                  'Accounting', 11],
 
         // ── Expenses ──────────────────────────────────────────────────
         'view_expenses'            => ['View Own Expenses',                             'Accounting', 9],
@@ -196,7 +199,8 @@ class PermissionsSeeder extends Seeder
             'record_invoice_payment', 'void_invoices', 'write_off_invoices', 'view_all_invoices',
             // Accounting
             'view_accounting', 'manage_accounts', 'manage_bank_accounts', 'manage_expense_categories',
-            'view_journal_entries', 'create_journal_entries', 'post_journal_entries', 'reverse_journal_entries',
+            'view_journal_entries', 'create_journal_entries', 'edit_journal_entries', 'delete_journal_entries', 'force_delete_journal_entries',
+            'post_journal_entries', 'reverse_journal_entries',
             // Expenses
             'view_expenses', 'create_expenses', 'delete_expenses', 'approve_expenses', 'view_all_expenses',
             // Supplier Payments
@@ -232,7 +236,8 @@ class PermissionsSeeder extends Seeder
             'record_invoice_payment', 'void_invoices', 'write_off_invoices', 'view_all_invoices',
             // Accounting (full setup)
             'view_accounting', 'manage_accounts', 'manage_bank_accounts', 'manage_expense_categories',
-            'view_journal_entries', 'create_journal_entries', 'post_journal_entries', 'reverse_journal_entries',
+            'view_journal_entries', 'create_journal_entries', 'edit_journal_entries', 'delete_journal_entries', 'force_delete_journal_entries',
+            'post_journal_entries', 'reverse_journal_entries',
             // Expenses (full)
             'view_expenses', 'create_expenses', 'delete_expenses', 'approve_expenses', 'view_all_expenses',
             // Supplier Payments (full)
@@ -347,7 +352,8 @@ class PermissionsSeeder extends Seeder
             'record_invoice_payment', 'void_invoices', 'view_all_invoices',
             // Accounting (full setup)
             'view_accounting', 'manage_accounts', 'manage_bank_accounts', 'manage_expense_categories',
-            'view_journal_entries', 'create_journal_entries', 'post_journal_entries',
+            'view_journal_entries', 'create_journal_entries', 'edit_journal_entries', 'delete_journal_entries',
+            'post_journal_entries',
             // Expenses
             'view_expenses', 'create_expenses', 'delete_expenses', 'approve_expenses', 'view_all_expenses',
             // Supplier Payments
