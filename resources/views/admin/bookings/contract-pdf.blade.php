@@ -130,17 +130,25 @@
     {{-- ── 1. SCOPE ─────────────────────────────────────────── --}}
     <div class="clause-heading">1. Scope of Agreement</div>
     <p class="clause-body">
-        1.1 Milele Power Limited agrees to provide a genset(s) to the Client for a rental duration of
-        <strong>{{ $booking->rental_duration_days }} day(s)</strong>,
-        Model: <strong>{{ $booking->genset?->model ?? $booking->genset_type }}</strong>,
-        Genset No: <strong>{{ $booking->genset?->asset_number ?? '—' }}</strong>
-        @if($booking->genset?->serial_number), Serial No: <strong>{{ $booking->genset->serial_number }}</strong>@endif.
+        1.1 Milele Power Limited agrees to provide {{ $contractGensets->count() > 1 ? $contractGensets->count() . ' gensets' : 'a genset' }} to the Client for a rental duration of
+        <strong>{{ $booking->rental_duration_days }} day(s)</strong>:
     </p>
+    @if($contractGensets->isEmpty())
+    <p class="clause-body" style="margin-left:16px;">
+        Model: <strong>{{ $booking->genset_type ?? '—' }}</strong>
+    </p>
+    @else
+    @foreach($contractGensets as $cg)
+    <p class="clause-body" style="margin-left:16px; margin-top:2px;">
+        <strong>Unit {{ $loop->iteration }}:</strong>
+        Model: <strong>{{ $cg->model ?? $cg->type ?? $booking->genset_type ?? '—' }}</strong>,
+        Asset No: <strong>{{ $cg->asset_number }}</strong>@if($cg->kva_rating), <strong>{{ $cg->kva_rating }} KVA</strong>@endif@if($cg->serial_number), Serial No: <strong>{{ $cg->serial_number }}</strong>@endif.
+    </p>
+    @endforeach
+    @endif
     <p class="clause-body" style="margin-top:4px;">
-        1.2 The Client agrees to rent the genset(s) from Milele Power Limited for
-        <strong>{{ $booking->rental_duration_days }} day(s)</strong>,
-        Model: <strong>{{ $booking->genset?->model ?? $booking->genset_type }}</strong>,
-        Genset No: <strong>{{ $booking->genset?->asset_number ?? '—' }}</strong>.
+        1.2 The Client agrees to rent the above genset(s) from Milele Power Limited for
+        <strong>{{ $booking->rental_duration_days }} day(s)</strong> as detailed in clause 1.1.
     </p>
 
     {{-- ── 2. TERM ───────────────────────────────────────────── --}}

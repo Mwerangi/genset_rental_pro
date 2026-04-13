@@ -385,7 +385,12 @@ class BookingController extends Controller
 
     public function contractPdf(Booking $booking)
     {
-        $booking->load(['client', 'genset', 'quotation.items', 'approvedBy']);
+        $booking->load(['client', 'genset', 'gensets', 'quotation.items', 'approvedBy']);
+
+        // Resolve all assigned gensets: prefer pivot relation, fall back to legacy FK
+        $contractGensets = $booking->gensets->isNotEmpty()
+            ? $booking->gensets
+            : ($booking->genset ? collect([$booking->genset]) : collect());
 
         $client = $booking->client;
 
@@ -417,6 +422,7 @@ class BookingController extends Controller
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.bookings.contract-pdf', compact(
             'booking',
+            'contractGensets',
             'clientName',
             'clientAddress',
             'clientLocation',
