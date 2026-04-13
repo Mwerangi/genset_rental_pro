@@ -519,16 +519,24 @@ class QuotationController extends Controller
         }
 
         $request->validate([
-            'genset_id'            => 'required|exists:gensets,id',
+            'genset_ids'           => 'required|array|min:1',
+            'genset_ids.*'         => 'exists:gensets,id',
             'rental_start_date'    => 'required|date',
             'rental_duration_days' => 'required|integer|min:1',
-            'delivery_location'    => 'required|string|max:500',
-            'pickup_location'      => 'nullable|string|max:500',
+            'drop_on_location'     => 'required|string|max:500',
+            'drop_off_location'    => 'nullable|string|max:500',
+            'destination'          => 'nullable|string|max:500',
         ]);
 
-        $genset = \App\Models\Genset::where('id', $request->genset_id)
+        $gensets = \App\Models\Genset::whereIn('id', $request->genset_ids)
             ->where('status', 'available')
-            ->firstOrFail();
+            ->get();
+
+        if ($gensets->count() !== count($request->genset_ids)) {
+            return back()->withErrors(['genset_ids' => 'One or more selected gensets are no longer available.'])->withInput();
+        }
+
+        $genset = $gensets->first();
 
         $quotation->load(['quoteRequest', 'items']);
         $quotation->markAsAccepted();
@@ -583,8 +591,9 @@ class QuotationController extends Controller
             'rental_start_date'    => $startDate,
             'rental_end_date'      => $endDate,
             'rental_duration_days' => (int) $request->rental_duration_days,
-            'delivery_location'    => $request->delivery_location,
-            'pickup_location'      => $request->pickup_location,
+            'drop_on_location'     => $request->drop_on_location,
+            'drop_off_location'    => $request->drop_off_location,
+            'destination'          => $request->destination,
             'total_amount'         => $quotation->total_amount,
             'currency'             => $quotation->currency ?? 'TZS',
             'exchange_rate_to_tzs' => $quotation->exchange_rate_to_tzs ?? 1.0,
@@ -594,6 +603,9 @@ class QuotationController extends Controller
             'company_name'         => $qr?->company_name ?? $quotation->company_name,
             'created_by'           => auth()->id(),
         ]);
+
+        // Attach all selected gensets via the pivot table
+        $booking->gensets()->attach($gensets->pluck('id'));
 
         UserActivityLog::record(
             auth()->id(), 'approved',

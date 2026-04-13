@@ -22,25 +22,31 @@
             <form method="POST" action="{{ route('admin.quotations.approve', $quotation) }}">
                 @csrf
                 <div class="space-y-4">
-                    <!-- Genset -->
+                    <!-- Gensets (multi-select checkbox list) -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Generator <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Assign Generators <span class="text-red-500">*</span></label>
                         @if($availableGensets->isEmpty())
                             <div class="w-full px-3 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm text-amber-700 font-medium">
                                 No generators are currently available. Please make one available before approving.
                             </div>
-                            {{-- Hidden input so form still submits but button will be disabled --}}
-                            <input type="hidden" name="genset_id" value="">
                         @else
-                            <select name="genset_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-                                <option value="">Select available generator...</option>
+                            <div class="border border-slate-300 rounded-lg divide-y divide-slate-100 max-h-48 overflow-y-auto">
                                 @foreach($availableGensets as $genset)
-                                    <option value="{{ $genset->id }}">
-                                        {{ $genset->asset_number }} — {{ $genset->name ?? $genset->type }}
-                                        {{ $genset->kva_rating ? '(' . $genset->kva_rating . ' KVA)' : '' }}
-                                    </option>
+                                    <label class="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 cursor-pointer">
+                                        <input type="checkbox" name="genset_ids[]" value="{{ $genset->id }}"
+                                            class="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500">
+                                        <span class="text-sm text-slate-700">
+                                            <span class="font-medium">{{ $genset->asset_number }}</span>
+                                            — {{ $genset->name ?? $genset->type }}
+                                            @if($genset->kva_rating)
+                                                <span class="text-slate-500">({{ $genset->kva_rating }} KVA)</span>
+                                            @endif
+                                        </span>
+                                    </label>
                                 @endforeach
-                            </select>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-1">Check all gensets required for this booking.</p>
+                            @error('genset_ids') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         @endif
                     </div>
                     <!-- Dates -->
@@ -58,19 +64,26 @@
                                 class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                         </div>
                     </div>
-                    <!-- Delivery Location -->
+                    <!-- Drop-ON Location -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Delivery Location <span class="text-red-500">*</span></label>
-                        <input type="text" name="delivery_location" required placeholder="e.g. Dar Es Salaam Port, Gate 3"
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Drop-ON Location <span class="text-red-500">*</span></label>
+                        <input type="text" name="drop_on_location" required placeholder="e.g. Dar Es Salaam Port, Gate 3"
                             value="{{ $quotation->quoteRequest?->delivery_location ?? '' }}"
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                     </div>
-                    <!-- Pickup Location -->
+                    <!-- Drop-OFF Location -->
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Pickup Location <span class="text-slate-400 font-normal">(optional)</span></label>
-                        <input type="text" name="pickup_location" placeholder="Same as delivery or specify..."
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Drop-OFF Location <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="text" name="drop_off_location" placeholder="Same as Drop-ON or specify..."
                             value="{{ $quotation->quoteRequest?->pickup_location ?? '' }}"
                             class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <!-- Destination -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Destination <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="text" name="destination" placeholder="e.g. Mombasa, Kenya — Kilindini Harbour"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <p class="text-xs text-slate-500 mt-1">Country, region, city or full address of the deployment site.</p>
                     </div>
                 </div>
                 <div class="flex gap-3 mt-6">

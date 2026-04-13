@@ -99,14 +99,20 @@
                         </div>
 
                         <div class="col-span-2">
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Delivery Location <span class="text-red-500">*</span></label>
-                            <x-input type="text" name="delivery_location" value="{{ old('delivery_location') }}" placeholder="e.g. Dar Es Salaam Port, Gate 3" class="w-full" />
-                            @error('delivery_location') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Drop-ON Location <span class="text-red-500">*</span></label>
+                            <x-input type="text" name="drop_on_location" value="{{ old('drop_on_location') }}" placeholder="e.g. Dar Es Salaam Port, Gate 3" class="w-full" />
+                            @error('drop_on_location') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
 
                         <div class="col-span-2">
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Pickup Location</label>
-                            <x-input type="text" name="pickup_location" value="{{ old('pickup_location') }}" placeholder="Same as delivery or specify..." class="w-full" />
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Drop-OFF Location</label>
+                            <x-input type="text" name="drop_off_location" value="{{ old('drop_off_location') }}" placeholder="Same as Drop-ON or specify..." class="w-full" />
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Destination</label>
+                            <x-input type="text" name="destination" value="{{ old('destination') }}" placeholder="e.g. Mombasa, Kenya — Kilindini Harbour" class="w-full" />
+                            <p class="text-xs text-slate-500 mt-1">Country, region, city or full address of the deployment site.</p>
                         </div>
                     </div>
                 </x-card>

@@ -190,7 +190,7 @@
             @endif
             @if($transport_fee)
             <tr>
-                <td>Transportation Fee — {{ $booking->delivery_location }}</td>
+                <td>Transportation Fee — {{ $booking->drop_on_location }}</td>
                 <td class="val">—</td>
                 <td class="val">{{ $currency }} {{ number_format($transport_fee, 2) }}</td>
             </tr>
@@ -252,7 +252,7 @@
     {{-- ── 5. DELIVERY & INSTALLATION ───────────────────────── --}}
     <div class="clause-heading">5. Delivery &amp; Installation</div>
     <p class="clause-body">5.1 The Supplier will deliver the genset to the Client's site at
-        <strong>{{ $booking->delivery_location }}</strong>
+        <strong>{{ $booking->drop_on_location }}</strong>
         @if($booking->rental_start_date) by <strong>{{ $booking->rental_start_date->format('d F Y') }}</strong>@endif.
     </p>
     <p class="clause-body">5.2 The Client is responsible for delivery and installation charges, unless otherwise agreed.</p>
@@ -294,7 +294,7 @@
     <p class="clause-body"><strong>12.4 Damage Responsibility:</strong> The Client shall be liable for all repair costs resulting from misuse, negligence, or unauthorized alterations.</p>
     <p class="clause-body"><strong>12.5 Emergency Support:</strong> The Supplier shall provide 24/7 emergency support. The Client must immediately report any malfunction or damage.</p>
     <p class="clause-body"><strong>12.6 Return Procedure:</strong> The Client must return the Genset to the Supplier's designated location, or arrange for pickup, as agreed. Any delays may incur extra charges.
-        @if($booking->pickup_location) Agreed pickup location: <strong>{{ $booking->pickup_location }}</strong>.@endif
+        @if($booking->drop_off_location) Agreed drop-OFF location: <strong>{{ $booking->drop_off_location }}</strong>.@endif
     </p>
     <p class="clause-body"><strong>12.7 Force Majeure:</strong> Neither party shall be liable for failure to perform obligations due to events beyond reasonable control, including but not limited to natural disasters, war, strikes, or government orders.</p>
     <p class="clause-body"><strong>12.8 Amendment Clause:</strong> No amendments to this Agreement shall be valid unless made in writing and signed by authorized representatives of both parties.</p>

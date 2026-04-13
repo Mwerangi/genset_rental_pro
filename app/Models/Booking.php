@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Booking extends Model
@@ -20,8 +21,9 @@ class Booking extends Model
         'rental_start_date',
         'rental_end_date',
         'rental_duration_days',
-        'delivery_location',
-        'pickup_location',
+        'drop_on_location',
+        'drop_off_location',
+        'destination',
         'total_amount',
         'currency',
         'exchange_rate_to_tzs',
@@ -81,6 +83,11 @@ class Booking extends Model
     public function genset(): BelongsTo
     {
         return $this->belongsTo(Genset::class);
+    }
+
+    public function gensets(): BelongsToMany
+    {
+        return $this->belongsToMany(Genset::class, 'booking_genset')->withTimestamps();
     }
 
     public function invoice(): BelongsTo

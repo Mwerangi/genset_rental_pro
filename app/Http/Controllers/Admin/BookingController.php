@@ -154,8 +154,9 @@ class BookingController extends Controller
             'genset_type'          => 'required|string|max:100',
             'rental_start_date'    => 'required|date',
             'rental_duration_days' => 'required|integer|min:1',
-            'delivery_location'    => 'required|string|max:500',
-            'pickup_location'      => 'nullable|string|max:500',
+            'drop_on_location'     => 'required|string|max:500',
+            'drop_off_location'    => 'nullable|string|max:500',
+            'destination'          => 'nullable|string|max:500',
             'total_amount'         => 'required|numeric|min:0',
             'currency'             => 'nullable|in:TZS,USD',
             'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
@@ -175,8 +176,9 @@ class BookingController extends Controller
             'rental_start_date'    => $startDate,
             'rental_end_date'      => $endDate,
             'rental_duration_days' => $validated['rental_duration_days'],
-            'delivery_location'    => $validated['delivery_location'],
-            'pickup_location'      => $validated['pickup_location'] ?? null,
+            'drop_on_location'     => $validated['drop_on_location'],
+            'drop_off_location'    => $validated['drop_off_location'] ?? null,
+            'destination'          => $validated['destination'] ?? null,
             'total_amount'         => $validated['total_amount'],
             'currency'             => $currency,
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
@@ -475,8 +477,9 @@ class BookingController extends Controller
             'genset_type'          => 'required|string|max:100',
             'rental_start_date'    => 'required|date',
             'rental_duration_days' => 'required|integer|min:1',
-            'delivery_location'    => 'required|string|max:500',
-            'pickup_location'      => 'nullable|string|max:500',
+            'drop_on_location'     => 'required|string|max:500',
+            'drop_off_location'    => 'nullable|string|max:500',
+            'destination'          => 'nullable|string|max:500',
             'total_amount'         => 'required|numeric|min:0',
             'currency'             => 'nullable|in:TZS,USD',
             'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
@@ -492,8 +495,9 @@ class BookingController extends Controller
             'rental_start_date'    => $startDate,
             'rental_end_date'      => $endDate,
             'rental_duration_days' => $validated['rental_duration_days'],
-            'delivery_location'    => $validated['delivery_location'],
-            'pickup_location'      => $validated['pickup_location'] ?? null,
+            'drop_on_location'     => $validated['drop_on_location'],
+            'drop_off_location'    => $validated['drop_off_location'] ?? null,
+            'destination'          => $validated['destination'] ?? null,
             'total_amount'         => $validated['total_amount'],
             'currency'             => $currency,
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
@@ -555,8 +559,9 @@ class BookingController extends Controller
             'genset_type'          => 'nullable|string|max:100',
             'rental_start_date'    => 'required|date',
             'rental_end_date'      => 'required|date|after_or_equal:rental_start_date',
-            'delivery_location'    => 'required|string|max:500',
-            'pickup_location'      => 'nullable|string|max:500',
+            'drop_on_location'     => 'required|string|max:500',
+            'drop_off_location'    => 'nullable|string|max:500',
+            'destination'          => 'nullable|string|max:500',
             'currency'             => 'required|in:TZS,USD',
             'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
             'subtotal'             => 'required|numeric|min:0',
@@ -592,9 +597,9 @@ class BookingController extends Controller
                 'rental_start_date'    => $startDate,
                 'rental_end_date'      => $endDate,
                 'rental_duration_days' => $durationDays,
-                'delivery_location'    => $validated['delivery_location'],
-                'pickup_location'      => $validated['pickup_location'] ?? null,
-                'total_amount'         => $total,
+                'drop_on_location'     => $validated['drop_on_location'],
+                'drop_off_location'    => $validated['drop_off_location'] ?? null,
+                'destination'          => $validated['destination'] ?? null,
                 'currency'             => $currency,
                 'exchange_rate_to_tzs' => $exRate,
                 'notes'                => $validated['notes'] ?? null,
@@ -677,7 +682,7 @@ class BookingController extends Controller
             'genset_type',         // e.g. 45 KVA Clip-on
             'rental_start_date',   // YYYY-MM-DD
             'rental_end_date',     // YYYY-MM-DD
-            'delivery_location',
+            'drop_on_location',
             'currency',            // TZS or USD
             'exchange_rate',       // Leave blank for TZS; e.g. 2550 for USD
             'subtotal',            // Excl. VAT, numeric
@@ -774,7 +779,7 @@ class BookingController extends Controller
             ['genset_type', 'No', 'Text description of the generator.'],
             ['rental_start_date', 'Yes', 'Format: YYYY-MM-DD (e.g. 2024-01-15)'],
             ['rental_end_date', 'Yes', 'Format: YYYY-MM-DD. Must be on or after start date.'],
-            ['delivery_location', 'Yes', 'Site where genset was delivered.'],
+            ['drop_on_location', 'Yes', 'Site where genset was dropped on (delivered).'],
             ['currency', 'Yes', 'TZS or USD'],
             ['exchange_rate', 'Only for USD', 'How many TZS per 1 USD (e.g. 2550). Leave blank for TZS.'],
             ['subtotal', 'Yes', 'Amount excluding VAT. Numeric only, no commas.'],
@@ -904,7 +909,7 @@ class BookingController extends Controller
             // phone is optional
             if (empty($rentalStartDate)) $errors[] = 'rental_start_date required';
             if (empty($rentalEndDate))   $errors[] = 'rental_end_date required';
-            if (empty($get($row, 'delivery_location'))) $errors[] = 'delivery_location required';
+            if (empty($get($row, 'drop_on_location'))) $errors[] = 'drop_on_location required';
             if ($subtotal <= 0) $errors[] = 'subtotal must be > 0';
             if (empty($get($row, 'description'))) $errors[] = 'description required';
             if (empty($invoiceDate))  $errors[] = 'invoice_date required';
@@ -927,8 +932,7 @@ class BookingController extends Controller
                 'genset_type'       => $get($row, 'genset_type'),
                 'rental_start_date' => $rentalStartDate,
                 'rental_end_date'   => $rentalEndDate,
-                'delivery_location' => $get($row, 'delivery_location'),
-                'pickup_location'   => $get($row, 'pickup_location'),
+                'drop_on_location'  => $get($row, 'drop_on_location'),
                 'currency'          => $currency,
                 'exchange_rate'     => $exRate,
                 'subtotal'          => $subtotal,
@@ -1008,8 +1012,7 @@ class BookingController extends Controller
                         'rental_start_date'    => $startDate,
                         'rental_end_date'      => $endDate,
                         'rental_duration_days' => $durationDays,
-                        'delivery_location'    => $row['delivery_location'],
-                        'pickup_location'      => $row['pickup_location'] ?: null,
+                        'drop_on_location'     => $row['drop_on_location'],
                         'total_amount'         => $total,
                         'currency'             => $currency,
                         'exchange_rate_to_tzs' => $exRate,

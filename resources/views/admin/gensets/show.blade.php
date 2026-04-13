@@ -202,9 +202,9 @@
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                     <h2 class="font-semibold text-gray-900">Booking History</h2>
-                    <span class="text-xs text-gray-500">{{ $genset->bookings->count() }} total</span>
+                    <span class="text-xs text-gray-500">{{ $recentBookings->count() }} recent</span>
                 </div>
-                @if($genset->bookings->isEmpty())
+                @if($recentBookings->isEmpty())
                     <div class="px-5 py-10 text-center text-gray-400 text-sm">No bookings yet</div>
                 @else
                     <table class="w-full text-sm">
@@ -217,15 +217,20 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @foreach($genset->bookings()->orderByDesc('created_at')->take(10)->get() as $booking)
+                            @foreach($recentBookings as $booking)
                             @php
-                                $bStyles = ['draft'=>'background:#f3f4f6;color:#374151;','pending'=>'background:#fef9c3;color:#854d0e;','approved'=>'background:#dbeafe;color:#1e40af;','active'=>'background:#dcfce7;color:#166534;','returned'=>'background:#f3e8ff;color:#6b21a8;','invoiced'=>'background:#fee2e2;color:#991b1b;','paid'=>'background:#d1fae5;color:#065f46;','cancelled'=>'background:#f3f4f6;color:#6b7280;'];
+                                $bStyles = ['draft'=>'background:#f3f4f6;color:#374151;','pending'=>'background:#fef9c3;color:#854d0e;','created'=>'background:#dbeafe;color:#1e40af;','approved'=>'background:#dbeafe;color:#1e40af;','active'=>'background:#dcfce7;color:#166534;','returned'=>'background:#f3e8ff;color:#6b21a8;','invoiced'=>'background:#fee2e2;color:#991b1b;','paid'=>'background:#d1fae5;color:#065f46;','cancelled'=>'background:#f3f4f6;color:#6b7280;'];
                                 $bs = $bStyles[$booking->status] ?? 'background:#f3f4f6;';
                             @endphp
                             <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3"><a href="{{ route('admin.bookings.show', $booking) }}" class="text-red-600 hover:underline font-medium">{{ $booking->booking_reference }}</a></td>
-                                <td class="px-4 py-3 text-gray-700">{{ $booking->client->name ?? '—' }}</td>
-                                <td class="px-4 py-3 text-gray-500 text-xs">{{ $booking->event_start_date ? $booking->event_start_date->format('d M Y') : '—' }} – {{ $booking->event_end_date ? $booking->event_end_date->format('d M Y') : '—' }}</td>
+                                <td class="px-4 py-3"><a href="{{ route('admin.bookings.show', $booking) }}" class="text-red-600 hover:underline font-medium font-mono">{{ $booking->booking_number }}</a></td>
+                                <td class="px-4 py-3 text-gray-700">
+                                    {{ $booking->client?->company_name ?? $booking->client?->full_name ?? $booking->customer_name ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                                    {{ $booking->rental_start_date ? $booking->rental_start_date->format('d M Y') : '—' }}
+                                    @if($booking->rental_end_date) – {{ $booking->rental_end_date->format('d M Y') }} @endif
+                                </td>
                                 <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold" style="{{ $bs }}">{{ ucfirst($booking->status) }}</span></td>
                             </tr>
                             @endforeach

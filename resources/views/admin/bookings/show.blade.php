@@ -191,14 +191,21 @@
                     </div>
 
                     <div class="col-span-2">
-                        <p class="text-sm font-medium text-slate-600">Delivery Location</p>
-                        <p class="text-slate-900 mt-1">{{ $booking->delivery_location ?? '—' }}</p>
+                        <p class="text-sm font-medium text-slate-600">Drop-ON Location</p>
+                        <p class="text-slate-900 mt-1">{{ $booking->drop_on_location ?? '—' }}</p>
                     </div>
 
-                    @if($booking->pickup_location)
+                    @if($booking->drop_off_location)
                         <div class="col-span-2">
-                            <p class="text-sm font-medium text-slate-600">Pickup Location</p>
-                            <p class="text-slate-900 mt-1">{{ $booking->pickup_location }}</p>
+                            <p class="text-sm font-medium text-slate-600">Drop-OFF Location</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->drop_off_location }}</p>
+                        </div>
+                    @endif
+
+                    @if($booking->destination)
+                        <div class="col-span-2">
+                            <p class="text-sm font-medium text-slate-600">Destination</p>
+                            <p class="text-slate-900 mt-1">{{ $booking->destination }}</p>
                         </div>
                     @endif
 
@@ -575,39 +582,44 @@
                 </div>
             </div>
 
-            {{-- Assigned Genset Card --}}
-            @if($booking->genset)
+            {{-- Assigned Gensets Card --}}
+            @php $assignedGensets = $booking->gensets->isNotEmpty() ? $booking->gensets : ($booking->genset ? collect([$booking->genset]) : collect()); @endphp
+            @if($assignedGensets->isNotEmpty())
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <h2 class="text-sm font-semibold text-gray-900">⚡ Assigned Genset</h2>
-                    <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#dbeafe;color:#1e40af;">Rented</span>
+                    <h2 class="text-sm font-semibold text-gray-900">⚡ Assigned Genset{{ $assignedGensets->count() > 1 ? 's' : '' }}</h2>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:#dbeafe;color:#1e40af;">{{ $assignedGensets->count() }} Unit{{ $assignedGensets->count() > 1 ? 's' : '' }}</span>
                 </div>
-                <div class="p-4 space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Asset #</span>
-                        <a href="{{ route('admin.gensets.show', $booking->genset) }}" class="font-bold font-mono text-red-600 hover:underline">{{ $booking->genset->asset_number }}</a>
+                <div class="divide-y divide-gray-100">
+                    @foreach($assignedGensets as $g)
+                    <div class="p-4 space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Asset #</span>
+                            <a href="{{ route('admin.gensets.show', $g) }}" class="font-bold font-mono text-red-600 hover:underline">{{ $g->asset_number }}</a>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Name</span>
+                            <span class="font-medium text-gray-800 text-right max-w-36 truncate">{{ $g->name }}</span>
+                        </div>
+                        @if($g->power_rating)
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Power</span>
+                            <span class="text-gray-800">{{ $g->power_rating }}</span>
+                        </div>
+                        @endif
+                        @if($g->brand)
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Brand</span>
+                            <span class="text-gray-800">{{ $g->brand }}</span>
+                        </div>
+                        @endif
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Name</span>
-                        <span class="font-medium text-gray-800 text-right max-w-36 truncate">{{ $booking->genset->name }}</span>
-                    </div>
-                    @if($booking->genset->power_rating)
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Power</span>
-                        <span class="text-gray-800">{{ $booking->genset->power_rating }}</span>
-                    </div>
-                    @endif
-                    @if($booking->genset->brand)
-                    <div class="flex justify-between">
-                        <span class="text-gray-500">Brand</span>
-                        <span class="text-gray-800">{{ $booking->genset->brand }}</span>
-                    </div>
-                    @endif
+                    @endforeach
                 </div>
             </div>
             @elseif($booking->status === 'approved')
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-                <p class="font-semibold mb-1">⚠ No genset assigned</p>
+                <p class="font-semibold mb-1">⚠ No gensets assigned</p>
                 <p class="text-xs">Click "Deploy Genset" above to assign an available genset and activate this booking.</p>
             </div>
             @endif
@@ -885,7 +897,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Destination Address</label>
-                    <input type="text" name="destination_address" value="{{ $booking->delivery_location }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <input type="text" name="destination_address" value="{{ $booking->drop_on_location }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Date & Time</label>

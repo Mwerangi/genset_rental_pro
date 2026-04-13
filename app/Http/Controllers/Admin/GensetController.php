@@ -113,11 +113,14 @@ class GensetController extends Controller
     {
         $genset->load('bookings.quoteRequest', 'maintenanceRecords', 'fuelLogs');
 
-        $recentBookings = $genset->bookings()
-            ->with('quoteRequest', 'client')
-            ->latest()
+        // Merge bookings from both the legacy genset_id FK and the new pivot table
+        $viaFk   = $genset->bookings()->with('client', 'quoteRequest')->get();
+        $viaPivot = $genset->bookingsViaMany()->with('client', 'quoteRequest')->get();
+        $recentBookings = $viaFk->merge($viaPivot)
+            ->unique('id')
+            ->sortByDesc('created_at')
             ->take(10)
-            ->get();
+            ->values();
 
         return view('admin.gensets.show', compact('genset', 'recentBookings'));
     }
