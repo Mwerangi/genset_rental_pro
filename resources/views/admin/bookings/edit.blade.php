@@ -36,18 +36,17 @@
                             <label class="block text-sm font-medium text-slate-700 mb-2">Generator Type <span class="text-red-500">*</span></label>
                             <select name="genset_type" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
                                 <option value="">Select generator type...</option>
-                                @foreach([
-                                    'clip-on'   => 'Clip-on Generator (20ESX)',
-                                    'underslung' => 'Underslung Generator',
-                                    '10kva'     => '10 KVA',
-                                    '20kva'     => '20 KVA',
-                                    '30kva'     => '30 KVA',
-                                    '45kva'     => '45 KVA',
-                                    '60kva'     => '60 KVA',
-                                    '100kva'    => '100+ KVA',
-                                ] as $val => $label)
+                                @foreach($gensetTypeOptions as $gt)
+                                    @php
+                                        $val   = $gt->type . ($gt->kva_rating ? ' — ' . $gt->kva_rating . ' KVA' : '');
+                                        $label = $gt->type_formatted . ($gt->kva_rating ? ' — ' . $gt->kva_rating . ' KVA' : '');
+                                    @endphp
                                     <option value="{{ $val }}" {{ old('genset_type', $booking->genset_type) === $val ? 'selected' : '' }}>{{ $label }}</option>
                                 @endforeach
+                                {{-- Keep current value selectable even if it doesn't match any fleet genset --}}
+                                @if($booking->genset_type && !$gensetTypeOptions->contains(fn($gt) => ($gt->type . ($gt->kva_rating ? ' — ' . $gt->kva_rating . ' KVA' : '')) === $booking->genset_type))
+                                    <option value="{{ $booking->genset_type }}" selected>{{ $booking->genset_type }} (current)</option>
+                                @endif
                             </select>
                             @error('genset_type') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>

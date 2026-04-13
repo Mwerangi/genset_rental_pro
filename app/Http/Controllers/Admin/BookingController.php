@@ -472,7 +472,15 @@ class BookingController extends Controller
 
         $gensets = Genset::where('status', 'available')->orderBy('asset_number')->get();
 
-        return view('admin.bookings.edit', compact('booking', 'quoteRequests', 'gensets'));
+        // All genset types for the dropdown (distinct type+kva from entire fleet)
+        $gensetTypeOptions = Genset::select('type', 'kva_rating', 'name')
+            ->orderBy('kva_rating')
+            ->orderBy('type')
+            ->get()
+            ->unique(fn($g) => $g->type . '_' . $g->kva_rating)
+            ->values();
+
+        return view('admin.bookings.edit', compact('booking', 'quoteRequests', 'gensets', 'gensetTypeOptions'));
     }
 
     public function update(Request $request, Booking $booking)
