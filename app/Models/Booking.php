@@ -25,6 +25,7 @@ class Booking extends Model
         'drop_off_location',
         'destination',
         'total_amount',
+        'is_zero_rated',
         'currency',
         'exchange_rate_to_tzs',
         'notes',
@@ -42,6 +43,7 @@ class Booking extends Model
         'rental_start_date'   => 'date',
         'rental_end_date'     => 'date',
         'is_historical'       => 'boolean',
+        'is_zero_rated'       => 'boolean',
         'approved_at'         => 'datetime',
         'cancelled_at'        => 'datetime',
         'total_amount'        => 'decimal:2',
@@ -237,9 +239,8 @@ class Booking extends Model
 
         $this->update($data);
 
-        if ($gensetId) {
-            \App\Models\Genset::where('id', $gensetId)->update(['status' => 'rented']);
-        }
+        // Genset status updates are handled by the caller (BookingController)
+        // to support both single and multi-genset assignments.
     }
 
     public function canBeMarkedReturned(): bool

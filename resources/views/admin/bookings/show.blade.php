@@ -770,28 +770,38 @@
 
     {{-- Deploy Genset Modal --}}
     @if($booking->canBeActivated())
+    @php
+        $deployGensets = $booking->gensets->isNotEmpty()
+            ? $booking->gensets
+            : ($booking->genset ? collect([$booking->genset]) : collect());
+    @endphp
     <div id="modal-deploy" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this)this.classList.add('hidden')">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-            <h3 class="text-lg font-bold text-gray-900 mb-1">⚡ Deploy Genset</h3>
-            <p class="text-sm text-gray-500 mb-4">Select an available genset to assign to <strong>{{ $booking->booking_number }}</strong>. The booking will become active and the genset will be marked as rented.</p>
+            <h3 class="text-lg font-bold text-gray-900 mb-1">⚡ Deploy &amp; Activate Booking</h3>
+            <p class="text-sm text-gray-500 mb-4">The following genset(s) were assigned when this booking was created. Confirm to mark the booking as active and all units as rented.</p>
             <form method="POST" action="{{ route('admin.bookings.activate', $booking) }}">
                 @csrf
-                <label class="block text-sm font-medium text-gray-700 mb-1">Select Genset <span class="text-red-500">*</span></label>
-                @if($availableGensets->isEmpty())
+                @if($deployGensets->isEmpty())
                     <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 mb-4">
-                        ⚠ No gensets are currently available. Please update fleet status before deploying.
+                        ⚠ No gensets are assigned to this booking. Please re-create the booking from the quotation.
                     </div>
                     <button type="button" onclick="document.getElementById('modal-deploy').classList.add('hidden')" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
                 @else
-                    <select name="genset_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-4">
-                        <option value="">— Choose a genset —</option>
-                        @foreach($availableGensets as $g)
-                            <option value="{{ $g->id }}">{{ $g->asset_number }} — {{ $g->name }} ({{ $g->power_rating }})@if($g->location) · {{ $g->location }}@endif</option>
+                    <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 mb-5">
+                        @foreach($deployGensets as $dg)
+                        <div class="flex items-center gap-3 px-4 py-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0" style="background:#dc2626;">{{ $loop->iteration }}</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-900 font-mono">{{ $dg->asset_number }}</p>
+                                <p class="text-xs text-gray-500 truncate">{{ $dg->name }}@if($dg->kva_rating) · {{ $dg->kva_rating }} KVA@endif@if($dg->location) · {{ $dg->location }}@endif</p>
+                            </div>
+                            <span class="text-xs font-semibold px-2 py-0.5 rounded-full" style="background:#fef3c7;color:#92400e;">{{ ucfirst($dg->status) }}</span>
+                        </div>
                         @endforeach
-                    </select>
+                    </div>
                     <div class="flex gap-3">
                         <button type="button" onclick="document.getElementById('modal-deploy').classList.add('hidden')" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;" onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">⚡ Deploy &amp; Activate</button>
+                        <button type="submit" class="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white" style="background:#dc2626;" onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='#dc2626'">⚡ Confirm &amp; Activate</button>
                     </div>
                 @endif
             </form>

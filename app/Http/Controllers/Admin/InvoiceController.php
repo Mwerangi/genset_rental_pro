@@ -114,7 +114,7 @@ class InvoiceController extends Controller
         if (!PermissionService::can($user, 'view_all_invoices') && $invoice->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this invoice.');
         }
-        $invoice->load(['client', 'booking.genset', 'quotation', 'items', 'payments.recordedBy', 'createdBy']);
+        $invoice->load(['client', 'booking.genset', 'booking.gensets', 'quotation', 'items', 'payments.recordedBy', 'createdBy']);
 
         $bankAccounts = \App\Models\BankAccount::where('is_active', true)
             ->orderBy('name')
@@ -143,7 +143,7 @@ class InvoiceController extends Controller
 
         // Determine pricing from quotation or booking total
         $subtotal    = $quotation ? (float) $quotation->subtotal : (float) $booking->total_amount;
-        $isZeroRated = $quotation ? (bool) $quotation->is_zero_rated : false;
+        $isZeroRated = $booking->is_zero_rated ?: ($quotation ? (bool) $quotation->is_zero_rated : false);
         $vatRate     = $isZeroRated ? 0 : ($quotation ? (float) $quotation->vat_rate : 18.00);
         $vatAmount   = $isZeroRated ? 0 : ($quotation ? (float) $quotation->vat_amount : round($subtotal * $vatRate / 100, 2));
         $total       = $subtotal + $vatAmount;
@@ -343,7 +343,7 @@ class InvoiceController extends Controller
      */
     public function downloadPdf(Invoice $invoice)
     {
-        $invoice->load(['client', 'booking.genset', 'items', 'payments', 'createdBy']);
+        $invoice->load(['client', 'booking.genset', 'booking.gensets', 'items', 'payments', 'createdBy']);
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.invoices.pdf', compact('invoice'));
         $pdf->setPaper('A4', 'portrait');

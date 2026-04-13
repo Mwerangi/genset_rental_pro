@@ -96,7 +96,15 @@
                 <!-- Total Amount -->
                 <x-card>
                     <h2 class="text-lg font-semibold text-slate-900 mb-4">Total Amount</h2>
-                    <div x-data="{ currency: '{{ old('currency', $booking->currency ?? 'TZS') }}' }" class="space-y-4">
+                    <div x-data="{
+                            currency: '{{ old('currency', $booking->currency ?? 'TZS') }}',
+                            isZeroRated: {{ old('is_zero_rated', $booking->is_zero_rated) ? 'true' : 'false' }},
+                            subtotal: {{ old('total_amount', $booking->total_amount ?? 0) }},
+                            vatRate: 18,
+                            get vatAmount() { return this.isZeroRated ? 0 : Math.round(this.subtotal * this.vatRate) / 100; },
+                            get total() { return parseFloat(this.subtotal || 0) + this.vatAmount; },
+                            fmt(n) { return new Intl.NumberFormat().format(Math.round(n)); }
+                        }" class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-slate-700 mb-2">Currency <span class="text-red-500">*</span></label>
                             <div class="flex gap-4">
@@ -117,9 +125,35 @@
                             @error('exchange_rate_to_tzs') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Total (<span x-text="currency"></span>) <span class="text-red-500">*</span></label>
-                            <x-input type="number" name="total_amount" value="{{ old('total_amount', $booking->total_amount) }}" min="0" step="0.01" placeholder="0.00" class="w-full text-lg font-bold" />
+                            <label class="block text-sm font-medium text-slate-700 mb-2">
+                                Subtotal (excl. VAT) <span class="text-red-500">*</span>
+                                <span class="font-normal text-slate-500" x-text="currency === 'USD' ? '(in USD)' : '(in TZS)'"></span>
+                            </label>
+                            <x-input type="number" name="total_amount" x-model="subtotal" value="{{ old('total_amount', $booking->total_amount) }}" min="0" step="0.01" placeholder="0.00" class="w-full text-lg font-bold" />
                             @error('total_amount') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+                        <!-- Zero-rated toggle -->
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" id="is_zero_rated" name="is_zero_rated" value="1"
+                                x-model="isZeroRated"
+                                class="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500"
+                                {{ old('is_zero_rated', $booking->is_zero_rated) ? 'checked' : '' }}>
+                            <label for="is_zero_rated" class="text-sm text-slate-700">Zero-rated VAT (0%) — Exempt sale</label>
+                        </div>
+                        <!-- VAT summary -->
+                        <div class="bg-slate-50 rounded-lg p-4 space-y-2 text-sm">
+                            <div class="flex justify-between text-slate-600">
+                                <span>Subtotal</span>
+                                <span x-text="currency + ' ' + fmt(subtotal)"></span>
+                            </div>
+                            <div class="flex justify-between text-slate-600">
+                                <span x-text="isZeroRated ? 'VAT (0% — Zero Rated)' : 'VAT (18%)'"></span>
+                                <span x-text="isZeroRated ? '0' : currency + ' ' + fmt(vatAmount)" :class="isZeroRated ? 'text-green-700 font-medium' : ''"></span>
+                            </div>
+                            <div class="flex justify-between font-semibold text-slate-900 border-t border-slate-200 pt-2">
+                                <span>Invoice Total</span>
+                                <span x-text="currency + ' ' + fmt(total)"></span>
+                            </div>
                         </div>
                     </div>
                 </x-card>

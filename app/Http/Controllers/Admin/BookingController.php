@@ -272,27 +272,32 @@ class BookingController extends Controller
             return back()->with('error', 'Only approved bookings can be activated.');
         }
 
-        $request->validate([
-            'genset_id' => 'required|exists:gensets,id',
-        ]);
+        $booking->load('gensets', 'genset');
 
-        $genset = Genset::find($request->genset_id);
+        // Resolve all assigned gensets (pivot first, fall back to legacy FK)
+        $assignedGensets = $booking->gensets->isNotEmpty()
+            ? $booking->gensets
+            : ($booking->genset ? collect([$booking->genset]) : collect());
 
-        if ($genset->status !== 'available') {
-            return back()->with('error', 'The selected genset is no longer available.');
+        if ($assignedGensets->isEmpty()) {
+            return back()->with('error', 'No gensets are assigned to this booking. Please re-assign from the quotation.');
         }
 
-        $booking->activate(auth()->id(), $genset->id);
+        $booking->activate(auth()->id());
+
+        // Mark every assigned genset as rented
+        $assetNumbers = $assignedGensets->pluck('asset_number')->join(', ');
+        \App\Models\Genset::whereIn('id', $assignedGensets->pluck('id'))->update(['status' => 'rented']);
 
         UserActivityLog::record(
             auth()->id(), 'activated',
-            'Activated booking ' . $booking->booking_number . ' — genset ' . $genset->asset_number . ' deployed',
+            'Activated booking ' . $booking->booking_number . ' — genset(s) deployed: ' . $assetNumbers,
             Booking::class, $booking->id
         );
 
         return redirect()
             ->route('admin.bookings.show', $booking)
-            ->with('success', $genset->asset_number . ' deployed — booking is now active!');
+            ->with('success', 'Booking activated! Genset(s) deployed: ' . $assetNumbers);
     }
 
     public function markReturned(Booking $booking)
@@ -487,6 +492,7 @@ class BookingController extends Controller
             'drop_off_location'    => 'nullable|string|max:500',
             'destination'          => 'nullable|string|max:500',
             'total_amount'         => 'required|numeric|min:0',
+            'is_zero_rated'        => 'nullable|boolean',
             'currency'             => 'nullable|in:TZS,USD',
             'exchange_rate_to_tzs' => 'required_if:currency,USD|nullable|numeric|min:0.0001',
             'notes'                => 'nullable|string',
@@ -505,6 +511,7 @@ class BookingController extends Controller
             'drop_off_location'    => $validated['drop_off_location'] ?? null,
             'destination'          => $validated['destination'] ?? null,
             'total_amount'         => $validated['total_amount'],
+            'is_zero_rated'        => !empty($validated['is_zero_rated']),
             'currency'             => $currency,
             'exchange_rate_to_tzs' => $currency === 'USD' ? $validated['exchange_rate_to_tzs'] : 1.0,
             'notes'                => $validated['notes'] ?? null,

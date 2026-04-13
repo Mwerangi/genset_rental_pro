@@ -161,7 +161,16 @@
                     @if($invoice->booking)
                     <tr><td class="fl">Booking Ref:</td><td class="fv">{{ $invoice->booking->booking_number }}</td></tr>
                     @endif
-                    @if($invoice->booking?->genset)
+                    @if($invoice->booking?->gensets?->isNotEmpty())
+                    <tr>
+                        <td class="fl">Generator(s):</td>
+                        <td class="fv">
+                            @foreach($invoice->booking->gensets as $g)
+                                {{ $g->name }} ({{ $g->kva_rating }} kVA)@if(!$loop->last), @endif
+                            @endforeach
+                        </td>
+                    </tr>
+                    @elseif($invoice->booking?->genset)
                     <tr><td class="fl">Generator:</td><td class="fv">{{ $invoice->booking->genset->name }}</td></tr>
                     @endif
                     @if($invoice->payment_terms)

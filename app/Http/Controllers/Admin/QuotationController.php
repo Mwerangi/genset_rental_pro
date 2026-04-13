@@ -595,6 +595,7 @@ class QuotationController extends Controller
             'drop_off_location'    => $request->drop_off_location,
             'destination'          => $request->destination,
             'total_amount'         => $quotation->total_amount,
+            'is_zero_rated'        => (bool) $quotation->is_zero_rated,
             'currency'             => $quotation->currency ?? 'TZS',
             'exchange_rate_to_tzs' => $quotation->exchange_rate_to_tzs ?? 1.0,
             'customer_name'        => $qr?->full_name ?? $quotation->customer_name,

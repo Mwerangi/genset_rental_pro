@@ -381,7 +381,13 @@
                     <div class="border-t border-gray-100 pt-3">
                         <p class="text-xs text-gray-400 uppercase tracking-wide font-medium">Booking</p>
                         <a href="{{ route('admin.bookings.show', $invoice->booking) }}" class="font-mono font-semibold text-blue-600 hover:underline mt-0.5 block">{{ $invoice->booking->booking_number }}</a>
-                        @if($invoice->booking->genset)
+                        @if($invoice->booking->gensets?->isNotEmpty())
+                            <div class="text-xs text-gray-500 mt-0.5 space-y-0.5">
+                                @foreach($invoice->booking->gensets as $g)
+                                    <p>{{ $g->asset_number }} — {{ $g->name }} ({{ $g->kva_rating }} kVA)</p>
+                                @endforeach
+                            </div>
+                        @elseif($invoice->booking->genset)
                             <p class="text-xs text-gray-500 mt-0.5">{{ $invoice->booking->genset->name }} ({{ $invoice->booking->genset->kva_rating }} kVA)</p>
                         @endif
                     </div>
