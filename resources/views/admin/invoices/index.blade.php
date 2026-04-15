@@ -14,39 +14,68 @@
 
 
 
-    <!-- Stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <!-- Stats — Count cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</p>
             <p class="text-3xl font-bold text-gray-900 mt-1">{{ $stats['total'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">invoices</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Awaiting</p>
             <p class="text-3xl font-bold mt-1" style="color:#2563eb;">{{ $stats['sent'] + $stats['draft'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">draft / sent</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Part Paid</p>
             <p class="text-3xl font-bold mt-1" style="color:#d97706;">{{ $stats['partially_paid'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">partially paid</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
             <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Overdue</p>
             <p class="text-3xl font-bold mt-1" style="color:#dc2626;">{{ $stats['overdue'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">past due date</p>
         </div>
         <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Paid</p>
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fully Paid</p>
             <p class="text-3xl font-bold mt-1" style="color:#16a34a;">{{ $stats['paid'] }}</p>
+            <p class="text-xs text-gray-400 mt-1">invoices</p>
         </div>
     </div>
 
-    @if($stats['total_outstanding'] > 0)
-    <div class="mb-6 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between">
-        <div>
-            <p class="text-sm font-semibold text-amber-900">Outstanding Balance</p>
-            <p class="text-xs text-amber-700 mt-0.5">Total unpaid across all open invoices</p>
+    <!-- Stats — Financial summary cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div class="rounded-xl border px-5 py-4 shadow-sm flex items-center gap-4" style="background:#f0fdf4;border-color:#86efac;">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background:#dcfce7;">
+                <svg class="w-5 h-5" style="color:#16a34a;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide" style="color:#166534;">Total Collected</p>
+                <p class="text-xl font-bold mt-0.5" style="color:#15803d;">TZS {{ number_format($stats['total_paid'], 0) }}</p>
+                <p class="text-xs mt-0.5" style="color:#4ade80;">Payments received (excl. voided)</p>
+            </div>
         </div>
-        <p class="text-2xl font-bold text-amber-900">TZS {{ number_format($stats['total_outstanding'], 0) }} <span class="text-sm font-normal text-amber-700">(equiv.)</span></p>
+        <div class="rounded-xl border px-5 py-4 shadow-sm flex items-center gap-4" style="background:#fff7ed;border-color:#fdba74;">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background:#ffedd5;">
+                <svg class="w-5 h-5" style="color:#ea580c;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide" style="color:#9a3412;">Outstanding Balance</p>
+                <p class="text-xl font-bold mt-0.5" style="color:#ea580c;">TZS {{ number_format($stats['total_outstanding'], 0) }}</p>
+                <p class="text-xs mt-0.5" style="color:#fb923c;">Unpaid across open invoices</p>
+            </div>
+        </div>
+        <div class="rounded-xl border px-5 py-4 shadow-sm flex items-center gap-4" style="background:#f8fafc;border-color:#e2e8f0;">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style="background:#f1f5f9;">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div>
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total Invoiced</p>
+                <p class="text-xl font-bold text-gray-900 mt-0.5">TZS {{ number_format($stats['total_invoiced'], 0) }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">Gross value of all active invoices</p>
+            </div>
+        </div>
     </div>
-    @endif
 
     <!-- Filters -->
     <form method="GET" action="{{ route('admin.invoices.index') }}" class="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm">

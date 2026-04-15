@@ -59,6 +59,12 @@ class InvoiceController extends Controller
             'total_outstanding' => (clone $base)->whereNotIn('status', ['paid', 'void', 'declined'])
                                         ->selectRaw('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)')
                                         ->value('SUM((total_amount - amount_paid) * exchange_rate_to_tzs)') ?? 0,
+            'total_invoiced'    => (clone $base)
+                                        ->selectRaw('SUM(total_amount * exchange_rate_to_tzs)')
+                                        ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
+            'total_paid'        => (clone $base)
+                                        ->selectRaw('SUM(amount_paid * exchange_rate_to_tzs)')
+                                        ->value('SUM(amount_paid * exchange_rate_to_tzs)') ?? 0,
         ];
 
         return view('admin.invoices.index', compact('invoices', 'stats', 'seeAll'));
