@@ -198,6 +198,24 @@
                                 <td class="px-5 py-3 text-right font-bold text-gray-900 text-base">{{ $invoice->formatAmount($invoice->total_amount, 0) }}</td>
                                 @if($isEditable)<td></td>@endif
                             </tr>
+                            @if($invoice->amount_paid > 0)
+                            <tr>
+                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-2 text-right text-xs text-gray-500 font-medium">Amount Paid</td>
+                                <td class="px-5 py-2 text-right font-semibold text-green-700">&minus; {{ $invoice->formatAmount($invoice->amount_paid, 0) }}</td>
+                                @if($isEditable)<td></td>@endif
+                            </tr>
+                            <tr class="border-t border-gray-200">
+                                <td colspan="{{ $isEditable ? 5 : 4 }}" class="px-5 py-3 text-right text-sm font-bold text-gray-800">Balance Due</td>
+                                <td class="px-5 py-3 text-right font-bold text-base {{ $invoice->balance_due > 0 ? '' : 'text-green-700' }}" @if($invoice->balance_due > 0) style="color:#dc2626;" @endif>
+                                    @if($invoice->balance_due > 0)
+                                        {{ $invoice->formatAmount($invoice->balance_due, 0) }}
+                                    @else
+                                        PAID
+                                    @endif
+                                </td>
+                                @if($isEditable)<td></td>@endif
+                            </tr>
+                            @endif
                         </tfoot>
                     </table>
                 @endif

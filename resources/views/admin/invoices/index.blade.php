@@ -89,6 +89,7 @@
                         <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Booking</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Status</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Total</th>
+                        <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Paid</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Balance Due</th>
                         <th class="text-left px-4 py-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Due Date</th>
                         <th class="px-4 py-3"></th>
@@ -123,6 +124,13 @@
                             {{ $invoice->formatAmount($invoice->total_amount, 0) }}
                             @if($invoice->currency === 'USD')
                                 <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold" style="background:#eff6ff;color:#1d4ed8;">USD</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-3">
+                            @if($invoice->amount_paid > 0)
+                                <span class="font-semibold text-green-700">{{ $invoice->formatAmount($invoice->amount_paid, 0) }}</span>
+                            @else
+                                <span class="text-gray-400 text-xs">—</span>
                             @endif
                         </td>
                         <td class="px-4 py-3">
