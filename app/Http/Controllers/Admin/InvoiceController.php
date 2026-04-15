@@ -43,7 +43,7 @@ class InvoiceController extends Controller
             });
         }
 
-        $invoices = $query->paginate(25);
+        $invoices = $query->paginate(10);
 
         $base = $seeAll
             ? Invoice::whereNotIn('status', $cancelledStatuses)
@@ -98,7 +98,7 @@ class InvoiceController extends Controller
             });
         }
 
-        $invoices = $query->paginate(25);
+        $invoices = $query->paginate(10);
 
         $base = $seeAll
             ? Invoice::whereIn('status', $cancelledStatuses)
