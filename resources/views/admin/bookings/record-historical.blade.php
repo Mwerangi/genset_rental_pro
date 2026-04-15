@@ -276,6 +276,20 @@
                     <div class="space-y-4">
 
                         <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Received Into <span class="text-red-500">*</span></label>
+                            <select name="bank_account_id" required
+                                class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                <option value="">— select bank account —</option>
+                                @foreach($bankAccounts as $ba)
+                                    <option value="{{ $ba->id }}" {{ old('bank_account_id') == $ba->id ? 'selected' : '' }}>
+                                        {{ $ba->bank_name }} — {{ $ba->account_name }} ({{ $ba->currency }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('bank_account_id') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div>
                             <label class="block text-sm font-medium text-slate-700 mb-2">Payment Date <span class="text-red-500">*</span></label>
                             <x-input type="date" name="payment_date"
                                 value="{{ old('payment_date') }}" required class="w-full" />

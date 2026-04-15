@@ -308,6 +308,15 @@ class BankStatementController extends Controller
                 'partner_id'        => $partnerId,
                 'journal_entry_id'  => $je->id,
             ]);
+
+            // Sync bank account current_balance:
+            // credit = money IN to the bank  → increment
+            // debit  = money OUT of the bank → decrement
+            if ($transaction->type === 'credit') {
+                BankAccount::where('id', $bankAccount->id)->increment('current_balance', $transaction->amount);
+            } else {
+                BankAccount::where('id', $bankAccount->id)->decrement('current_balance', $transaction->amount);
+            }
         });
 
         return back()->with('success', "Transaction posted → JE created.");
@@ -332,8 +341,9 @@ class BankStatementController extends Controller
         abort_if(!$bankAccount->account_id, 422, 'Bank account has no linked GL account.');
 
         $posted = 0;
+        $netBalanceChange = 0.0;
 
-        DB::transaction(function () use ($bankStatement, $pending, $bankAccount, &$posted) {
+        DB::transaction(function () use ($bankStatement, $pending, $bankAccount, &$posted, &$netBalanceChange) {
             foreach ($pending as $transaction) {
                 $bankDr   = $transaction->type === 'credit' ? $transaction->amount : 0;
                 $bankCr   = $transaction->type === 'debit'  ? $transaction->amount : 0;
@@ -373,7 +383,20 @@ class BankStatementController extends Controller
                     'journal_entry_id' => $je->id,
                 ]);
 
+                // Accumulate net balance change:
+                // credit = money IN → positive, debit = money OUT → negative
+                $netBalanceChange += $transaction->type === 'credit'
+                    ? (float) $transaction->amount
+                    : -(float) $transaction->amount;
+
                 $posted++;
+            }
+
+            // Apply net balance change to the bank account in one query
+            if ($netBalanceChange > 0) {
+                BankAccount::where('id', $bankAccount->id)->increment('current_balance', $netBalanceChange);
+            } elseif ($netBalanceChange < 0) {
+                BankAccount::where('id', $bankAccount->id)->decrement('current_balance', abs($netBalanceChange));
             }
         });
 

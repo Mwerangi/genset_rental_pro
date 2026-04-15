@@ -14,6 +14,12 @@
 6. [Database Changes](#6-database-changes)
 7. [Routes Summary](#7-routes-summary)
 8. [Dependency Notes](#8-dependency-notes)
+9. *(April 10)* Bank Statement Reconciliation features (§9–§15)
+10. *(April 15)* [Fix: Historical Sales JE + Bank Selector](#16-fix-historical-sales--journal-entry--bank-account-selector)
+11. *(April 15)* [Fix: Backfill 12 Existing Historical Payments](#17-fix-backfill-12-existing-historical-payments)
+12. *(April 15)* [Fix: AR/Revenue JE Auto-Posted on First Payment](#18-fix-ar--revenue-je-auto-posted-on-first-payment)
+13. *(April 15)* [Fix: Bank Account Balance Sync on Statement Posting](#19-fix-bank-account-balance-sync-on-bank-statement-posting)
+14. *(April 15)* [Accounting Rules Reference](#20-accounting-rules-reference)
 
 ---
 
@@ -807,3 +813,181 @@ Route::post(
 ---
 
 *End of April 10 additions.*
+
+---
+
+# April 15, 2026 — Accounting Integrity Fixes
+
+**Scope:** Journal entry gaps for historical sales, AR/revenue posting on invoice payment, and bank account balance sync on bank statement posting.
+
+---
+
+## 16. Fix: Historical Sales — Journal Entry + Bank Account Selector
+
+### Problem
+`storeHistorical()` created `InvoicePayment` records with no `bank_account_id` and never called any `JournalEntryService` method. This meant TZS 106M+ in collected historical sales was completely invisible to the Chart of Accounts.
+
+Three compounding failures:
+1. `InvoicePayment` saved with `bank_account_id = NULL`
+2. `onPaymentRecorded()` returns `null` immediately when `bankAccount` is null — no JE posted
+3. No revenue JE was ever posted for historical bookings at all
+
+### Solution
+
+#### New method: `JournalEntryService::onHistoricalSale()`
+**File:** `app/Services/JournalEntryService.php`
+
+Posts a single combined cash-sale JE (no AR leg — payment is immediate):
+```
+DR  1110  Bank account        total_amount in TZS
+CR  4100  Rental Income       rental items subtotal
+CR  4110  Delivery Income     delivery items (if any)
+CR  4120  Other Income        other items (if any)
+CR  2120  VAT Payable         vat_amount (if not zero-rated)
+```
+Also increments `BankAccount::current_balance` after posting.
+
+#### `BookingController::recordHistoricalForm()` — passes `$bankAccounts`
+```php
+$bankAccounts = BankAccount::orderBy('bank_name')->get(['id','bank_name','account_name','currency']);
+return view('admin.bookings.record-historical', compact('clients', 'gensets', 'bankAccounts'));
+```
+
+#### `BookingController::storeHistorical()` — validation + JE call
+Added `bank_account_id` to validation:
+```php
+'bank_account_id' => 'required|exists:bank_accounts,id',
+```
+Payment creation now includes `bank_account_id`. After creating the invoice and payment, the JE is posted and linked:
+```php
+$bankAccount = BankAccount::find($validated['bank_account_id']);
+$je = app(JournalEntryService::class)->onHistoricalSale($invoice, $bankAccount);
+if ($je) {
+    $payment->update(['journal_entry_id' => $je->id]);
+}
+```
+
+#### View: `record-historical.blade.php` — bank account selector
+Added a required **"Received Into"** `<select name="bank_account_id">` field at the top of the Payment Record card, populated from `$bankAccounts`.
+
+---
+
+## 17. Fix: Backfill 12 Existing Historical Payments
+
+### Problem
+12 existing `InvoicePayment` records (INV-2026-0003 through INV-2026-0014, total TZS ~43M) had `bank_account_id = NULL` and `journal_entry_id = NULL`.
+
+### Solution: Artisan command
+**File:** `app/Console/Commands/BackfillHistoricalJournalEntries.php`
+
+```
+php artisan je:backfill-historical              # apply (defaults to bank ID 1)
+php artisan je:backfill-historical --dry-run    # preview without writing
+php artisan je:backfill-historical --bank-id=2  # use a different bank account
+```
+
+The command:
+1. Finds all `InvoicePayment` records with `journal_entry_id = NULL` and `is_reversed = false`
+2. Assigns `bank_account_id` if missing
+3. Calls `onHistoricalSale($invoice, $bankAccount)` for each
+4. Links returned JE back to the payment
+
+**Backfill result (run April 15):** 12/12 payments → JE #13–24 posted.
+```
+1110 CRDB Bank:       DR 101,686,500
+4100 Rental Income:   CR  86,175,000
+2120 VAT Payable:     CR  15,511,500
+```
+
+---
+
+## 18. Fix: AR / Revenue JE Auto-Posted on First Payment
+
+### Problem
+`onInvoiceSent()` (which posts `DR 1140 AR / CR 4100 Revenue / CR 2120 VAT`) only fires when a user manually clicks "Mark Sent". In practice, users go straight from generating an invoice to recording payment — so `sent_at` was never set, and AR + Revenue were never booked.
+
+Result: 0 invoices had `sent_at` set → AR balance = TZS 0 → Revenue = TZS 0 for all normal invoices.
+
+### Solution
+**File:** `app/Http/Controllers/Admin/InvoiceController.php` — `recordPayment()`
+
+Added an auto-guard before the payment JE:
+```php
+// If the invoice was never formally sent (no sent_at), auto-post
+// the AR / Revenue / VAT journal entry now before recording the payment.
+if (!$invoice->sent_at) {
+    $invoice->markSent();
+    app(JournalEntryService::class)->onInvoiceSent($invoice);
+}
+```
+
+This ensures DR 1140 AR is always established before it is credited by `onPaymentRecorded()`. Users no longer need to click "Mark Sent" — accounting is always correct regardless.
+
+### Backfill: INV-2026-0002
+INV-2026-0002 (partially paid, TZS 7,080,000) had a payment JE (DR Bank 5M / CR AR 5M) but no invoice sent JE. Posted manually via tinker → JE #25:
+```
+DR 1140 Accounts Receivable   7,080,000
+CR 4100 Rental Income         6,000,000
+CR 2120 VAT Payable           1,080,000
+```
+
+**Verification after all fixes:**
+```
+1140 AR net balance:              TZS 2,080,000
+Outstanding invoice balance:      TZS 2,080,000  ✓ exact match
+```
+
+---
+
+## 19. Fix: Bank Account Balance Sync on Bank Statement Posting
+
+### Problem
+`BankStatementController::postTransaction()` and `postAll()` created JE entries correctly but never updated `BankAccount::current_balance`. The balance tiles on the Bank Accounts page stayed permanently stale after posting statements.
+
+Note: `reconcileTransaction()` correctly leaves `current_balance` unchanged — the balance was already updated when the original payment was first recorded.
+
+### Solution
+**File:** `app/Http/Controllers/Admin/BankStatementController.php`
+
+#### `postTransaction()` — added after `$transaction->update()` inside the DB transaction:
+```php
+// credit = money IN → increment; debit = money OUT → decrement
+if ($transaction->type === 'credit') {
+    BankAccount::where('id', $bankAccount->id)->increment('current_balance', $transaction->amount);
+} else {
+    BankAccount::where('id', $bankAccount->id)->decrement('current_balance', $transaction->amount);
+}
+```
+
+#### `postAll()` — accumulates net change, applies in one query at end of loop:
+```php
+$netBalanceChange += $transaction->type === 'credit'
+    ? (float) $transaction->amount
+    : -(float) $transaction->amount;
+
+// After the foreach:
+if ($netBalanceChange > 0) {
+    BankAccount::where('id', $bankAccount->id)->increment('current_balance', $netBalanceChange);
+} elseif ($netBalanceChange < 0) {
+    BankAccount::where('id', $bankAccount->id)->decrement('current_balance', abs($netBalanceChange));
+}
+```
+
+---
+
+## 20. Accounting Rules Reference
+
+| Flow | JE posted by | DR | CR |
+|---|---|---|---|
+| Normal invoice generated | `onInvoiceSent()` (auto on first payment) | 1140 AR | 4100/4110/4120 Revenue + 2120 VAT |
+| Client pays invoice | `onPaymentRecorded()` | 1110 Bank | 1140 AR |
+| Historical sale recorded | `onHistoricalSale()` | 1110 Bank | 4100 Revenue + 2120 VAT |
+| Account transfer | `onAccountTransfer()` | Destination COA | Source COA |
+| Expense posted | `onExpensePosted()` | Expense COA | Bank COA |
+| Bank statement tx posted | `BankStatementController` | Bank / Contra | Contra / Bank |
+
+**Bank `current_balance` is updated by:** invoice payments, historical sales, account transfers, expense postings, and bank statement postings. Manual JEs do **not** update `current_balance`.
+
+---
+
+*End of April 15 additions.*

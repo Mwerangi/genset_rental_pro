@@ -266,6 +266,112 @@ class JournalEntryService
         return $je;
     }
 
+    // ─── HISTORICAL SALE — Cash Sale (no AR leg) ─────────────────────
+
+    /**
+     * For historical bookings where cash is received immediately — no AR step:
+     *   DR [bank COA account]   (total_amount in TZS)
+     *   CR 4100 Rental Income   (rental items)
+     *   CR 4110 Delivery Income (delivery items, if any)
+     *   CR 4120 Other Income    (other items, if any)
+     *   CR 2120 VAT Payable     (vat_amount — if not zero-rated)
+     */
+    public function onHistoricalSale(Invoice $invoice, BankAccount $bankAccount): ?JournalEntry
+    {
+        if (!$bankAccount->account_id) return null;
+
+        $bankCoa = Account::find($bankAccount->account_id);
+        if (!$bankCoa) return null;
+
+        $invoice->loadMissing('items');
+
+        $rate  = (float) ($invoice->exchange_rate_to_tzs ?? 1.0);
+        $vat   = round((float) $invoice->vat_amount  * $rate, 2);
+        $total = round((float) $invoice->total_amount * $rate, 2);
+
+        if ($total <= 0) return null;
+
+        $currencyNote = $invoice->currency !== 'TZS'
+            ? " [{$invoice->currency} @ {$rate}]"
+            : '';
+
+        $itemTypeMeta = QuotationItemType::pluck('is_rental', 'key')->toArray();
+
+        $deliveryRevenue = 0.0;
+        $otherRevenue    = 0.0;
+
+        foreach ($invoice->items as $item) {
+            $amt = round((float) $item->subtotal * $rate, 2);
+            if ($item->item_type === 'delivery') {
+                $deliveryRevenue += $amt;
+            } elseif (!($itemTypeMeta[$item->item_type] ?? false)) {
+                $otherRevenue += $amt;
+            }
+        }
+
+        $rentalRevenue = round($total - $vat - $deliveryRevenue - $otherRevenue, 2);
+
+        $lines = [];
+        $lines[] = [
+            'account_code' => $bankCoa->code,
+            'debit'        => $total,
+            'credit'       => 0,
+            'description'  => 'Historical cash sale — ' . $invoice->invoice_number . $currencyNote,
+        ];
+
+        if ($rentalRevenue > 0.005) {
+            $lines[] = [
+                'account_code' => '4100',
+                'debit'        => 0,
+                'credit'       => round($rentalRevenue, 2),
+                'description'  => 'Rental income — ' . $invoice->invoice_number . $currencyNote,
+            ];
+        }
+        if ($deliveryRevenue > 0.005) {
+            $lines[] = [
+                'account_code' => '4110',
+                'debit'        => 0,
+                'credit'       => round($deliveryRevenue, 2),
+                'description'  => 'Delivery income — ' . $invoice->invoice_number . $currencyNote,
+            ];
+        }
+        if ($otherRevenue > 0.005) {
+            $lines[] = [
+                'account_code' => '4120',
+                'debit'        => 0,
+                'credit'       => round($otherRevenue, 2),
+                'description'  => 'Other income — ' . $invoice->invoice_number . $currencyNote,
+            ];
+        }
+        if ($vat > 0) {
+            $lines[] = [
+                'account_code' => '2120',
+                'debit'        => 0,
+                'credit'       => $vat,
+                'description'  => 'VAT payable — ' . $invoice->invoice_number . $currencyNote,
+            ];
+        }
+
+        $je = $this->createAndPost(
+            "Historical sale — " . $invoice->invoice_number,
+            'payment',
+            $invoice->id,
+            $lines,
+            $invoice->issue_date?->toDateString() ?? now()->toDateString(),
+            $invoice->created_by
+        );
+
+        if ($je) {
+            $bankIncrement = ($bankAccount->currency !== 'TZS' && $invoice->currency === $bankAccount->currency)
+                ? round((float) $invoice->total_amount, 2)
+                : $total;
+
+            BankAccount::where('id', $bankAccount->id)->increment('current_balance', $bankIncrement);
+        }
+
+        return $je;
+    }
+
     // ─── PURCHASE ORDER — Inventory Receipt ──────────────────────────
 
     /**

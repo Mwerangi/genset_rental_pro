@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
+use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\Client;
 use App\Models\Genset;
@@ -12,6 +13,7 @@ use App\Models\InvoiceItem;
 use App\Models\InvoicePayment;
 use App\Models\QuoteRequest;
 use App\Models\UserActivityLog;
+use App\Services\JournalEntryService;
 use App\Services\PermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -567,9 +569,10 @@ class BookingController extends Controller
 
     public function recordHistoricalForm()
     {
-        $clients = Client::orderBy('company_name')->orderBy('full_name')->get(['id', 'company_name', 'full_name', 'client_number']);
-        $gensets = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name', 'kva_rating', 'type']);
-        return view('admin.bookings.record-historical', compact('clients', 'gensets'));
+        $clients      = Client::orderBy('company_name')->orderBy('full_name')->get(['id', 'company_name', 'full_name', 'client_number']);
+        $gensets      = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name', 'kva_rating', 'type']);
+        $bankAccounts = BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'account_name', 'currency']);
+        return view('admin.bookings.record-historical', compact('clients', 'gensets', 'bankAccounts'));
     }
 
     public function storeHistorical(Request $request)
@@ -588,6 +591,7 @@ class BookingController extends Controller
             'subtotal'             => 'required|numeric|min:0',
             'is_zero_rated'        => 'nullable|boolean',
             'description'          => 'required|string|max:500',
+            'bank_account_id'      => 'required|exists:bank_accounts,id',
             'payment_date'         => 'required|date',
             'payment_method'       => 'required|in:cash,mpesa,bank_transfer,cheque,other',
             'payment_reference'    => 'nullable|string|max:100',
@@ -657,15 +661,23 @@ class BookingController extends Controller
             ]);
 
             // Payment record
-            InvoicePayment::create([
-                'invoice_id'     => $invoice->id,
-                'payment_date'   => $validated['payment_date'],
-                'amount'         => $total,
-                'payment_method' => $validated['payment_method'],
-                'reference'      => $validated['payment_reference'] ?? null,
-                'notes'          => 'Historical record imported',
-                'recorded_by'    => auth()->id(),
+            $payment = InvoicePayment::create([
+                'invoice_id'      => $invoice->id,
+                'bank_account_id' => $validated['bank_account_id'],
+                'payment_date'    => $validated['payment_date'],
+                'amount'          => $total,
+                'payment_method'  => $validated['payment_method'],
+                'reference'       => $validated['payment_reference'] ?? null,
+                'notes'           => 'Historical record imported',
+                'recorded_by'     => auth()->id(),
             ]);
+
+            // Post combined cash-sale journal entry (DR Bank / CR Revenue / CR VAT)
+            $bankAccount = BankAccount::find($validated['bank_account_id']);
+            $je = app(JournalEntryService::class)->onHistoricalSale($invoice, $bankAccount);
+            if ($je) {
+                $payment->update(['journal_entry_id' => $je->id]);
+            }
 
             // Link invoice back to booking
             $booking->update(['invoice_id' => $invoice->id]);

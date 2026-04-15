@@ -248,6 +248,14 @@ class InvoiceController extends Controller
             'receipt_number'  => $validated['receipt_number'] ?? null,
         ]);
 
+        // If the invoice was never formally sent (no sent_at), auto-post
+        // the AR / Revenue / VAT journal entry now before recording the payment.
+        // This ensures DR 1140 AR is always established before it is credited.
+        if (!$invoice->sent_at) {
+            $invoice->markSent();
+            app(JournalEntryService::class)->onInvoiceSent($invoice);
+        }
+
         // Post DR Bank / CR AR journal entry
         $je = app(JournalEntryService::class)->onPaymentRecorded($payment);
 
