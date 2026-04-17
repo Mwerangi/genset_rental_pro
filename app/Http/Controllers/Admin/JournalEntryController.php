@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\BankAccount;
+use App\Models\BankTransaction;
 use App\Models\Client;
 use App\Models\JournalEntry;
 use App\Models\JournalEntryLine;
@@ -225,8 +227,33 @@ class JournalEntryController extends Controller
         $reason = trim((string) $request->input('reason', '')) ?: 'Manual reversal';
         $reversed = $journalEntry->reverse($reason, auth()->id());
 
+        // If this JE came from a bank statement posting, reset the bank transaction
+        // back to pending so it can be re-posted with the correct contra account.
+        if ($journalEntry->source_type === 'bank_statement') {
+            $bankTx = BankTransaction::where('journal_entry_id', $journalEntry->id)->first();
+            if ($bankTx) {
+                // Undo the bank account current_balance change that was applied on posting
+                $bankStatement = $bankTx->bankStatement;
+                $bankAccount   = $bankStatement?->bankAccount;
+                if ($bankAccount) {
+                    if ($bankTx->type === 'credit') {
+                        // Was incremented on post → decrement to undo
+                        BankAccount::where('id', $bankAccount->id)->decrement('current_balance', (float) $bankTx->amount);
+                    } else {
+                        // Was decremented on post → increment to undo
+                        BankAccount::where('id', $bankAccount->id)->increment('current_balance', (float) $bankTx->amount);
+                    }
+                }
+
+                $bankTx->update([
+                    'status'           => 'pending',
+                    'journal_entry_id' => null,
+                ]);
+            }
+        }
+
         return redirect()->route('admin.accounting.journal-entries.show', $reversed)
-                         ->with('success', "Reversal entry {$reversed->entry_number} created and posted.");
+                         ->with('success', "Reversal entry {$reversed->entry_number} created and posted. The bank transaction has been reset to pending — you can re-post it with the correct settings.");
     }
 
     public function edit(JournalEntry $journalEntry)
