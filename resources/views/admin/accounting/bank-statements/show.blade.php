@@ -377,7 +377,8 @@
 
     // Reuse the same shared dropdown (already defined above on JE pages, but defined inline here)
     const sharedDrop = document.createElement('div');
-    sharedDrop.className = 'fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto hidden text-sm';
+    sharedDrop.className = 'fixed bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto hidden text-sm';
+    sharedDrop.style.zIndex = '9999';
     document.body.appendChild(sharedDrop);
     let activeDrop = null, closeTimer = null;
 
