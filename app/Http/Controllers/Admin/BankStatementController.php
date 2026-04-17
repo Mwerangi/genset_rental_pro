@@ -274,10 +274,8 @@ class BankStatementController extends Controller
                 'reference'   => $transaction->reference ?? $bankStatement->reference,
                 'source_type' => 'bank_statement',
                 'notes'       => $transaction->description . ($request->notes ? ' — ' . $request->notes : ''),
-                'status'      => 'posted',
+                'status'      => 'draft',
                 'created_by'  => auth()->id(),
-                'posted_by'   => auth()->id(),
-                'posted_at'   => now(),
             ]);
 
             // Bank GL line
@@ -299,6 +297,10 @@ class BankStatementController extends Controller
                 'debit'        => $contraDr,
                 'credit'       => $contraCr,
             ]);
+
+            // Post the JE — this applies applyDebit/applyCredit to COA account balances
+            $je->post();
+            $je->update(['posted_by' => auth()->id()]);
 
             // Update transaction
             $transaction->update([
@@ -356,10 +358,8 @@ class BankStatementController extends Controller
                     'reference'   => $transaction->reference ?? $bankStatement->reference,
                     'source_type' => 'bank_statement',
                     'notes'       => $transaction->description,
-                    'status'      => 'posted',
+                    'status'      => 'draft',
                     'created_by'  => auth()->id(),
-                    'posted_by'   => auth()->id(),
-                    'posted_at'   => now(),
                 ]);
 
                 $je->lines()->create([
@@ -377,6 +377,10 @@ class BankStatementController extends Controller
                     'debit'        => $contraDr,
                     'credit'       => $contraCr,
                 ]);
+
+                // Post the JE — applies applyDebit/applyCredit to COA account balances
+                $je->post();
+                $je->update(['posted_by' => auth()->id()]);
 
                 $transaction->update([
                     'status'           => 'posted',
