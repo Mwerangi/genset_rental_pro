@@ -10,9 +10,22 @@
         </div>
         <div class="text-right">
             <p class="text-xs text-gray-500 uppercase tracking-wide">Running Balance</p>
-            <p class="text-3xl font-bold {{ $account->balance >= 0 ? 'text-gray-900' : 'text-red-600' }}">
-                Tsh {{ number_format(abs($account->balance), 0) }}
-            </p>
+            @if($account->isForeignCurrency())
+                @php $fbal = $account->foreignBalance(); @endphp
+                <p class="text-3xl font-bold {{ ($fbal ?? 0) >= 0 ? 'text-indigo-700' : 'text-red-600' }}">
+                    {{ $account->currency }} {{ number_format(abs($fbal ?? 0), 2) }}
+                    @if(($fbal ?? 0) < 0) <span class="text-lg">(Cr)</span>@endif
+                </p>
+                <p class="text-sm text-gray-400 mt-0.5">Tsh {{ number_format(abs($account->balance), 0) }} TZS equiv.</p>
+            @else
+                <p class="text-3xl font-bold {{ $account->balance >= 0 ? 'text-gray-900' : 'text-red-600' }}">
+                    Tsh {{ number_format(abs($account->balance), 0) }}
+                    @if($account->balance < 0) <span class="text-lg">(Cr)</span>@endif
+                </p>
+                @if($account->balance < 0)
+                    <p class="text-xs text-orange-500 mt-0.5">⚠ Abnormal balance — check for reversed entries</p>
+                @endif
+            @endif
         </div>
     </div>
 
@@ -44,8 +57,11 @@
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Date</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Entry#</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
-                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Debit</th>
-                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Credit</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Debit (TZS)</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Credit (TZS)</th>
+                    @if($account->isForeignCurrency())
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Foreign Amt</th>
+                    @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -64,9 +80,18 @@
                     <td class="px-4 py-3 text-right font-mono {{ $line->credit > 0 ? 'text-gray-900 font-semibold' : 'text-gray-300' }}">
                         {{ $line->credit > 0 ? number_format($line->credit, 0) : '—' }}
                     </td>
+                    @if($account->isForeignCurrency())
+                    <td class="px-4 py-3 text-right font-mono text-indigo-700">
+                        @if($line->foreign_amount)
+                            {{ $account->currency }} {{ number_format($line->foreign_amount, 2) }}
+                        @else
+                            <span class="text-gray-300">—</span>
+                        @endif
+                    </td>
+                    @endif
                 </tr>
                 @empty
-                <tr><td colspan="5" class="px-4 py-10 text-center text-gray-400">No posted transactions yet.</td></tr>
+                <tr><td colspan="{{ $account->isForeignCurrency() ? 6 : 5 }}" class="px-4 py-10 text-center text-gray-400">No posted transactions yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

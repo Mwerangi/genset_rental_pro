@@ -62,7 +62,7 @@
                         </span>
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $account->parent?->name ?? '—' }}</td>
-                    <td class="px-4 py-3 text-right font-mono font-semibold {{ $account->balance >= 0 ? 'text-gray-900' : 'text-red-600' }}">
+                    <td class="px-4 py-3 text-right font-mono font-semibold">
                         @if($account->isForeignCurrency())
                             @php $fbal = $account->foreignBalance(); @endphp
                             <span class="block {{ ($fbal ?? 0) >= 0 ? 'text-indigo-700' : 'text-red-600' }}">
@@ -74,8 +74,16 @@
                                 @if($account->balance < 0) (Cr)@endif
                             </span>
                         @else
-                            Tsh {{ number_format(abs($account->balance), 0) }}
-                            @if($account->balance < 0) <span class="text-xs">(Cr)</span>@endif
+                            @php $isAbnormal = $account->balance < 0; @endphp
+                            <span class="{{ $isAbnormal ? 'text-red-600' : 'text-gray-900' }}">
+                                Tsh {{ number_format(abs($account->balance), 0) }}
+                                @if($isAbnormal)
+                                    <span class="text-xs">(Cr)</span>
+                                @endif
+                            </span>
+                            @if($isAbnormal)
+                                <span class="block text-xs text-orange-500 font-normal mt-0.5" title="Balance is in the abnormal direction — check for reversed entries">⚠ Abnormal</span>
+                            @endif
                         @endif
                     </td>
                     <td class="px-4 py-3 text-center">
