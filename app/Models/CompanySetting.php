@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class CompanySetting extends Model
@@ -11,9 +10,8 @@ class CompanySetting extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'vat_rate'               => 'decimal:2',
-        'payment_terms_days'     => 'integer',
-        'fx_clearing_account_id' => 'integer',
+        'vat_rate'            => 'decimal:2',
+        'payment_terms_days'  => 'integer',
     ];
 
     /**
@@ -106,10 +104,5 @@ class CompanySetting extends Model
         if ($this->bank_account_number) $lines[] = 'Account No.: ' . $this->bank_account_number;
         if ($this->bank_swift_code)     $lines[] = 'SWIFT/BIC: ' . $this->bank_swift_code;
         return implode("\n", $lines);
-    }
-
-    public function fxClearingAccount(): BelongsTo
-    {
-        return $this->belongsTo(Account::class, 'fx_clearing_account_id');
     }
 }

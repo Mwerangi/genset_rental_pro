@@ -94,6 +94,7 @@
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Debit (Tsh)</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Credit (Tsh)</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Foreign Amount</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -120,6 +121,16 @@
                     <td class="px-4 py-3 text-right font-mono font-semibold {{ $line->credit > 0 ? 'text-gray-900' : 'text-gray-300' }}">
                         {{ $line->credit > 0 ? number_format($line->credit, 2) : '—' }}
                     </td>
+                    <td class="px-4 py-3 text-right font-mono text-xs">
+                        @if($line->foreign_amount && $line->currency)
+                            <span class="inline-flex flex-col items-end gap-0.5">
+                                <span class="font-semibold text-indigo-700">{{ $line->currency }} {{ number_format($line->foreign_amount, 2) }}</span>
+                                <span class="text-gray-400 text-[10px]">TZS {{ number_format($line->debit ?: $line->credit, 2) }}</span>
+                            </span>
+                        @else
+                            <span class="text-gray-300">—</span>
+                        @endif
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
@@ -128,10 +139,11 @@
                     <td colspan="3" class="px-4 py-3 font-semibold text-gray-700 text-right">Totals</td>
                     <td class="px-4 py-3 text-right font-bold text-gray-900 font-mono">{{ number_format($journalEntry->lines->sum('debit'), 2) }}</td>
                     <td class="px-4 py-3 text-right font-bold text-gray-900 font-mono">{{ number_format($journalEntry->lines->sum('credit'), 2) }}</td>
+                    <td></td>
                 </tr>
                 @if(round($journalEntry->lines->sum('debit'), 2) !== round($journalEntry->lines->sum('credit'), 2))
                 <tr>
-                    <td colspan="5" class="px-4 py-2 text-center text-xs text-red-600 font-semibold">⚠ Entry is NOT balanced — debits do not equal credits</td>
+                    <td colspan="6" class="px-4 py-2 text-center text-xs text-red-600 font-semibold">⚠ Entry is NOT balanced — debits do not equal credits</td>
                 </tr>
                 @endif
             </tfoot>

@@ -60,10 +60,12 @@ class JournalEntryService
             $account = $this->account($line['account_code']);
             if (!$account) return null;  // COA not set up yet — skip silently
             $resolvedLines[] = [
-                'account_id'  => $account->id,
-                'description' => $line['description'] ?? null,
-                'debit'       => (float) ($line['debit'] ?? 0),
-                'credit'      => (float) ($line['credit'] ?? 0),
+                'account_id'     => $account->id,
+                'description'    => $line['description'] ?? null,
+                'debit'          => (float) ($line['debit'] ?? 0),
+                'credit'         => (float) ($line['credit'] ?? 0),
+                'currency'       => $line['currency'] ?? null,
+                'foreign_amount' => isset($line['foreign_amount']) ? (float) $line['foreign_amount'] : null,
             ];
         }
 
@@ -863,43 +865,33 @@ class JournalEntryService
             ? "Transfer: {$from->name} → {$to->name} — {$transfer->description}{$rateNote}"
             : "Transfer: {$from->name} → {$to->name}{$rateNote}";
 
-        if ($isFx) {
-            // FX transfer: both JE lines are in the destination (reporting) currency (to_amount).
-            // The source USD account is NOT touched here — its balance is tracked via
-            // bank_account.current_balance only. The FX Clearing account (1190) acts as
-            // the bridge/contra and should net to zero over time.
-            $fxClearingAccountId = \App\Models\CompanySetting::current()->fx_clearing_account_id;
-            $fxClearingAccount   = $fxClearingAccountId
-                ? \App\Models\Account::find($fxClearingAccountId)
-                : null;
-            if (!$fxClearingAccount) return null; // misconfigured — skip rather than post bad JE
+        $fromDesc = $isFx
+            ? "{$transfer->from_currency} " . number_format($fromAmt, 2)
+              . " → {$transfer->to_currency} " . number_format($toAmt, 2)
+              . " (Rate: " . number_format((float) $transfer->exchange_rate, 4) . ")"
+            : null;
 
-            $fromDesc = "{$transfer->from_currency} " . number_format($fromAmt, 2)
-                      . " → {$transfer->to_currency} " . number_format($toAmt, 2)
-                      . " (Rate: " . number_format((float) $transfer->exchange_rate, 4) . ")";
-
-            return $this->createAndPost(
-                $desc,
-                'account_transfer',
-                $transfer->id,
-                [
-                    ['account_code' => $to->account->code,         'debit' => $toAmt, 'credit' => 0,      'description' => "Received from {$from->name} — {$fromDesc}"],
-                    ['account_code' => $fxClearingAccount->code,   'debit' => 0,      'credit' => $toAmt, 'description' => "FX clearing — {$fromDesc}"],
-                ],
-                $transfer->transfer_date->toDateString(),
-                auth()->id(),
-                $transfer->reference
-            );
-        }
-
-        // Same-currency transfer — straightforward Dr destination / Cr source
         return $this->createAndPost(
             $desc,
             'account_transfer',
             $transfer->id,
             [
-                ['account_id' => $to->account->id,   'debit' => $toAmt, 'credit' => 0,      'description' => "Received from {$from->name}"],
-                ['account_id' => $from->account->id, 'debit' => 0,      'credit' => $fromAmt, 'description' => "Transferred to {$to->name}"],
+                [
+                    'account_code'   => $to->account->code,
+                    'debit'          => $toAmt,
+                    'credit'         => 0,
+                    'description'    => "Received from {$from->name}" . ($fromDesc ? " — {$fromDesc}" : ''),
+                    'currency'       => $isFx ? $transfer->to_currency   : null,
+                    'foreign_amount' => $isFx ? $toAmt                   : null,
+                ],
+                [
+                    'account_code'   => $from->account->code,
+                    'debit'          => 0,
+                    'credit'         => $toAmt,
+                    'description'    => "Transferred to {$to->name}" . ($fromDesc ? " — {$fromDesc}" : ''),
+                    'currency'       => $isFx ? $transfer->from_currency : null,
+                    'foreign_amount' => $isFx ? $fromAmt                 : null,
+                ],
             ],
             $transfer->transfer_date->toDateString(),
             auth()->id(),

@@ -11,11 +11,13 @@ class JournalEntryLine extends Model
         'journal_entry_id', 'account_id', 'description',
         'partner_type', 'partner_id',
         'debit', 'credit',
+        'currency', 'foreign_amount',
     ];
 
     protected $casts = [
-        'debit'  => 'decimal:2',
-        'credit' => 'decimal:2',
+        'debit'          => 'decimal:2',
+        'credit'         => 'decimal:2',
+        'foreign_amount' => 'decimal:2',
     ];
 
     public function journalEntry(): BelongsTo
