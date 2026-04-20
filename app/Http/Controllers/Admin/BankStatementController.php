@@ -465,6 +465,8 @@ class BankStatementController extends Controller
                               ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
         $usedSupplierIds  = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\SupplierPayment::class)
                               ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+        $usedTransferIds  = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\AccountTransfer::class)
+                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
 
         $results = [];
 
@@ -558,6 +560,56 @@ class BankStatementController extends Controller
             }
         }
 
+        // Account Transfers — match both credit (money came IN → to_bank_account) and debit (money went OUT → from_bank_account)
+        {
+            $query = \App\Models\AccountTransfer::with(['fromAccount', 'toAccount'])
+                ->whereNotIn('id', $usedTransferIds);
+
+            if ($isCredit) {
+                // Money arrived in this account → was transferred FROM somewhere TO here
+                $query->where('to_bank_account_id', $bankAccountId);
+            } else {
+                // Money left this account → was transferred FROM here TO somewhere
+                $query->where('from_bank_account_id', $bankAccountId);
+            }
+
+            if ($isSearch) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('reference', 'like', "%{$q}%")
+                      ->orWhere('description', 'like', "%{$q}%")
+                      ->orWhereHas('fromAccount', fn($a) => $a->where('name', 'like', "%{$q}%"))
+                      ->orWhereHas('toAccount',   fn($a) => $a->where('name', 'like', "%{$q}%"));
+                });
+            } else {
+                $tolerance = max($amount * 0.01, 1);
+                $query->whereBetween('transfer_date', [
+                    $date->copy()->subDays(7)->toDateString(),
+                    $date->copy()->addDays(7)->toDateString(),
+                ])->whereBetween('amount', [$amount - $tolerance, $amount + $tolerance]);
+            }
+
+            $matches = $query
+                ->orderByRaw('ABS(DATEDIFF(transfer_date, ?))', [$date->toDateString()])
+                ->orderByRaw('ABS(amount - ?)', [$amount])
+                ->limit(10)
+                ->get();
+
+            foreach ($matches as $trf) {
+                $from = $trf->fromAccount?->name ?? '?';
+                $to   = $trf->toAccount?->name   ?? '?';
+                $results[] = [
+                    'type'           => 'account_transfer',
+                    'id'             => $trf->id,
+                    'date'           => $trf->transfer_date->format('d M Y'),
+                    'amount'         => (float) $trf->amount,
+                    'reference'      => $trf->reference ?? '—',
+                    'method'         => 'Transfer',
+                    'description'    => "{$from} → {$to}",
+                    'invoice_number' => null,
+                ];
+            }
+        }
+
         return response()->json(['matches' => $results]);
     }
 
@@ -569,9 +621,38 @@ class BankStatementController extends Controller
         abort_if($transaction->status === 'reconciled', 422, 'Already reconciled.');
 
         $request->validate([
-            'payment_type' => 'required|in:invoice_payment,supplier_payment',
+            'payment_type' => 'required|in:invoice_payment,supplier_payment,account_transfer',
             'payment_id'   => 'required|integer|min:1',
         ]);
+
+        if ($request->payment_type === 'account_transfer') {
+            $transfer = \App\Models\AccountTransfer::findOrFail($request->payment_id);
+
+            // Guard: the transfer must involve this bank account
+            abort_if(
+                $transfer->from_bank_account_id !== $bankStatement->bank_account_id &&
+                $transfer->to_bank_account_id   !== $bankStatement->bank_account_id,
+                422, 'The selected transfer does not involve the bank account of this statement.'
+            );
+
+            // Guard: not already reconciled to another transaction
+            $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\AccountTransfer::class)
+                ->where('reconciled_payment_id', $transfer->id)
+                ->exists();
+            abort_if($alreadyUsed, 409, 'This transfer is already reconciled to another bank transaction.');
+
+            $transaction->update([
+                'status'                   => 'reconciled',
+                'reconciled_payment_type'  => \App\Models\AccountTransfer::class,
+                'reconciled_payment_id'    => $transfer->id,
+                'reconciled_at'            => now(),
+                'reconciled_by'            => auth()->id(),
+                'journal_entry_id'         => $transfer->journal_entry_id,
+            ]);
+
+            return back()->with('success',
+                "Transaction reconciled → linked to Account Transfer {$transfer->reference}. No duplicate journal entry was created.");
+        }
 
         $modelClass = $request->payment_type === 'invoice_payment'
             ? \App\Models\InvoicePayment::class

@@ -16,22 +16,39 @@ class AccountTransferController extends Controller
         $data = $request->validate([
             'from_bank_account_id' => 'required|exists:bank_accounts,id',
             'to_bank_account_id'   => 'required|exists:bank_accounts,id|different:from_bank_account_id',
-            'amount'               => 'required|numeric|min:1',
+            'amount'               => 'required|numeric|min:0.01',
+            'to_amount'            => 'nullable|numeric|min:0.01',
+            'exchange_rate'        => 'nullable|numeric|min:0.000001',
             'transfer_date'        => 'required|date',
             'description'          => 'nullable|string|max:255',
         ]);
 
         $from = BankAccount::findOrFail($data['from_bank_account_id']);
+        $to   = BankAccount::findOrFail($data['to_bank_account_id']);
 
         if ($from->current_balance < $data['amount']) {
             return back()->with('error', "Insufficient balance in {$from->name}. Available: {$from->currency} " . number_format($from->current_balance, 0));
         }
 
-        DB::transaction(function () use ($data) {
+        // Determine destination amount
+        $isFx     = $from->currency !== $to->currency;
+        $toAmount = $isFx && !empty($data['to_amount'])
+            ? (float) $data['to_amount']
+            : (float) $data['amount'];
+
+        $exchangeRate = $isFx && !empty($data['exchange_rate'])
+            ? (float) $data['exchange_rate']
+            : null;
+
+        DB::transaction(function () use ($data, $from, $to, $toAmount, $exchangeRate, $isFx) {
             $transfer = AccountTransfer::create([
                 'from_bank_account_id' => $data['from_bank_account_id'],
                 'to_bank_account_id'   => $data['to_bank_account_id'],
                 'amount'               => $data['amount'],
+                'to_amount'            => $toAmount,
+                'exchange_rate'        => $exchangeRate,
+                'from_currency'        => $from->currency,
+                'to_currency'          => $to->currency,
                 'transfer_date'        => $data['transfer_date'],
                 'description'          => $data['description'] ?? null,
                 'created_by'           => auth()->id(),
@@ -43,14 +60,19 @@ class AccountTransferController extends Controller
                 $transfer->update(['journal_entry_id' => $je->id]);
             }
 
-            // Update balances
+            // Update balances — source loses `amount`, destination gains `to_amount`
             BankAccount::where('id', $transfer->from_bank_account_id)
-                       ->decrement('current_balance', $transfer->amount);
+                       ->decrement('current_balance', (float) $transfer->amount);
             BankAccount::where('id', $transfer->to_bank_account_id)
-                       ->increment('current_balance', $transfer->amount);
+                       ->increment('current_balance', (float) $transfer->to_amount);
         });
 
-        return redirect()->route('admin.accounting.bank-accounts.index')
-                         ->with('success', 'Transfer completed successfully.');
+        $msg = 'Transfer completed successfully.';
+        if ($isFx && $exchangeRate) {
+            $msg = "Transfer completed. Rate: 1 {$from->currency} = " . number_format($exchangeRate, 4) . " {$to->currency}. "
+                 . "{$from->currency} " . number_format($data['amount'], 2) . " → {$to->currency} " . number_format($toAmount, 2);
+        }
+
+        return redirect()->route('admin.accounting.bank-accounts.index')->with('success', $msg);
     }
 }

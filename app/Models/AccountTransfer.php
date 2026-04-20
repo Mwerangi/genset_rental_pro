@@ -9,11 +9,14 @@ class AccountTransfer extends Model
 {
     protected $fillable = [
         'reference', 'from_bank_account_id', 'to_bank_account_id',
-        'amount', 'transfer_date', 'description', 'journal_entry_id', 'created_by',
+        'amount', 'to_amount', 'exchange_rate', 'from_currency', 'to_currency',
+        'transfer_date', 'description', 'journal_entry_id', 'created_by',
     ];
 
     protected $casts = [
         'amount'        => 'decimal:2',
+        'to_amount'     => 'decimal:2',
+        'exchange_rate' => 'decimal:6',
         'transfer_date' => 'date',
     ];
 
@@ -56,5 +59,24 @@ class AccountTransfer extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** True when source and destination are in different currencies */
+    public function isFxTransfer(): bool
+    {
+        return $this->from_currency && $this->to_currency
+            && $this->from_currency !== $this->to_currency;
+    }
+
+    /** Amount that actually leaves the source account */
+    public function sourceAmount(): float
+    {
+        return (float) $this->amount;
+    }
+
+    /** Amount that arrives at the destination account */
+    public function destinationAmount(): float
+    {
+        return $this->to_amount ? (float) $this->to_amount : (float) $this->amount;
     }
 }

@@ -300,8 +300,8 @@
 
                 {{-- Explanation banner --}}
                 <div class="mt-3 bg-purple-50 border border-purple-100 rounded-lg px-4 py-3 text-xs text-purple-700">
-                    <strong>What is Reconcile?</strong> Use this when a payment was <em>already recorded</em> in the system
-                    (e.g. from an invoice or supplier payment) and this bank line confirms the same money moved.
+                    <strong>What is Reconcile?</strong> Use this when a transaction was <em>already recorded</em> in the system
+                    (e.g. from an invoice payment, supplier payment, or an account transfer) and this bank line confirms the same money moved.
                     Reconciling links the two records — <strong>no new journal entry is created</strong>, preventing double-counting.
                 </div>
 
@@ -591,6 +591,7 @@
         // Group by type for clarity
         const inv = matches.filter(m => m.type === 'invoice_payment');
         const sup = matches.filter(m => m.type === 'supplier_payment');
+        const trf = matches.filter(m => m.type === 'account_transfer');
         let html = '';
 
         if (inv.length) {
@@ -601,12 +602,23 @@
             if (inv.length) html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mt-3 mb-1">Supplier Payments</p>`;
             html += sup.map(m => matchCard(m)).join('');
         }
+        if (trf.length) {
+            if (inv.length || sup.length) html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mt-3 mb-1">Bank / Account Transfers</p>`;
+            else html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mb-1">Bank / Account Transfers</p>`;
+            html += trf.map(m => matchCard(m)).join('');
+        }
         list.innerHTML = html;
     }
 
     function matchCard(m) {
-        const label = m.type === 'invoice_payment' ? 'Invoice' : 'Payment';
-        const ref   = m.invoice_number ? `${label} ${escH(m.invoice_number)} · Ref: ${escH(m.reference)}` : `Ref: ${escH(m.reference)}`;
+        let ref;
+        if (m.type === 'account_transfer') {
+            ref = `Ref: ${escH(m.reference)}`;
+        } else if (m.type === 'invoice_payment') {
+            ref = m.invoice_number ? `Invoice ${escH(m.invoice_number)} · Ref: ${escH(m.reference)}` : `Ref: ${escH(m.reference)}`;
+        } else {
+            ref = `Ref: ${escH(m.reference)}`;
+        }
         return `<button type="button"
             onclick="selectReconcilePayment('${m.type}', ${m.id}, this)"
             data-type="${m.type}" data-id="${m.id}"

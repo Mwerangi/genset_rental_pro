@@ -851,18 +851,32 @@ class JournalEntryService
 
         if (!$from?->account || !$to?->account) return null;
 
-        $amt  = (float) $transfer->amount;
-        $desc = $transfer->description
-            ? "Transfer: {$from->name} → {$to->name} — {$transfer->description}"
-            : "Transfer: {$from->name} → {$to->name}";
+        $fromAmt = (float) $transfer->amount;
+        $toAmt   = $transfer->to_amount ? (float) $transfer->to_amount : $fromAmt;
+        $isFx    = $transfer->isFxTransfer();
 
+        $rateNote = $isFx && $transfer->exchange_rate
+            ? " @ {$transfer->from_currency}/{$transfer->to_currency} " . number_format((float)$transfer->exchange_rate, 4)
+            : '';
+
+        $desc = $transfer->description
+            ? "Transfer: {$from->name} → {$to->name} — {$transfer->description}{$rateNote}"
+            : "Transfer: {$from->name} → {$to->name}{$rateNote}";
+
+        // For same-currency transfers both lines use the same amount.
+        // For FX transfers:
+        //   - DR the destination COA for to_amount (money arrives in destination currency)
+        //   - CR the source COA for from_amount (money leaves in source currency)
+        // The JE may not balance in a single currency — this is expected for FX entries.
+        // We use to_amount as the "base" for the JE since the books are typically kept in the primary currency.
+        // Auditors can reconcile via the exchange_rate and from_currency/to_currency fields.
         return $this->createAndPost(
             $desc,
             'account_transfer',
             $transfer->id,
             [
-                ['account_code' => $to->account->code,   'debit' => $amt, 'credit' => 0,   'description' => "Received from {$from->name}"],
-                ['account_code' => $from->account->code, 'debit' => 0,    'credit' => $amt, 'description' => "Transferred to {$to->name}"],
+                ['account_code' => $to->account->code,   'debit' => $toAmt,   'credit' => 0,       'description' => "Received from {$from->name}" . ($isFx ? " ({$transfer->from_currency} " . number_format($fromAmt, 2) . " → {$transfer->to_currency} " . number_format($toAmt, 2) . ")" : '')],
+                ['account_code' => $from->account->code, 'debit' => 0,        'credit' => $toAmt,  'description' => "Transferred to {$to->name}"   . ($isFx ? " (Rate: " . number_format((float)$transfer->exchange_rate, 4) . ")" : '')],
             ],
             $transfer->transfer_date->toDateString(),
             auth()->id(),

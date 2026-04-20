@@ -1,12 +1,11 @@
 <x-admin-layout>
-    <div x-data="{ transferOpen: false }" class="mb-6 flex items-center justify-between">
+    <div x-data="transferModal()" class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Bank & Cash Accounts</h1>
             <p class="text-gray-500 mt-1">Registered payment accounts and balances</p>
         </div>
         <div class="flex items-center gap-3">
-            <button @click="transferOpen = true"
-                class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+            <button @click="transferOpen = true"                class="inline-flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                 Transfer Funds
             </button>
@@ -33,30 +32,34 @@
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">From Account <span class="text-red-500">*</span></label>
-                            <select name="from_bank_account_id" required
+                            <select name="from_bank_account_id" x-model="fromId" @change="onAccountChange()" required
                                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
                                 <option value="">— Select source account —</option>
                                 @foreach($accounts as $ba)
-                                <option value="{{ $ba->id }}">{{ $ba->name }} ({{ $ba->currency }} {{ number_format($ba->current_balance, 0) }})</option>
+                                <option value="{{ $ba->id }}" data-currency="{{ $ba->currency }}">{{ $ba->name }} ({{ $ba->currency }} {{ number_format($ba->current_balance, 0) }})</option>
                                 @endforeach
                             </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">To Account <span class="text-red-500">*</span></label>
-                            <select name="to_bank_account_id" required
+                            <select name="to_bank_account_id" x-model="toId" @change="onAccountChange()" required
                                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
                                 <option value="">— Select destination account —</option>
                                 @foreach($accounts as $ba)
-                                <option value="{{ $ba->id }}">{{ $ba->name }}</option>
+                                <option value="{{ $ba->id }}" data-currency="{{ $ba->currency }}">{{ $ba->name }} ({{ $ba->currency }})</option>
                                 @endforeach
                             </select>
                         </div>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Amount <span class="text-red-500">*</span></label>
-                                <input type="number" name="amount" min="1" step="1" required
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    <span x-text="fromCurrency ? 'Amount (' + fromCurrency + ')' : 'Amount'"></span>
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" name="amount" x-model="amount" @input="calcToAmount()" min="0.01" step="0.01" required
                                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                                    placeholder="0">
+                                    placeholder="0.00">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
@@ -64,6 +67,51 @@
                                     class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
                             </div>
                         </div>
+
+                        {{-- FX section — shown only when currencies differ --}}
+                        <div x-show="isFx" x-transition class="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide">Foreign Exchange</p>
+                                <button type="button" @click="fetchLiveRate()"
+                                    :disabled="rateLoading"
+                                    class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50">
+                                    <svg x-show="!rateLoading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                    <svg x-show="rateLoading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                                    <span x-text="rateLoading ? 'Fetching…' : 'Get Live Rate'"></span>
+                                </button>
+                            </div>
+                            <p x-show="rateSource" class="text-xs text-blue-500 italic" x-text="rateSource"></p>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        Exchange Rate
+                                        <span class="font-normal text-gray-400" x-text="fromCurrency && toCurrency ? '(1 ' + fromCurrency + ' = ? ' + toCurrency + ')' : ''"></span>
+                                    </label>
+                                    <input type="number" name="exchange_rate" x-model="exchangeRate" @input="calcToAmount()" min="0.000001" step="0.0001"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-400"
+                                        placeholder="e.g. 2500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                                        Destination Amount
+                                        <span class="font-normal text-gray-400" x-text="toCurrency ? '(' + toCurrency + ')' : ''"></span>
+                                    </label>
+                                    <input type="number" name="to_amount" x-model="toAmount" @input="calcRateFromToAmount()" min="0.01" step="0.01"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-400"
+                                        placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div x-show="amount && toAmount" class="text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-2">
+                                <span x-text="fromCurrency"></span> <span class="font-mono font-bold" x-text="Number(amount).toLocaleString('en',{minimumFractionDigits:2})"></span>
+                                → <span x-text="toCurrency"></span> <span class="font-mono font-bold" x-text="Number(toAmount).toLocaleString('en',{minimumFractionDigits:2})"></span>
+                                <span x-show="exchangeRate" class="text-blue-500 ml-1">(@ <span x-text="Number(exchangeRate).toLocaleString('en',{minimumFractionDigits:4})"></span>)</span>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="to_amount" x-show="!isFx" :value="amount">
+
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Description / Reference</label>
                             <input type="text" name="description" maxlength="255"
@@ -77,8 +125,8 @@
                             class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
                             Cancel
                         </button>
-                        <button type="submit"
-                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                        <button type="submit" :disabled="isFx && (!exchangeRate || !toAmount)"
+                            class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             Confirm Transfer
                         </button>
                     </div>
@@ -143,3 +191,66 @@
         @endforelse
     </div>
 </x-admin-layout>
+
+<script>
+window.transferModal = function () {
+    const accountCurrencies = @json($accounts->pluck('currency', 'id'));
+
+    return {
+        transferOpen: false,
+        fromId: '',
+        toId: '',
+        fromCurrency: '',
+        toCurrency: '',
+        isFx: false,
+        amount: '',
+        exchangeRate: '',
+        toAmount: '',
+        rateLoading: false,
+        rateSource: '',
+
+        onAccountChange() {
+            this.fromCurrency = this.fromId ? (accountCurrencies[this.fromId] ?? '') : '';
+            this.toCurrency   = this.toId   ? (accountCurrencies[this.toId]   ?? '') : '';
+            this.isFx = !!(this.fromCurrency && this.toCurrency && this.fromCurrency !== this.toCurrency);
+            if (!this.isFx) { this.exchangeRate = ''; this.toAmount = ''; this.rateSource = ''; }
+            if (this.isFx && this.fromCurrency && this.toCurrency) {
+                this.fetchLiveRate();
+            }
+        },
+
+        calcToAmount() {
+            if (this.isFx && this.exchangeRate && this.amount) {
+                this.toAmount = (parseFloat(this.amount) * parseFloat(this.exchangeRate)).toFixed(2);
+            }
+        },
+
+        calcRateFromToAmount() {
+            if (this.isFx && this.toAmount && this.amount && parseFloat(this.amount) > 0) {
+                this.exchangeRate = (parseFloat(this.toAmount) / parseFloat(this.amount)).toFixed(6);
+            }
+        },
+
+        fetchLiveRate() {
+            if (!this.fromCurrency || !this.toCurrency || this.fromCurrency === this.toCurrency) return;
+            this.rateLoading = true;
+            this.rateSource  = '';
+            const from = this.fromCurrency;
+            const to   = this.toCurrency;
+            fetch(`https://open.er-api.com/v6/latest/${from}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.result === 'success' && data.rates && data.rates[to]) {
+                        this.exchangeRate = data.rates[to].toFixed(6);
+                        this.rateSource   = `Live rate: 1 ${from} = ${Number(this.exchangeRate).toLocaleString('en', {minimumFractionDigits:4})} ${to} (open.er-api.com · ${data.time_last_update_utc ?? 'now'})`;
+                        this.calcToAmount();
+                    } else {
+                        this.rateSource = 'Could not fetch live rate. Enter manually.';
+                    }
+                })
+                .catch(() => { this.rateSource = 'Network error. Enter rate manually.'; })
+                .finally(() => { this.rateLoading = false; });
+        },
+    };
+};
+</script>
