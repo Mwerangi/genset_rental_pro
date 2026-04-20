@@ -56,6 +56,14 @@
                     </select>
                 </div>
                 <div class="col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                    <select name="currency" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        @foreach(['TZS','USD','EUR','KES','GBP'] as $c)
+                        <option value="{{ $c }}" @selected(old('currency', $account->currency ?? 'TZS') === $c)>{{ $c }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <textarea name="description" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">{{ old('description', $account->description) }}</textarea>
                 </div>

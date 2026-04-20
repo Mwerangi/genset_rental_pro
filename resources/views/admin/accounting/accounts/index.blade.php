@@ -63,8 +63,20 @@
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $account->parent?->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold {{ $account->balance >= 0 ? 'text-gray-900' : 'text-red-600' }}">
-                        Tsh {{ number_format(abs($account->balance), 0) }}
-                        @if($account->balance < 0) <span class="text-xs">(Cr)</span>@endif
+                        @if($account->isForeignCurrency())
+                            @php $fbal = $account->foreignBalance(); @endphp
+                            <span class="block {{ ($fbal ?? 0) >= 0 ? 'text-indigo-700' : 'text-red-600' }}">
+                                {{ $account->currency }} {{ number_format(abs($fbal ?? 0), 2) }}
+                                @if(($fbal ?? 0) < 0) <span class="text-xs">(Cr)</span>@endif
+                            </span>
+                            <span class="block text-xs text-gray-400 mt-0.5">
+                                Tsh {{ number_format(abs($account->balance), 0) }}
+                                @if($account->balance < 0) (Cr)@endif
+                            </span>
+                        @else
+                            Tsh {{ number_format(abs($account->balance), 0) }}
+                            @if($account->balance < 0) <span class="text-xs">(Cr)</span>@endif
+                        @endif
                     </td>
                     <td class="px-4 py-3 text-center">
                         @if($account->is_active)

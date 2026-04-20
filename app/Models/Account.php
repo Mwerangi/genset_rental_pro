@@ -10,7 +10,7 @@ class Account extends Model
 {
     protected $fillable = [
         'code', 'name', 'type', 'sub_type', 'parent_id',
-        'normal_balance', 'balance', 'description', 'is_active', 'is_system',
+        'normal_balance', 'balance', 'description', 'is_active', 'is_system', 'currency',
     ];
 
     protected $casts = [
@@ -78,6 +78,39 @@ class Account extends Model
     }
 
     // ─── Balance helpers ─────────────────────────────────────────────
+
+    /**
+     * True when this account operates in a foreign currency (not TZS).
+     */
+    public function isForeignCurrency(): bool
+    {
+        return !empty($this->currency) && $this->currency !== 'TZS';
+    }
+
+    /**
+     * For foreign-currency accounts, returns the net balance in the account's
+     * own currency by summing foreign_amount from posted JE lines.
+     * Returns null for TZS accounts (use ->balance instead).
+     */
+    public function foreignBalance(): ?float
+    {
+        if (!$this->isForeignCurrency()) return null;
+
+        $lines = $this->journalEntryLines()
+            ->whereNotNull('foreign_amount')
+            ->whereHas('journalEntry', fn($q) => $q->where('status', 'posted'))
+            ->get(['debit', 'credit', 'foreign_amount']);
+
+        $total = 0.0;
+        foreach ($lines as $line) {
+            if ($line->debit > 0) {
+                $total += (float) $line->foreign_amount;
+            } else {
+                $total -= (float) $line->foreign_amount;
+            }
+        }
+        return $total;
+    }
 
     /**
      * Update the running balance after a JE line is posted.

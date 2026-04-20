@@ -43,6 +43,7 @@ class AccountController extends Controller
             'sub_type'       => 'nullable|string|max:100',
             'parent_id'      => 'nullable|exists:accounts,id',
             'normal_balance' => 'required|in:debit,credit',
+            'currency'       => 'nullable|string|max:10',
             'description'    => 'nullable|string',
             'is_active'      => 'boolean',
         ]);
@@ -82,6 +83,7 @@ class AccountController extends Controller
             'sub_type'       => 'nullable|string|max:100',
             'parent_id'      => 'nullable|exists:accounts,id',
             'normal_balance' => 'required|in:debit,credit',
+            'currency'       => 'nullable|string|max:10',
             'description'    => 'nullable|string',
             'is_active'      => 'boolean',
         ]);
