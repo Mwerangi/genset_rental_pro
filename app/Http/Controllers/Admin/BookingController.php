@@ -571,7 +571,7 @@ class BookingController extends Controller
     {
         $clients      = Client::orderBy('company_name')->orderBy('full_name')->get(['id', 'company_name', 'full_name', 'client_number']);
         $gensets      = Genset::orderBy('asset_number')->get(['id', 'asset_number', 'name', 'kva_rating', 'type']);
-        $bankAccounts = BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'account_name', 'currency']);
+        $bankAccounts = BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'name', 'currency']);
         return view('admin.bookings.record-historical', compact('clients', 'gensets', 'bankAccounts'));
     }
 

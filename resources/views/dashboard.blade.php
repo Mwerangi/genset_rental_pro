@@ -332,7 +332,7 @@
                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium {{ $typeBadge }}">{{ $typeLabel }}</span>
                         </div>
                         <p class="font-semibold font-mono text-sm {{ $ba->current_balance < 0 ? 'text-red-600' : 'text-gray-900' }}">
-                            {{ number_format($ba->current_balance, 0) }}
+                            {{ $ba->currency }} {{ number_format($ba->current_balance, 0) }}
                         </p>
                     </div>
                     @empty
@@ -340,9 +340,16 @@
                     @endforelse
                 </div>
                 @if($bankAccounts->count() > 0)
-                <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                    <p class="text-xs text-gray-500 font-medium">Total (TZS)</p>
-                    <p class="text-sm font-bold font-mono text-gray-900">{{ number_format($bankAccounts->sum('current_balance'), 0) }}</p>
+                @php
+                    $totalsPerCurrency = $bankAccounts->groupBy('currency')->map(fn($group) => $group->sum('current_balance'));
+                @endphp
+                <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 space-y-1">
+                    @foreach($totalsPerCurrency as $currency => $total)
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs text-gray-500 font-medium">Total {{ $currency }}</p>
+                        <p class="text-sm font-bold font-mono {{ $total < 0 ? 'text-red-600' : 'text-gray-900' }}">{{ number_format($total, 0) }}</p>
+                    </div>
+                    @endforeach
                 </div>
                 @endif
             </div>

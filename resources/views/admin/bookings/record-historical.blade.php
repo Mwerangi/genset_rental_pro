@@ -282,7 +282,7 @@
                                 <option value="">— select bank account —</option>
                                 @foreach($bankAccounts as $ba)
                                     <option value="{{ $ba->id }}" {{ old('bank_account_id') == $ba->id ? 'selected' : '' }}>
-                                        {{ $ba->bank_name }} — {{ $ba->account_name }} ({{ $ba->currency }})
+                                        {{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})
                                     </option>
                                 @endforeach
                             </select>
