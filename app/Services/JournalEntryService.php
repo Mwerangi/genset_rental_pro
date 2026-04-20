@@ -857,6 +857,32 @@ class JournalEntryService
         $toAmt   = $transfer->to_amount ? (float) $transfer->to_amount : $fromAmt;
         $isFx    = $transfer->isFxTransfer();
 
+        // JE debit/credit must always be in TZS (functional currency).
+        // For FX transfers exactly one side is TZS — use that side's amount.
+        // from_currency=TZS → TZS→FX: tzsAmt = fromAmt, foreignAmt = toAmt
+        // to_currency=TZS   → FX→TZS: tzsAmt = toAmt,   foreignAmt = fromAmt
+        if ($isFx) {
+            if ($transfer->from_currency === 'TZS') {
+                $tzsAmt        = $fromAmt;
+                $foreignAmt    = $toAmt;
+                $foreignCur    = $transfer->to_currency;
+                $toIsForeign   = true;
+                $fromIsForeign = false;
+            } else {
+                $tzsAmt        = $toAmt;
+                $foreignAmt    = $fromAmt;
+                $foreignCur    = $transfer->from_currency;
+                $toIsForeign   = false;
+                $fromIsForeign = true;
+            }
+        } else {
+            $tzsAmt = $fromAmt;
+            $foreignAmt = null;
+            $foreignCur = null;
+            $toIsForeign   = false;
+            $fromIsForeign = false;
+        }
+
         $rateNote = $isFx && $transfer->exchange_rate
             ? " @ {$transfer->from_currency}/{$transfer->to_currency} " . number_format((float)$transfer->exchange_rate, 4)
             : '';
@@ -878,19 +904,19 @@ class JournalEntryService
             [
                 [
                     'account_code'   => $to->account->code,
-                    'debit'          => $toAmt,
+                    'debit'          => $tzsAmt,
                     'credit'         => 0,
                     'description'    => "Received from {$from->name}" . ($fromDesc ? " — {$fromDesc}" : ''),
-                    'currency'       => $isFx ? $transfer->to_currency   : null,
-                    'foreign_amount' => $isFx ? $toAmt                   : null,
+                    'currency'       => $toIsForeign ? $foreignCur : null,
+                    'foreign_amount' => $toIsForeign ? $foreignAmt : null,
                 ],
                 [
                     'account_code'   => $from->account->code,
                     'debit'          => 0,
-                    'credit'         => $toAmt,
+                    'credit'         => $tzsAmt,
                     'description'    => "Transferred to {$to->name}" . ($fromDesc ? " — {$fromDesc}" : ''),
-                    'currency'       => $isFx ? $transfer->from_currency : null,
-                    'foreign_amount' => $isFx ? $fromAmt                 : null,
+                    'currency'       => $fromIsForeign ? $foreignCur : null,
+                    'foreign_amount' => $fromIsForeign ? $foreignAmt : null,
                 ],
             ],
             $transfer->transfer_date->toDateString(),
