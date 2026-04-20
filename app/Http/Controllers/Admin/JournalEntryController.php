@@ -19,9 +19,8 @@ class JournalEntryController extends Controller
     {
         $query = $this->buildQuery($request);
 
-        // Most-recent dates at top; within the same date the oldest entry first → newest last
-        $entries = $query->orderBy('entry_date', 'desc')
-                         ->orderBy('created_at', 'asc')
+        // Latest created entry always on top
+        $entries = $query->orderBy('created_at', 'desc')
                          ->paginate(10)
                          ->withQueryString();
 
@@ -38,8 +37,7 @@ class JournalEntryController extends Controller
     {
         $entries = $this->buildQuery($request)
             ->with(['lines.account', 'createdBy'])
-            ->orderBy('entry_date', 'desc')
-            ->orderBy('created_at', 'asc')
+            ->orderBy('created_at', 'desc')
             ->get();
 
         $filename = 'journal-entries-' . now()->format('Y-m-d') . '.csv';

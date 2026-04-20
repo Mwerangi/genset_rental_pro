@@ -11,6 +11,7 @@ class AccountTransfer extends Model
         'reference', 'from_bank_account_id', 'to_bank_account_id',
         'amount', 'to_amount', 'exchange_rate', 'from_currency', 'to_currency',
         'transfer_date', 'description', 'journal_entry_id', 'created_by',
+        'reversed_at', 'reversed_by', 'reversal_of_transfer_id',
     ];
 
     protected $casts = [
@@ -18,6 +19,7 @@ class AccountTransfer extends Model
         'to_amount'     => 'decimal:2',
         'exchange_rate' => 'decimal:6',
         'transfer_date' => 'date',
+        'reversed_at'   => 'datetime',
     ];
 
     protected static function boot(): void
@@ -66,6 +68,18 @@ class AccountTransfer extends Model
     {
         return $this->from_currency && $this->to_currency
             && $this->from_currency !== $this->to_currency;
+    }
+
+    /** True if this transfer has been reversed */
+    public function isReversed(): bool
+    {
+        return $this->reversed_at !== null;
+    }
+
+    /** The original transfer this record reverses (if any) */
+    public function originalTransfer(): BelongsTo
+    {
+        return $this->belongsTo(AccountTransfer::class, 'reversal_of_transfer_id');
     }
 
     /** Amount that actually leaves the source account */

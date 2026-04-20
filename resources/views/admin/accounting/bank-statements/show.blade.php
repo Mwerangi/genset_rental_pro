@@ -21,7 +21,7 @@
                 Import CSV
             </button>
             {{-- Post All --}}
-            @php $pendingWithContra = $transactions->where('status','pending')->whereNotNull('contra_account_id')->count(); @endphp
+            @php $pendingWithContra = $allTransactions->where('status','pending')->whereNotNull('contra_account_id')->count(); @endphp
             @if($pendingWithContra > 0)
             <form id="postAllForm" method="POST" action="{{ route('admin.accounting.bank-statements.post-all', $bankStatement) }}">
                 @csrf
@@ -43,12 +43,12 @@
 
     {{-- Summary strip --}}
     @php
-        $totalIn       = $transactions->where('type','credit')->sum('amount');
-        $totalOut      = $transactions->where('type','debit')->sum('amount');
-        $pendingCnt    = $transactions->where('status','pending')->count();
-        $postedCnt     = $transactions->where('status','posted')->count();
-        $reconciledCnt = $transactions->where('status','reconciled')->count();
-        $ignoredCnt    = $transactions->where('status','ignored')->count();
+        $totalIn       = $allTransactions->where('type','credit')->sum('amount');
+        $totalOut      = $allTransactions->where('type','debit')->sum('amount');
+        $pendingCnt    = $allTransactions->where('status','pending')->count();
+        $postedCnt     = $allTransactions->where('status','posted')->count();
+        $reconciledCnt = $allTransactions->where('status','reconciled')->count();
+        $ignoredCnt    = $allTransactions->where('status','ignored')->count();
         $net           = $totalIn - $totalOut;
     @endphp
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 flex divide-x divide-gray-100 overflow-hidden">
@@ -223,6 +223,13 @@
             </tbody>
         </table>
     </div>
+
+    {{-- Pagination --}}
+    @if($transactions->hasPages())
+    <div class="mt-4">
+        {{ $transactions->links() }}
+    </div>
+    @endif
 
     {{-- ── Post modal ─────────────────────────────────────────────── --}}
     @php

@@ -71,13 +71,16 @@
                         {{-- FX section — shown only when currencies differ --}}
                         <div x-show="isFx" x-transition class="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
                             <div class="flex items-center justify-between">
-                                <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide">Foreign Exchange</p>
+                                <div>
+                                    <p class="text-xs font-semibold text-blue-700 uppercase tracking-wide">Foreign Exchange</p>
+                                    <p class="text-xs text-blue-500 mt-0.5">You can type your own rate or fetch a live suggestion</p>
+                                </div>
                                 <button type="button" @click="fetchLiveRate()"
                                     :disabled="rateLoading"
-                                    class="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50">
+                                    class="inline-flex items-center gap-1 text-xs bg-white border border-blue-300 text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg disabled:opacity-50">
                                     <svg x-show="!rateLoading" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                                     <svg x-show="rateLoading" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-                                    <span x-text="rateLoading ? 'Fetching…' : 'Get Live Rate'"></span>
+                                    <span x-text="rateLoading ? 'Fetching…' : 'Suggest Live Rate'"></span>
                                 </button>
                             </div>
                             <p x-show="rateSource" class="text-xs text-blue-500 italic" x-text="rateSource"></p>
@@ -85,32 +88,43 @@
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 mb-1">
-                                        Exchange Rate
-                                        <span class="font-normal text-gray-400" x-text="fromCurrency && toCurrency ? '(1 ' + fromCurrency + ' = ? ' + toCurrency + ')' : ''"></span>
+                                        Exchange Rate <span class="text-red-500">*</span>
+                                        <span class="font-normal text-gray-400" x-text="fromCurrency && toCurrency ? '— 1 ' + fromCurrency + ' = ? ' + toCurrency : ''"></span>
                                     </label>
-                                    <input type="number" name="exchange_rate" x-model="exchangeRate" @input="calcToAmount()" min="0.000001" step="0.0001"
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-400"
-                                        placeholder="e.g. 2500">
+                                    <input type="number" name="exchange_rate" x-model="exchangeRate"
+                                        @input="calcToAmount()"
+                                        @change="calcToAmount()"
+                                        min="0.000001" step="any" autocomplete="off"
+                                        class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                        placeholder="Enter rate, e.g. 2540">
+                                    <p class="text-xs text-gray-400 mt-0.5">Type to override</p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-medium text-gray-600 mb-1">
-                                        Destination Amount
+                                        Destination Amount <span class="text-red-500">*</span>
                                         <span class="font-normal text-gray-400" x-text="toCurrency ? '(' + toCurrency + ')' : ''"></span>
                                     </label>
-                                    <input type="number" name="to_amount" x-model="toAmount" @input="calcRateFromToAmount()" min="0.01" step="0.01"
-                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-400"
+                                    <input type="number" name="to_amount" x-model="toAmount"
+                                        @input="calcRateFromToAmount()"
+                                        @change="calcRateFromToAmount()"
+                                        min="0.01" step="any" autocomplete="off"
+                                        class="w-full border-2 border-blue-300 rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                                         placeholder="0.00">
+                                    <p class="text-xs text-gray-400 mt-0.5">Or type amount to derive rate</p>
                                 </div>
                             </div>
 
-                            <div x-show="amount && toAmount" class="text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-2">
+                            <div x-show="amount && toAmount" class="text-xs text-blue-700 bg-blue-100 rounded-lg px-3 py-2 font-medium">
                                 <span x-text="fromCurrency"></span> <span class="font-mono font-bold" x-text="Number(amount).toLocaleString('en',{minimumFractionDigits:2})"></span>
                                 → <span x-text="toCurrency"></span> <span class="font-mono font-bold" x-text="Number(toAmount).toLocaleString('en',{minimumFractionDigits:2})"></span>
-                                <span x-show="exchangeRate" class="text-blue-500 ml-1">(@ <span x-text="Number(exchangeRate).toLocaleString('en',{minimumFractionDigits:4})"></span>)</span>
+                                <span x-show="exchangeRate" class="ml-2 text-blue-500">(1 <span x-text="fromCurrency"></span> = <span x-text="Number(exchangeRate).toLocaleString('en',{minimumFractionDigits:4})"></span> <span x-text="toCurrency"></span>)</span>
                             </div>
                         </div>
 
-                        <input type="hidden" name="to_amount" x-show="!isFx" :value="amount">
+                        {{-- Same-currency: pass amount as to_amount via hidden field (only rendered when NOT FX) --}}
+                        <template x-if="!isFx">
+                            <input type="hidden" name="to_amount" :value="amount">
+                        </template>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Description / Reference</label>

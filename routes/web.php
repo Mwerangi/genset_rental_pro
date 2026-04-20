@@ -326,6 +326,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::put('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'update'])->name('accounting.bank-accounts.update');
             Route::delete('/accounting/bank-accounts/{bankAccount}', [BankAccountController::class, 'destroy'])->name('accounting.bank-accounts.destroy');
             Route::post('/accounting/account-transfers', [AccountTransferController::class, 'store'])->name('accounting.account-transfers.store');
+            Route::post('/accounting/account-transfers/{accountTransfer}/reverse', [AccountTransferController::class, 'reverse'])->name('accounting.account-transfers.reverse');
         });
         Route::middleware('permission:manage_expense_categories')->group(function () {
             Route::get('/accounting/expense-categories', [ExpenseCategoryController::class, 'index'])->name('accounting.expense-categories.index');

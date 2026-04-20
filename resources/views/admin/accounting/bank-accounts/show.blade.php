@@ -130,19 +130,55 @@
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Date</th>
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Ref</th>
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">To</th>
-                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Amount</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Sent</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Received</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Rate</th>
+                        <th class="px-4 py-2 text-xs font-medium text-gray-500"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     @forelse($transfersOut as $tr)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-2 text-xs text-gray-500">{{ $tr->transfer_date->format('d M Y') }}</td>
-                        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ $tr->reference }}</td>
+                    @php $isFx = $tr->from_currency && $tr->to_currency && $tr->from_currency !== $tr->to_currency; @endphp
+                    <tr class="hover:bg-gray-50 {{ $tr->isReversed() ? 'opacity-50' : '' }}">
+                        <td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{{ $tr->transfer_date->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-xs font-mono text-gray-600">
+                            {{ $tr->reference }}
+                            @if($tr->reversal_of_transfer_id)
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600 font-semibold">REV</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-xs text-gray-700">{{ $tr->toAccount?->name }}</td>
-                        <td class="px-4 py-2 text-right font-semibold text-slate-700 font-mono text-xs">-{{ number_format($tr->amount, 0) }}</td>
+                        <td class="px-4 py-2 text-right font-semibold text-slate-700 font-mono text-xs whitespace-nowrap">
+                            -{{ $tr->from_currency ?? $bankAccount->currency }} {{ number_format($tr->amount, 2) }}
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono text-xs whitespace-nowrap">
+                            @if($isFx)
+                                <span class="text-indigo-600 font-semibold">{{ $tr->to_currency }} {{ number_format($tr->to_amount, 2) }}</span>
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono text-xs whitespace-nowrap">
+                            @if($isFx && $tr->exchange_rate)
+                                <span class="text-gray-500">{{ number_format($tr->exchange_rate, 4) }}</span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            @if($tr->isReversed())
+                                <span class="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-500 font-semibold">Reversed</span>
+                            @elseif(!$tr->reversal_of_transfer_id)
+                                <form method="POST" action="{{ route('admin.accounting.account-transfers.reverse', $tr) }}"
+                                      onsubmit="return confirm('Reverse transfer {{ $tr->reference }}? This will restore balances and create a reversal journal entry.')">
+                                    @csrf
+                                    <button type="submit" class="px-2 py-1 border border-red-200 text-red-500 rounded text-xs hover:bg-red-50">Reverse</button>
+                                </form>
+                            @endif
+                        </td>
                     </tr>
                     @empty
-                    <tr><td colspan="4" class="px-4 py-4 text-center text-xs text-gray-400">No outgoing transfers.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-4 text-center text-xs text-gray-400">No outgoing transfers.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -159,19 +195,55 @@
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Date</th>
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">Ref</th>
                         <th class="text-left px-4 py-2 text-xs font-medium text-gray-500">From</th>
-                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Amount</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Sent</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Received</th>
+                        <th class="text-right px-4 py-2 text-xs font-medium text-gray-500">Rate</th>
+                        <th class="px-4 py-2 text-xs font-medium text-gray-500"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50">
                     @forelse($transfersIn as $tr)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-2 text-xs text-gray-500">{{ $tr->transfer_date->format('d M Y') }}</td>
-                        <td class="px-4 py-2 text-xs font-mono text-gray-600">{{ $tr->reference }}</td>
+                    @php $isFx = $tr->from_currency && $tr->to_currency && $tr->from_currency !== $tr->to_currency; @endphp
+                    <tr class="hover:bg-gray-50 {{ $tr->isReversed() ? 'opacity-50' : '' }}">
+                        <td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{{ $tr->transfer_date->format('d M Y') }}</td>
+                        <td class="px-4 py-2 text-xs font-mono text-gray-600">
+                            {{ $tr->reference }}
+                            @if($tr->reversal_of_transfer_id)
+                                <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-orange-100 text-orange-600 font-semibold">REV</span>
+                            @endif
+                        </td>
                         <td class="px-4 py-2 text-xs text-gray-700">{{ $tr->fromAccount?->name }}</td>
-                        <td class="px-4 py-2 text-right font-semibold text-green-700 font-mono text-xs">+{{ number_format($tr->amount, 0) }}</td>
+                        <td class="px-4 py-2 text-right font-mono text-xs whitespace-nowrap">
+                            @if($isFx)
+                                <span class="text-gray-500">{{ $tr->from_currency }} {{ number_format($tr->amount, 2) }}</span>
+                            @else
+                                <span class="text-gray-400">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-right font-semibold text-green-700 font-mono text-xs whitespace-nowrap">
+                            +{{ $tr->to_currency ?? $bankAccount->currency }} {{ number_format($tr->to_amount ?? $tr->amount, 2) }}
+                        </td>
+                        <td class="px-4 py-2 text-right font-mono text-xs whitespace-nowrap">
+                            @if($isFx && $tr->exchange_rate)
+                                <span class="text-gray-500">{{ number_format($tr->exchange_rate, 4) }}</span>
+                            @else
+                                <span class="text-gray-300">—</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-center">
+                            @if($tr->isReversed())
+                                <span class="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-500 font-semibold">Reversed</span>
+                            @elseif(!$tr->reversal_of_transfer_id)
+                                <form method="POST" action="{{ route('admin.accounting.account-transfers.reverse', $tr) }}"
+                                      onsubmit="return confirm('Reverse transfer {{ $tr->reference }}? This will restore balances and create a reversal journal entry.')">
+                                    @csrf
+                                    <button type="submit" class="px-2 py-1 border border-red-200 text-red-500 rounded text-xs hover:bg-red-50">Reverse</button>
+                                </form>
+                            @endif
+                        </td>
                     </tr>
                     @empty
-                    <tr><td colspan="4" class="px-4 py-4 text-center text-xs text-gray-400">No incoming transfers.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-4 text-center text-xs text-gray-400">No incoming transfers.</td></tr>
                     @endforelse
                 </tbody>
             </table>

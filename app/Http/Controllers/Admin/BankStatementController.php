@@ -230,17 +230,24 @@ class BankStatementController extends Controller
     public function show(BankStatement $bankStatement)
     {
         $bankStatement->load(['bankAccount.account', 'createdBy']);
-        $transactions = $bankStatement->transactions()
+
+        $allTransactions = $bankStatement->transactions()
             ->with(['contraAccount', 'journalEntry'])
             ->orderBy('transaction_date')
             ->orderBy('id')
             ->get();
 
+        $transactions = $bankStatement->transactions()
+            ->with(['contraAccount', 'journalEntry'])
+            ->orderBy('transaction_date')
+            ->orderBy('id')
+            ->paginate(10);
+
         $accounts  = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
         $clients   = Client::orderBy('company_name')->get(['id', 'company_name', 'full_name']);
         $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
-        return view('admin.accounting.bank-statements.show', compact('bankStatement', 'transactions', 'accounts', 'clients', 'suppliers'));
+        return view('admin.accounting.bank-statements.show', compact('bankStatement', 'allTransactions', 'transactions', 'accounts', 'clients', 'suppliers'));
     }
 
     // ── Post a single transaction → create JE ────────────────────────

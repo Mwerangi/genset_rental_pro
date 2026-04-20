@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AccountTransfer;
 use App\Models\BankAccount;
+use App\Models\JournalEntry;
+use App\Models\JournalEntryLine;
 use App\Services\JournalEntryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,5 +76,94 @@ class AccountTransferController extends Controller
         }
 
         return redirect()->route('admin.accounting.bank-accounts.index')->with('success', $msg);
+    }
+
+    public function reverse(AccountTransfer $accountTransfer)
+    {
+        abort_if($accountTransfer->isReversed(), 409, 'This transfer has already been reversed.');
+
+        $transfer = $accountTransfer;
+        $from = BankAccount::with('account')->findOrFail($transfer->from_bank_account_id);
+        $to   = BankAccount::with('account')->findOrFail($transfer->to_bank_account_id);
+
+        $fromAmt = (float) $transfer->amount;
+        $toAmt   = $transfer->to_amount ? (float) $transfer->to_amount : $fromAmt;
+        $isFx    = $transfer->isFxTransfer();
+
+        // Guard: destination must still have enough balance to reverse
+        if ($to->current_balance < $toAmt) {
+            return back()->with('error',
+                "Cannot reverse: {$to->name} only has {$to->currency} " . number_format($to->current_balance, 2) . " but reversal needs {$to->currency} " . number_format($toAmt, 2) . ".");
+        }
+
+        DB::transaction(function () use ($transfer, $from, $to, $fromAmt, $toAmt, $isFx) {
+            // 1. Restore balances — undo the original transfer
+            BankAccount::where('id', $from->id)->increment('current_balance', $fromAmt);
+            BankAccount::where('id', $to->id)->decrement('current_balance', $toAmt);
+
+            // 2. Create a reversal JE (swap Dr/Cr of the original)
+            $rateNote = $isFx && $transfer->exchange_rate
+                ? " (Rate: " . number_format((float) $transfer->exchange_rate, 4) . ")"
+                : '';
+            $jeDesc = "Reversal of {$transfer->reference}: {$from->name} ← {$to->name}{$rateNote}";
+
+            $reversalLines = [];
+            if ($from->account) {
+                $reversalLines[] = [
+                    'account_id'  => $from->account->id,
+                    'description' => "Reversal — returned to {$from->name}" . ($isFx ? " ({$transfer->from_currency} " . number_format($fromAmt, 2) . ")" : ''),
+                    'debit'       => 0,
+                    'credit'      => $fromAmt,
+                ];
+            }
+            if ($to->account) {
+                $reversalLines[] = [
+                    'account_id'  => $to->account->id,
+                    'description' => "Reversal — reversed from {$to->name}" . ($isFx ? " ({$transfer->to_currency} " . number_format($toAmt, 2) . ")" : ''),
+                    'debit'       => $toAmt,
+                    'credit'      => 0,
+                ];
+            }
+
+            $reversalJe = null;
+            if (!empty($reversalLines)) {
+                $reversalJe = JournalEntry::create([
+                    'entry_date'  => now()->toDateString(),
+                    'description' => auth()->user()->name,
+                    'reference'   => 'REV-' . $transfer->reference,
+                    'source_type' => 'account_transfer_reversal',
+                    'notes'       => $jeDesc,
+                    'status'      => 'posted',
+                    'created_by'  => auth()->id(),
+                ]);
+                foreach ($reversalLines as $line) {
+                    $reversalJe->lines()->create($line);
+                }
+            }
+
+            // 3. Create a reversal AccountTransfer record
+            $reversalTransfer = AccountTransfer::create([
+                'from_bank_account_id'   => $transfer->from_bank_account_id,
+                'to_bank_account_id'     => $transfer->to_bank_account_id,
+                'amount'                 => $fromAmt,
+                'to_amount'              => $toAmt,
+                'exchange_rate'          => $transfer->exchange_rate,
+                'from_currency'          => $transfer->from_currency,
+                'to_currency'            => $transfer->to_currency,
+                'transfer_date'          => now()->toDateString(),
+                'description'            => "Reversal of {$transfer->reference}",
+                'journal_entry_id'       => $reversalJe?->id,
+                'created_by'             => auth()->id(),
+                'reversal_of_transfer_id' => $transfer->id,
+            ]);
+
+            // 4. Mark original as reversed
+            $transfer->update([
+                'reversed_at' => now(),
+                'reversed_by' => auth()->id(),
+            ]);
+        });
+
+        return back()->with('success', "Transfer {$transfer->reference} has been reversed. Balances restored.");
     }
 }
