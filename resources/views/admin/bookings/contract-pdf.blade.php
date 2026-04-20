@@ -142,7 +142,7 @@
     <p class="clause-body" style="margin-left:16px; margin-top:2px;">
         <strong>Unit {{ $loop->iteration }}:</strong>
         Model: <strong>{{ $cg->model ?? $cg->type ?? $booking->genset_type ?? '—' }}</strong>,
-        Asset No: <strong>{{ $cg->asset_number }}</strong>@if($cg->kva_rating), <strong>{{ $cg->kva_rating }} KVA</strong>@endif@if($cg->serial_number), Serial No: <strong>{{ $cg->serial_number }}</strong>@endif.
+        Asset No: <strong>{{ $cg->asset_number }}</strong>@if($cg->kva_rating), <strong>{{ $cg->kva_rating }} KVA</strong>@endif @if($cg->serial_number), Serial No: <strong>{{ $cg->serial_number }}</strong>@endif.
     </p>
     @endforeach
     @endif
