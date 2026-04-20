@@ -863,20 +863,43 @@ class JournalEntryService
             ? "Transfer: {$from->name} → {$to->name} — {$transfer->description}{$rateNote}"
             : "Transfer: {$from->name} → {$to->name}{$rateNote}";
 
-        // For same-currency transfers both lines use the same amount.
-        // For FX transfers:
-        //   - DR the destination COA for to_amount (money arrives in destination currency)
-        //   - CR the source COA for from_amount (money leaves in source currency)
-        // The JE may not balance in a single currency — this is expected for FX entries.
-        // We use to_amount as the "base" for the JE since the books are typically kept in the primary currency.
-        // Auditors can reconcile via the exchange_rate and from_currency/to_currency fields.
+        if ($isFx) {
+            // FX transfer: both JE lines are in the destination (reporting) currency (to_amount).
+            // The source USD account is NOT touched here — its balance is tracked via
+            // bank_account.current_balance only. The FX Clearing account (1190) acts as
+            // the bridge/contra and should net to zero over time.
+            $fxClearingAccountId = \App\Models\CompanySetting::current()->fx_clearing_account_id;
+            $fxClearingAccount   = $fxClearingAccountId
+                ? \App\Models\Account::find($fxClearingAccountId)
+                : null;
+            if (!$fxClearingAccount) return null; // misconfigured — skip rather than post bad JE
+
+            $fromDesc = "{$transfer->from_currency} " . number_format($fromAmt, 2)
+                      . " → {$transfer->to_currency} " . number_format($toAmt, 2)
+                      . " (Rate: " . number_format((float) $transfer->exchange_rate, 4) . ")";
+
+            return $this->createAndPost(
+                $desc,
+                'account_transfer',
+                $transfer->id,
+                [
+                    ['account_code' => $to->account->code,         'debit' => $toAmt, 'credit' => 0,      'description' => "Received from {$from->name} — {$fromDesc}"],
+                    ['account_code' => $fxClearingAccount->code,   'debit' => 0,      'credit' => $toAmt, 'description' => "FX clearing — {$fromDesc}"],
+                ],
+                $transfer->transfer_date->toDateString(),
+                auth()->id(),
+                $transfer->reference
+            );
+        }
+
+        // Same-currency transfer — straightforward Dr destination / Cr source
         return $this->createAndPost(
             $desc,
             'account_transfer',
             $transfer->id,
             [
-                ['account_code' => $to->account->code,   'debit' => $toAmt,   'credit' => 0,       'description' => "Received from {$from->name}" . ($isFx ? " ({$transfer->from_currency} " . number_format($fromAmt, 2) . " → {$transfer->to_currency} " . number_format($toAmt, 2) . ")" : '')],
-                ['account_code' => $from->account->code, 'debit' => 0,        'credit' => $toAmt,  'description' => "Transferred to {$to->name}"   . ($isFx ? " (Rate: " . number_format((float)$transfer->exchange_rate, 4) . ")" : '')],
+                ['account_id' => $to->account->id,   'debit' => $toAmt, 'credit' => 0,      'description' => "Received from {$from->name}"],
+                ['account_id' => $from->account->id, 'debit' => 0,      'credit' => $fromAmt, 'description' => "Transferred to {$to->name}"],
             ],
             $transfer->transfer_date->toDateString(),
             auth()->id(),

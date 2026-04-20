@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\CompanySetting;
 use App\Models\QuotationItemType;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ class CompanySettingController extends Controller
     {
         $settings  = CompanySetting::current();
         $itemTypes = QuotationItemType::orderBy('sort_order')->get();
-        return view('admin.company-settings.edit', compact('settings', 'itemTypes'));
+        $accounts  = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
+        return view('admin.company-settings.edit', compact('settings', 'itemTypes', 'accounts'));
     }
 
     public function update(Request $request)
@@ -66,6 +68,7 @@ class CompanySettingController extends Controller
             // Documents
             'vat_rate'               => 'required|numeric|min:0|max:100',
             'default_currency'       => 'required|string|max:10',
+            'fx_clearing_account_id' => 'nullable|exists:accounts,id',
             'invoice_prefix'         => 'required|string|max:20',
             'quotation_prefix'       => 'required|string|max:20',
             'payment_terms_days'     => 'required|integer|min:0|max:365',

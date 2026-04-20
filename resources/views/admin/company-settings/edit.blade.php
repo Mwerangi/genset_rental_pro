@@ -489,6 +489,19 @@
                                     </select>
                                 </div>
                             </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">FX Clearing Account</label>
+                                <select name="fx_clearing_account_id"
+                                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none font-mono">
+                                    <option value="">— None —</option>
+                                    @foreach($accounts as $acc)
+                                        <option value="{{ $acc->id }}" {{ old('fx_clearing_account_id', $settings->fx_clearing_account_id) == $acc->id ? 'selected' : '' }}>
+                                            {{ $acc->code }} — {{ $acc->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <p class="text-xs text-gray-400 mt-1">Used as the bridge account for inter-bank FX transfers (e.g. 1190 FX Clearing). Should net to zero over time.</p>
+                            </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-600 mb-1">Invoice Number Prefix</label>
