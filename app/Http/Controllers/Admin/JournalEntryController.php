@@ -32,7 +32,8 @@ class JournalEntryController extends Controller
             'posted' => JournalEntry::where('status', 'posted')->count(),
         ];
 
-        // Dynamic source type list pulled from actual data (+ known labels)
+        // Dynamic source type list — always show all known types, plus any
+        // additional ones found in the DB (future-proof).
         $knownLabels = [
             'manual'                    => 'Manual Entry',
             'invoice'                   => 'Invoice',
@@ -49,12 +50,19 @@ class JournalEntryController extends Controller
             'fuel_log'                  => 'Fuel Log',
             'maintenance'               => 'Maintenance',
         ];
-        $sourceTypes = JournalEntry::query()
-            ->selectRaw('COALESCE(source_type, \'manual\') as src')
+        $dbTypes = JournalEntry::query()
+            ->selectRaw("COALESCE(source_type, 'manual') as src")
             ->distinct()
-            ->orderBy('src')
             ->pluck('src')
-            ->mapWithKeys(fn($v) => [$v => $knownLabels[$v] ?? ucfirst(str_replace('_', ' ', $v))])
+            ->toArray();
+        // Merge: known labels first, then any DB-only extras
+        $sourceTypes = collect($knownLabels)
+            ->merge(
+                collect($dbTypes)
+                    ->diff(array_keys($knownLabels))
+                    ->mapWithKeys(fn($v) => [$v => ucfirst(str_replace('_', ' ', $v))])
+            )
+            ->sortBy(fn($label) => $label)
             ->all();
 
         return view('admin.accounting.journal-entries.index', compact('entries', 'stats', 'perPage', 'sourceTypes'));
