@@ -59,14 +59,9 @@
                 <label class="block text-xs font-medium text-gray-600 mb-1">Source</label>
                 <select name="source_type" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                     <option value="">All Sources</option>
-                    <option value="manual" @selected(request('source_type') === 'manual')>Manual</option>
-                    <option value="invoice" @selected(request('source_type') === 'invoice')>Invoice</option>
-                    <option value="payment" @selected(request('source_type') === 'payment')>Payment</option>
-                    <option value="purchase_order" @selected(request('source_type') === 'purchase_order')>Purchase Order</option>
-                    <option value="supplier_payment" @selected(request('source_type') === 'supplier_payment')>Supplier Payment</option>
-                    <option value="expense" @selected(request('source_type') === 'expense')>Expense</option>
-                    <option value="cash_request" @selected(request('source_type') === 'cash_request')>Cash Request</option>
-                    <option value="credit_note" @selected(request('source_type') === 'credit_note')>Credit Note</option>
+                    @foreach($sourceTypes as $value => $label)
+                    <option value="{{ $value }}" @selected(request('source_type') === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="min-w-32">

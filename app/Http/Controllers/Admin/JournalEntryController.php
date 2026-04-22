@@ -32,7 +32,32 @@ class JournalEntryController extends Controller
             'posted' => JournalEntry::where('status', 'posted')->count(),
         ];
 
-        return view('admin.accounting.journal-entries.index', compact('entries', 'stats', 'perPage'));
+        // Dynamic source type list pulled from actual data (+ known labels)
+        $knownLabels = [
+            'manual'                    => 'Manual Entry',
+            'invoice'                   => 'Invoice',
+            'payment'                   => 'Payment',
+            'purchase_order'            => 'Purchase Order',
+            'supplier_payment'          => 'Supplier Payment',
+            'expense'                   => 'Expense',
+            'cash_request'              => 'Cash Request',
+            'credit_note'               => 'Credit Note',
+            'account_transfer'          => 'Account Transfer',
+            'account_transfer_reversal' => 'Transfer Reversal',
+            'bank_statement'            => 'Bank Statement',
+            'genset'                    => 'Genset Capitalization',
+            'fuel_log'                  => 'Fuel Log',
+            'maintenance'               => 'Maintenance',
+        ];
+        $sourceTypes = JournalEntry::query()
+            ->selectRaw('COALESCE(source_type, \'manual\') as src')
+            ->distinct()
+            ->orderBy('src')
+            ->pluck('src')
+            ->mapWithKeys(fn($v) => [$v => $knownLabels[$v] ?? ucfirst(str_replace('_', ' ', $v))])
+            ->all();
+
+        return view('admin.accounting.journal-entries.index', compact('entries', 'stats', 'perPage', 'sourceTypes'));
     }
 
     public function export(Request $request)
