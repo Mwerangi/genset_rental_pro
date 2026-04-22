@@ -467,13 +467,19 @@ class BankStatementController extends Controller
         $q             = trim((string) $request->query('q', ''));
         $isSearch      = $q !== '';
 
-        // Already-reconciled payment IDs (to exclude)
+        // Already-reconciled payment IDs (to exclude).
+        // For InvoicePayments and SupplierPayments these are 1:1 with a bank transaction.
+        // For AccountTransfers: a single transfer touches TWO bank accounts, so we only
+        // exclude it for the bank account side that has already been reconciled.
         $usedInvoiceIds   = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\InvoicePayment::class)
                               ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
         $usedSupplierIds  = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\SupplierPayment::class)
                               ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+        // Only exclude a transfer if it was already reconciled from THIS bank account's statement.
         $usedTransferIds  = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\AccountTransfer::class)
-                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+                              ->whereNotNull('reconciled_payment_id')
+                              ->whereHas('bankStatement', fn($q) => $q->where('bank_account_id', $bankAccountId))
+                              ->pluck('reconciled_payment_id');
 
         $results = [];
 
@@ -589,15 +595,27 @@ class BankStatementController extends Controller
                 });
             } else {
                 $tolerance = max($amount * 0.01, 1);
+                // For FX transfers, the amount column holds the FROM-side amount.
+                // If we're matching from the TO side (credit / destination account),
+                // compare against to_amount instead so a USD statement correctly
+                // matches a TZS→USD transfer.
                 $query->whereBetween('transfer_date', [
                     $date->copy()->subDays(7)->toDateString(),
                     $date->copy()->addDays(7)->toDateString(),
-                ])->whereBetween('amount', [$amount - $tolerance, $amount + $tolerance]);
+                ]);
+                if ($isCredit) {
+                    $query->where(function ($w) use ($amount, $tolerance) {
+                        $w->whereBetween('to_amount', [$amount - $tolerance, $amount + $tolerance])
+                          ->orWhereBetween('amount',    [$amount - $tolerance, $amount + $tolerance]);
+                    });
+                } else {
+                    $query->whereBetween('amount', [$amount - $tolerance, $amount + $tolerance]);
+                }
             }
 
             $matches = $query
                 ->orderByRaw('ABS(DATEDIFF(transfer_date, ?))', [$date->toDateString()])
-                ->orderByRaw('ABS(amount - ?)', [$amount])
+                ->orderByRaw('ABS(COALESCE(to_amount, amount) - ?)', [$amount])
                 ->limit(10)
                 ->get();
 
@@ -642,11 +660,13 @@ class BankStatementController extends Controller
                 422, 'The selected transfer does not involve the bank account of this statement.'
             );
 
-            // Guard: not already reconciled to another transaction
+            // Guard: not already reconciled from the SAME bank account side.
+            // A transfer has two sides (from + to), each side can be reconciled once independently.
             $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\AccountTransfer::class)
                 ->where('reconciled_payment_id', $transfer->id)
+                ->whereHas('bankStatement', fn($q) => $q->where('bank_account_id', $bankStatement->bank_account_id))
                 ->exists();
-            abort_if($alreadyUsed, 409, 'This transfer is already reconciled to another bank transaction.');
+            abort_if($alreadyUsed, 409, 'This transfer has already been reconciled from this bank account\'s statement.');
 
             $transaction->update([
                 'status'                   => 'reconciled',
