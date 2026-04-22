@@ -227,9 +227,12 @@ class BankStatementController extends Controller
     }
 
     // ── Show statement + transactions ────────────────────────────────
-    public function show(BankStatement $bankStatement)
+    public function show(Request $request, BankStatement $bankStatement)
     {
         $bankStatement->load(['bankAccount.account', 'createdBy']);
+
+        $perPage = (int) $request->get('per_page', 20);
+        $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 20;
 
         $allTransactions = $bankStatement->transactions()
             ->with(['contraAccount', 'journalEntry'])
@@ -241,13 +244,14 @@ class BankStatementController extends Controller
             ->with(['contraAccount', 'journalEntry'])
             ->orderBy('transaction_date')
             ->orderBy('id')
-            ->paginate(10);
+            ->paginate($perPage)
+            ->withQueryString();
 
         $accounts  = Account::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'type']);
         $clients   = Client::orderBy('company_name')->get(['id', 'company_name', 'full_name']);
         $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
-        return view('admin.accounting.bank-statements.show', compact('bankStatement', 'allTransactions', 'transactions', 'accounts', 'clients', 'suppliers'));
+        return view('admin.accounting.bank-statements.show', compact('bankStatement', 'allTransactions', 'transactions', 'accounts', 'clients', 'suppliers', 'perPage'));
     }
 
     // ── Post a single transaction → create JE ────────────────────────

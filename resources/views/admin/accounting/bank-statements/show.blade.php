@@ -224,12 +224,66 @@
         </table>
     </div>
 
-    {{-- Pagination --}}
-    @if($transactions->hasPages())
-    <div class="mt-4">
-        {{ $transactions->links() }}
+    {{-- Pagination bar --}}
+    <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+
+        {{-- Left: showing X–Y of Z + per-page selector --}}
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+            <span>
+                Showing
+                <strong>{{ $transactions->firstItem() ?? 0 }}</strong>–<strong>{{ $transactions->lastItem() ?? 0 }}</strong>
+                of <strong>{{ $transactions->total() }}</strong> transactions
+            </span>
+
+            {{-- Per-page dropdown --}}
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                <label class="text-xs text-gray-500">Show</label>
+                <select name="per_page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }}</option>
+                    @endforeach
+                </select>
+                <span class="text-xs text-gray-500">per page</span>
+            </form>
+        </div>
+
+        {{-- Right: group-jump dropdown + prev/next --}}
+        <div class="flex items-center gap-2">
+            @if($transactions->lastPage() > 1)
+            {{-- Group-jump: "Jump to rows X–Y" --}}
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                <input type="hidden" name="per_page" value="{{ $perPage }}">
+                <label class="text-xs text-gray-500 whitespace-nowrap">Jump to</label>
+                <select name="page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @for($p = 1; $p <= $transactions->lastPage(); $p++)
+                        @php
+                            $from = (($p - 1) * $perPage) + 1;
+                            $to   = min($p * $perPage, $transactions->total());
+                        @endphp
+                        <option value="{{ $p }}" @selected($transactions->currentPage() === $p)>
+                            {{ number_format($from) }}–{{ number_format($to) }}
+                        </option>
+                    @endfor
+                </select>
+            </form>
+
+            {{-- Prev / Next buttons --}}
+            @if($transactions->onFirstPage())
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">← Prev</span>
+            @else
+                <a href="{{ $transactions->previousPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">← Prev</a>
+            @endif
+
+            @if($transactions->hasMorePages())
+                <a href="{{ $transactions->nextPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Next →</a>
+            @else
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next →</span>
+            @endif
+            @endif
+        </div>
     </div>
-    @endif
 
     {{-- ── Post modal ─────────────────────────────────────────────── --}}
     @php
