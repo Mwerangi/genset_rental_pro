@@ -272,14 +272,7 @@
             </div>
 
             <!-- Pagination -->
-            <div class="mt-4 flex items-center justify-between">
-                <div class="text-sm text-slate-600">
-                    Showing {{ $quotations->firstItem() }} to {{ $quotations->lastItem() }} of {{ $quotations->total() }} results
-                </div>
-                <div>
-                    {{ $quotations->links() }}
-                </div>
-            </div>
+            <x-pagination-bar :paginator="$quotations" :per-page="$perPage" />
         @else
             <div class="text-center py-12">
                 <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -179,10 +179,7 @@
                 </table>
             </div>
 
-            <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
-                <p>Showing {{ $bookings->firstItem() }} to {{ $bookings->lastItem() }} of {{ $bookings->total() }} results</p>
-                {{ $bookings->links() }}
-            </div>
+            <x-pagination-bar :paginator="$bookings" :per-page="$perPage" />
         @else
             <div class="text-center py-16">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">

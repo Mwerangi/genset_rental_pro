@@ -52,7 +52,8 @@ class BookingController extends Controller
             });
         }
 
-        $bookings = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $bookings = $query->paginate($perPage)->withQueryString();
 
         $base = $seeAll
             ? Booking::whereNotIn('status', $cancelledStatuses)
@@ -64,7 +65,7 @@ class BookingController extends Controller
             'active'   => (clone $base)->where('status', 'active')->count(),
         ];
 
-        return view('admin.bookings.index', compact('bookings', 'stats', 'seeAll'));
+        return view('admin.bookings.index', compact('bookings', 'stats', 'seeAll', 'perPage'));
     }
 
     public function cancelled(Request $request)
@@ -98,7 +99,8 @@ class BookingController extends Controller
             });
         }
 
-        $bookings = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $bookings = $query->paginate($perPage)->withQueryString();
 
         $base = $seeAll
             ? Booking::whereIn('status', $cancelledStatuses)
@@ -109,7 +111,7 @@ class BookingController extends Controller
             'rejected'  => (clone $base)->where('status', 'rejected')->count(),
         ];
 
-        return view('admin.bookings.cancelled', compact('bookings', 'stats', 'seeAll'));
+        return view('admin.bookings.cancelled', compact('bookings', 'stats', 'seeAll', 'perPage'));
     }
 
     public function show(Booking $booking)

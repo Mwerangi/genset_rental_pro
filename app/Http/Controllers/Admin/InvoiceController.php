@@ -43,7 +43,8 @@ class InvoiceController extends Controller
             });
         }
 
-        $invoices = $query->paginate(10);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $invoices = $query->paginate($perPage)->withQueryString();
 
         $base = $seeAll
             ? Invoice::whereNotIn('status', $cancelledStatuses)
@@ -67,7 +68,7 @@ class InvoiceController extends Controller
                                         ->value('SUM(amount_paid * exchange_rate_to_tzs)') ?? 0,
         ];
 
-        return view('admin.invoices.index', compact('invoices', 'stats', 'seeAll'));
+        return view('admin.invoices.index', compact('invoices', 'stats', 'seeAll', 'perPage'));
     }
 
     public function voided(Request $request)
@@ -98,7 +99,8 @@ class InvoiceController extends Controller
             });
         }
 
-        $invoices = $query->paginate(10);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $invoices = $query->paginate($perPage)->withQueryString();
 
         $base = $seeAll
             ? Invoice::whereIn('status', $cancelledStatuses)
@@ -111,7 +113,7 @@ class InvoiceController extends Controller
             'written_off'  => (clone $base)->where('status', 'written_off')->count(),
         ];
 
-        return view('admin.invoices.voided', compact('invoices', 'stats', 'seeAll'));
+        return view('admin.invoices.voided', compact('invoices', 'stats', 'seeAll', 'perPage'));
     }
 
     public function show(Invoice $invoice)

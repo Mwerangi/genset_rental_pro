@@ -149,10 +149,7 @@
             </div>
 
             <!-- Pagination -->
-            <div class="mt-4 flex items-center justify-between text-sm text-slate-600">
-                <p>Showing {{ $quotations->firstItem() }} to {{ $quotations->lastItem() }} of {{ $quotations->total() }} results</p>
-                {{ $quotations->links() }}
-            </div>
+            <x-pagination-bar :paginator="$quotations" :per-page="$perPage" />
         @else
             <div class="text-center py-16">
                 <div class="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">

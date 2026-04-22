@@ -30,7 +30,8 @@ class ClientController extends Controller
             });
         }
 
-        $clients = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $clients = $query->paginate($perPage)->withQueryString();
 
         $stats = [
             'total'       => Client::count(),
@@ -39,7 +40,7 @@ class ClientController extends Controller
             'blacklisted' => Client::where('status', 'blacklisted')->count(),
         ];
 
-        return view('admin.clients.index', compact('clients', 'stats'));
+        return view('admin.clients.index', compact('clients', 'stats', 'perPage'));
     }
 
     public function create()

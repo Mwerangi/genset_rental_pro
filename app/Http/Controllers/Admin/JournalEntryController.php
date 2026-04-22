@@ -19,9 +19,11 @@ class JournalEntryController extends Controller
     {
         $query = $this->buildQuery($request);
 
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+
         // Latest created entry always on top
         $entries = $query->orderBy('created_at', 'desc')
-                         ->paginate(10)
+                         ->paginate($perPage)
                          ->withQueryString();
 
         $stats = [
@@ -30,7 +32,7 @@ class JournalEntryController extends Controller
             'posted' => JournalEntry::where('status', 'posted')->count(),
         ];
 
-        return view('admin.accounting.journal-entries.index', compact('entries', 'stats'));
+        return view('admin.accounting.journal-entries.index', compact('entries', 'stats', 'perPage'));
     }
 
     public function export(Request $request)

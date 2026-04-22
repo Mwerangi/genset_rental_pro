@@ -117,9 +117,7 @@
                     @endforeach
                 </tbody>
             </table>
-            @if($invoices->hasPages())
-                <div class="px-4 py-4 border-t border-gray-100">{{ $invoices->withQueryString()->links() }}</div>
-            @endif
+            <x-pagination-bar :paginator="$invoices" :per-page="$perPage" />
         @endif
     </div>
 </x-admin-layout>

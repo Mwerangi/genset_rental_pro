@@ -68,7 +68,8 @@ class QuotationController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $quotations = $query->paginate($request->get('per_page', 25));
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $quotations = $query->paginate($perPage)->withQueryString();
 
         $stats = [
             'total_quotations' => Quotation::whereIn('status', ['draft', 'sent', 'viewed'])->count(),
@@ -94,7 +95,7 @@ class QuotationController extends Controller
                             ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
-        return view('admin.quotations.index', compact('quotations', 'stats'));
+        return view('admin.quotations.index', compact('quotations', 'stats', 'perPage'));
     }
 
     /**
@@ -132,7 +133,8 @@ class QuotationController extends Controller
             $query->whereDate('accepted_at', '<=', $request->date_to);
         }
 
-        $quotations = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $quotations = $query->paginate($perPage)->withQueryString();
 
         $stats = [
             'total'       => Quotation::where('status', 'accepted')->count(),
@@ -148,7 +150,7 @@ class QuotationController extends Controller
                                 ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
-        return view('admin.quotations.approved', compact('quotations', 'stats'));
+        return view('admin.quotations.approved', compact('quotations', 'stats', 'perPage'));
     }
 
     /**
@@ -179,7 +181,8 @@ class QuotationController extends Controller
             });
         }
 
-        $quotations = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $quotations = $query->paginate($perPage)->withQueryString();
 
         $stats = [
             'total'      => Quotation::where('status', 'rejected')->count(),
@@ -189,7 +192,7 @@ class QuotationController extends Controller
                                ->count(),
         ];
 
-        return view('admin.quotations.rejected', compact('quotations', 'stats'));
+        return view('admin.quotations.rejected', compact('quotations', 'stats', 'perPage'));
     }
 
     /**
@@ -228,7 +231,8 @@ class QuotationController extends Controller
             $query->whereDate('accepted_at', '<=', $request->date_to);
         }
 
-        $quotations = $query->paginate(25);
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $quotations = $query->paginate($perPage)->withQueryString();
 
         $cancelledBase = Quotation::where('status', 'accepted')
             ->whereHas('booking', fn ($q) => $q->where('status', 'cancelled'));
@@ -244,7 +248,7 @@ class QuotationController extends Controller
                                 ->value('SUM(total_amount * exchange_rate_to_tzs)') ?? 0,
         ];
 
-        return view('admin.quotations.cancelled', compact('quotations', 'stats'));
+        return view('admin.quotations.cancelled', compact('quotations', 'stats', 'perPage'));
     }
 
     /**

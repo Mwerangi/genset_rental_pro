@@ -105,9 +105,7 @@
                 @endforeach
             </tbody>
         </table>
-        <div class="px-4 py-3 border-t border-gray-100">
-            {{ $payments->withQueryString()->links() }}
-        </div>
+        <x-pagination-bar :paginator="$payments" :per-page="$perPage" />
         @endif
     </div>
 </x-admin-layout>

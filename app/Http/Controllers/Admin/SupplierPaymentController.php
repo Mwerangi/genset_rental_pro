@@ -46,7 +46,8 @@ class SupplierPaymentController extends Controller
             });
         }
 
-        $payments  = $query->paginate(25)->withQueryString();
+        $perPage  = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $payments = $query->paginate($perPage)->withQueryString();
         $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
 
         $base         = $seeAll ? SupplierPayment::query() : SupplierPayment::where('created_by', $user->id);
@@ -55,7 +56,7 @@ class SupplierPaymentController extends Controller
                                      ->sum('amount');
         $allTimeTotal = (clone $base)->sum('amount');
 
-        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'monthTotal', 'allTimeTotal', 'seeAll'));
+        return view('admin.accounting.supplier-payments.index', compact('payments', 'suppliers', 'monthTotal', 'allTimeTotal', 'seeAll', 'perPage'));
     }
 
     public function create(Request $request)

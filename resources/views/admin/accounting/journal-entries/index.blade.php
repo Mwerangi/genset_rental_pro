@@ -187,14 +187,7 @@
                 @endforelse
             </tbody>
         </table>
-        <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-            <p class="text-xs text-gray-500">
-                Showing {{ $entries->firstItem() ?? 0 }}–{{ $entries->lastItem() ?? 0 }} of {{ number_format($entries->total()) }} entries
-            </p>
-            @if($entries->hasPages())
-            {{ $entries->links() }}
-            @endif
-        </div>
+        <x-pagination-bar :paginator="$entries" :per-page="$perPage" />
     </div>
 
     <!-- Delete Confirmation Modal -->
