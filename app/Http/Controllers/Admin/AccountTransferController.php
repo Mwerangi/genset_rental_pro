@@ -101,7 +101,15 @@ class AccountTransferController extends Controller
             BankAccount::where('id', $from->id)->increment('current_balance', $fromAmt);
             BankAccount::where('id', $to->id)->decrement('current_balance', $toAmt);
 
-            // 2. Create a reversal JE (swap Dr/Cr of the original)
+            // 2. Determine TZS amounts for the reversal JE (functional currency)
+            //    Must mirror the same logic used in JournalEntryService::onAccountTransfer
+            if ($isFx) {
+                $tzsAmt = ($transfer->from_currency === 'TZS') ? $fromAmt : $toAmt;
+            } else {
+                $tzsAmt = $fromAmt;
+            }
+
+            // 3. Create a reversal JE (swap Dr/Cr of the original, using TZS amounts)
             $rateNote = $isFx && $transfer->exchange_rate
                 ? " (Rate: " . number_format((float) $transfer->exchange_rate, 4) . ")"
                 : '';
@@ -113,14 +121,14 @@ class AccountTransferController extends Controller
                     'account_id'  => $from->account->id,
                     'description' => "Reversal — returned to {$from->name}" . ($isFx ? " ({$transfer->from_currency} " . number_format($fromAmt, 2) . ")" : ''),
                     'debit'       => 0,
-                    'credit'      => $fromAmt,
+                    'credit'      => $tzsAmt,
                 ];
             }
             if ($to->account) {
                 $reversalLines[] = [
                     'account_id'  => $to->account->id,
                     'description' => "Reversal — reversed from {$to->name}" . ($isFx ? " ({$transfer->to_currency} " . number_format($toAmt, 2) . ")" : ''),
-                    'debit'       => $toAmt,
+                    'debit'       => $tzsAmt,
                     'credit'      => 0,
                 ];
             }
@@ -129,15 +137,23 @@ class AccountTransferController extends Controller
             if (!empty($reversalLines)) {
                 $reversalJe = JournalEntry::create([
                     'entry_date'  => now()->toDateString(),
-                    'description' => auth()->user()->name,
+                    'description' => $jeDesc,
                     'reference'   => 'REV-' . $transfer->reference,
                     'source_type' => 'account_transfer_reversal',
-                    'notes'       => $jeDesc,
+                    'notes'       => "Reversed by " . auth()->user()->name,
                     'status'      => 'posted',
                     'created_by'  => auth()->id(),
                 ]);
                 foreach ($reversalLines as $line) {
                     $reversalJe->lines()->create($line);
+                }
+
+                // Mark the original JE as reversed
+                if ($transfer->journal_entry_id) {
+                    JournalEntry::where('id', $transfer->journal_entry_id)->update([
+                        'is_reversed'    => true,
+                        'reversed_by_id' => $reversalJe->id,
+                    ]);
                 }
             }
 
