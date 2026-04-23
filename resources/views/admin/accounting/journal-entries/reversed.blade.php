@@ -20,21 +20,17 @@
         </div>
     </div>
 
-    @if(session('success'))
-    <div class="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
-    @endif
-
     <!-- Tabs -->
     <div class="flex gap-1 mb-5 border-b border-gray-200">
         <a href="{{ route('admin.accounting.journal-entries.index') }}"
-           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px border-red-600 text-red-600">
+           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px border-transparent text-gray-500 hover:text-gray-700">
             Active
         </a>
         <a href="{{ route('admin.accounting.journal-entries.reversed') }}"
-           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px border-transparent text-gray-500 hover:text-gray-700">
+           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px border-red-600 text-red-600">
             Reversed
             @if($stats['reversed'] > 0)
-            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">{{ $stats['reversed'] }}</span>
+            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-xs bg-red-50 text-red-600">{{ $stats['reversed'] }}</span>
             @endif
         </a>
     </div>
@@ -60,19 +56,11 @@
     </div>
 
     <!-- Filters -->
-    <form method="GET" action="{{ route('admin.accounting.journal-entries.index') }}" class="bg-white border border-gray-200 rounded-xl p-4 mb-5 shadow-sm">
+    <form method="GET" action="{{ route('admin.accounting.journal-entries.reversed') }}" class="bg-white border border-gray-200 rounded-xl p-4 mb-5 shadow-sm">
         <div class="flex flex-wrap gap-3 items-end">
             <div class="flex-1 min-w-48">
                 <label class="block text-xs font-medium text-gray-600 mb-1">Search</label>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="JE number, description..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-            </div>
-            <div class="min-w-32">
-                <label class="block text-xs font-medium text-gray-600 mb-1">Status</label>
-                <select name="status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                    <option value="">All</option>
-                    <option value="draft" @selected(request('status') === 'draft')>Draft</option>
-                    <option value="posted" @selected(request('status') === 'posted')>Posted</option>
-                </select>
             </div>
             <div class="min-w-36">
                 <label class="block text-xs font-medium text-gray-600 mb-1">Source</label>
@@ -92,7 +80,7 @@
                 <input type="date" name="to" value="{{ request('to') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
             </div>
             <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Filter</button>
-            <a href="{{ route('admin.accounting.journal-entries.index') }}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">Reset</a>
+            <a href="{{ route('admin.accounting.journal-entries.reversed') }}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">Reset</a>
         </div>
     </form>
 
@@ -107,18 +95,18 @@
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Nature / Source</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Accounts (COA)</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Total Dr</th>
-                    <th class="text-center px-4 py-3 font-semibold text-gray-600">Status</th>
+                    <th class="text-left px-4 py-3 font-semibold text-gray-600">Reversed by JE</th>
                     <th class="px-4 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 @forelse($entries as $je)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-4 py-3 font-mono text-xs font-semibold text-gray-700">
+                <tr class="hover:bg-gray-50 bg-red-50/30">
+                    <td class="px-4 py-3 font-mono text-xs font-semibold text-gray-500 line-through">
                         {{ $je->entry_number }}
                     </td>
-                    <td class="px-4 py-3 text-gray-600 text-xs">{{ $je->entry_date?->format('d M Y') }}</td>
-                    <td class="px-4 py-3 text-gray-800 max-w-xs truncate">{{ $je->description }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ $je->entry_date?->format('d M Y') }}</td>
+                    <td class="px-4 py-3 text-gray-500 max-w-xs truncate">{{ $je->description }}</td>
                     <td class="px-4 py-3">
                         @php
                             $sourceLabels = [
@@ -135,7 +123,7 @@
                             ];
                             [$label, $cls] = $sourceLabels[$je->source_type] ?? [ucfirst(str_replace('_', ' ', $je->source_type ?? 'manual')), 'bg-gray-100 text-gray-600'];
                         @endphp
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $cls }}">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium opacity-60 {{ $cls }}">
                             {{ $label }}
                         </span>
                     </td>
@@ -144,7 +132,7 @@
                             $drLines = $je->lines->filter(fn($l) => $l->debit > 0);
                             $crLines = $je->lines->filter(fn($l) => $l->credit > 0);
                         @endphp
-                        <div class="space-y-1">
+                        <div class="space-y-1 opacity-60">
                             @foreach($drLines as $line)
                             <div class="flex items-center gap-1">
                                 <span class="inline-block w-5 text-center text-xs font-bold text-blue-600 shrink-0">DR</span>
@@ -161,89 +149,28 @@
                             @endforeach
                         </div>
                     </td>
-                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900">
+                    <td class="px-4 py-3 text-right font-mono font-semibold text-gray-400 line-through">
                         Tsh {{ number_format($je->lines->sum('debit'), 0) }}
                     </td>
-                    <td class="px-4 py-3 text-center">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $je->status === 'posted' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700' }}">
-                            {{ ucfirst($je->status) }}
-                        </span>
+                    <td class="px-4 py-3">
+                        @if($je->reversedBy)
+                        <a href="{{ route('admin.accounting.journal-entries.show', $je->reversedBy) }}"
+                           class="font-mono text-xs text-red-600 hover:underline">
+                            {{ $je->reversedBy->entry_number }}
+                        </a>
+                        @else
+                        <span class="text-xs text-gray-400">—</span>
+                        @endif
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <div class="flex items-center justify-end gap-2">
-                            <a href="{{ route('admin.accounting.journal-entries.show', $je) }}" class="text-xs text-blue-600 hover:underline">View</a>
-                            @if($je->status === 'draft')
-                            @permission('edit_journal_entries')
-                            <a href="{{ route('admin.accounting.journal-entries.edit', $je) }}" class="text-xs text-amber-600 hover:underline">Edit</a>
-                            @endpermission
-                            <form method="POST" action="{{ route('admin.accounting.journal-entries.post', $je) }}">
-                                @csrf
-                                <button type="submit" class="text-xs text-green-600 hover:underline">Post</button>
-                            </form>
-                            @permission('delete_journal_entries')
-                            <button type="button"
-                                    onclick="openDeleteModal('{{ $je->id }}', '{{ $je->entry_number }}', false)"
-                                    class="text-xs text-red-500 hover:underline">Delete</button>
-                            @endpermission
-                            @elseif($je->status === 'posted')
-                            @permission('force_delete_journal_entries')
-                            <button type="button"
-                                    onclick="openDeleteModal('{{ $je->id }}', '{{ $je->entry_number }}', true)"
-                                    class="text-xs text-red-600 font-semibold hover:underline">Force Delete</button>
-                            @endpermission
-                            @endif
-                        </div>
+                        <a href="{{ route('admin.accounting.journal-entries.show', $je) }}" class="text-xs text-blue-600 hover:underline">View</a>
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No journal entries found.</td></tr>
+                <tr><td colspan="8" class="px-4 py-10 text-center text-gray-400">No reversed journal entries.</td></tr>
                 @endforelse
             </tbody>
         </table>
         <x-pagination-bar :paginator="$entries" :per-page="$perPage" />
     </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)closeDeleteModal()">
-        <div class="bg-white rounded-xl p-6 shadow-xl w-full max-w-sm">
-            <div id="deleteModalDraftHead">
-                <h3 class="font-bold text-gray-900 mb-2">Delete Draft Entry</h3>
-                <p class="text-sm text-gray-600 mb-1">Are you sure you want to delete</p>
-                <p class="text-sm font-semibold text-gray-900 mb-4" id="deleteModalEntryNumber"></p>
-                <p class="text-xs text-gray-400 mb-5">This action cannot be undone.</p>
-            </div>
-            <div id="deleteModalPostedHead" class="hidden">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-red-600 text-xl">⚠</span>
-                    <h3 class="font-bold text-gray-900">Force-Delete Posted Entry</h3>
-                </div>
-                <p class="text-sm text-gray-600 mb-1">You are about to permanently delete posted entry</p>
-                <p class="text-sm font-semibold text-gray-900 mb-3" id="deleteModalEntryNumberPosted"></p>
-                <p class="text-xs text-red-600 font-semibold mb-5">Warning: This will not reverse account balances. Use Reverse Entry unless you are certain this entry was posted in error.</p>
-            </div>
-            <form id="deleteModalForm" method="POST">
-                @csrf
-                @method('DELETE')
-                <div class="flex justify-end gap-3">
-                    <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">Delete</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-    function openDeleteModal(id, entryNumber, isPosted) {
-        document.getElementById('deleteModalEntryNumber').textContent = entryNumber;
-        document.getElementById('deleteModalEntryNumberPosted').textContent = entryNumber;
-        document.getElementById('deleteModalForm').action = '/admin/accounting/journal-entries/' + id;
-        document.getElementById('deleteModalDraftHead').classList.toggle('hidden', isPosted);
-        document.getElementById('deleteModalPostedHead').classList.toggle('hidden', !isPosted);
-        document.getElementById('deleteModal').classList.remove('hidden');
-    }
-    function closeDeleteModal() {
-        document.getElementById('deleteModal').classList.add('hidden');
-    }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDeleteModal(); });
-    </script>
 </x-admin-layout>

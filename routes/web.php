@@ -360,6 +360,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Journal Entries
     Route::middleware('permission:view_accounting|view_journal_entries')->group(function () {
         Route::get('/accounting/journal-entries', [JournalEntryController::class, 'index'])->name('accounting.journal-entries.index');
+        Route::get('/accounting/journal-entries/reversed', [JournalEntryController::class, 'reversed'])->name('accounting.journal-entries.reversed');
         Route::get('/accounting/journal-entries/export', [JournalEntryController::class, 'export'])->name('accounting.journal-entries.export');
         Route::middleware('permission:create_journal_entries')->group(function () {
             Route::get('/accounting/journal-entries/create', [JournalEntryController::class, 'create'])->name('accounting.journal-entries.create');

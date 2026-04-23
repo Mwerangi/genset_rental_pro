@@ -17,55 +17,46 @@ class JournalEntryController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->buildQuery($request);
+        $query = $this->buildQuery($request)->where('is_reversed', false);
 
         $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
 
-        // Latest created entry always on top
         $entries = $query->orderBy('created_at', 'desc')
                          ->paginate($perPage)
                          ->withQueryString();
 
         $stats = [
-            'total'  => JournalEntry::count(),
-            'draft'  => JournalEntry::where('status', 'draft')->count(),
-            'posted' => JournalEntry::where('status', 'posted')->count(),
+            'total'    => JournalEntry::where('is_reversed', false)->count(),
+            'draft'    => JournalEntry::where('is_reversed', false)->where('status', 'draft')->count(),
+            'posted'   => JournalEntry::where('is_reversed', false)->where('status', 'posted')->count(),
+            'reversed' => JournalEntry::where('is_reversed', true)->count(),
         ];
 
-        // Dynamic source type list — always show all known types, plus any
-        // additional ones found in the DB (future-proof).
-        $knownLabels = [
-            'manual'                    => 'Manual Entry',
-            'invoice'                   => 'Invoice',
-            'payment'                   => 'Payment',
-            'purchase_order'            => 'Purchase Order',
-            'supplier_payment'          => 'Supplier Payment',
-            'expense'                   => 'Expense',
-            'cash_request'              => 'Cash Request',
-            'credit_note'               => 'Credit Note',
-            'account_transfer'          => 'Account Transfer',
-            'account_transfer_reversal' => 'Transfer Reversal',
-            'bank_statement'            => 'Bank Statement',
-            'genset'                    => 'Genset Capitalization',
-            'fuel_log'                  => 'Fuel Log',
-            'maintenance'               => 'Maintenance',
-        ];
-        $dbTypes = JournalEntry::query()
-            ->selectRaw("COALESCE(source_type, 'manual') as src")
-            ->distinct()
-            ->pluck('src')
-            ->toArray();
-        // Merge: known labels first, then any DB-only extras
-        $sourceTypes = collect($knownLabels)
-            ->merge(
-                collect($dbTypes)
-                    ->diff(array_keys($knownLabels))
-                    ->mapWithKeys(fn($v) => [$v => ucfirst(str_replace('_', ' ', $v))])
-            )
-            ->sortBy(fn($label) => $label)
-            ->all();
+        $sourceTypes = $this->buildSourceTypes();
 
         return view('admin.accounting.journal-entries.index', compact('entries', 'stats', 'perPage', 'sourceTypes'));
+    }
+
+    public function reversed(Request $request)
+    {
+        $query = $this->buildQuery($request)->where('is_reversed', true);
+
+        $perPage = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+
+        $entries = $query->orderBy('created_at', 'desc')
+                         ->paginate($perPage)
+                         ->withQueryString();
+
+        $stats = [
+            'total'    => JournalEntry::where('is_reversed', false)->count(),
+            'draft'    => JournalEntry::where('is_reversed', false)->where('status', 'draft')->count(),
+            'posted'   => JournalEntry::where('is_reversed', false)->where('status', 'posted')->count(),
+            'reversed' => JournalEntry::where('is_reversed', true)->count(),
+        ];
+
+        $sourceTypes = $this->buildSourceTypes();
+
+        return view('admin.accounting.journal-entries.reversed', compact('entries', 'stats', 'perPage', 'sourceTypes'));
     }
 
     public function export(Request $request)
@@ -122,6 +113,40 @@ class JournalEntryController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function buildSourceTypes(): array
+    {
+        $knownLabels = [
+            'manual'                    => 'Manual Entry',
+            'invoice'                   => 'Invoice',
+            'payment'                   => 'Payment',
+            'purchase_order'            => 'Purchase Order',
+            'supplier_payment'          => 'Supplier Payment',
+            'expense'                   => 'Expense',
+            'cash_request'              => 'Cash Request',
+            'credit_note'               => 'Credit Note',
+            'account_transfer'          => 'Account Transfer',
+            'account_transfer_reversal' => 'Transfer Reversal',
+            'bank_statement'            => 'Bank Statement',
+            'genset'                    => 'Genset Capitalization',
+            'fuel_log'                  => 'Fuel Log',
+            'maintenance'               => 'Maintenance',
+        ];
+        $dbTypes = JournalEntry::query()
+            ->selectRaw("COALESCE(source_type, 'manual') as src")
+            ->distinct()
+            ->pluck('src')
+            ->toArray();
+
+        return collect($knownLabels)
+            ->merge(
+                collect($dbTypes)
+                    ->diff(array_keys($knownLabels))
+                    ->mapWithKeys(fn($v) => [$v => ucfirst(str_replace('_', ' ', $v))])
+            )
+            ->sortBy(fn($label) => $label)
+            ->all();
     }
 
     private function buildQuery(Request $request)
