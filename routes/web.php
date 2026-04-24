@@ -385,16 +385,22 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Expenses
     Route::middleware('permission:view_expenses')->group(function () {
         Route::get('/accounting/expenses', [ExpenseController::class, 'index'])->name('accounting.expenses.index');
+        Route::get('/accounting/expenses/export', [ExpenseController::class, 'export'])->name('accounting.expenses.export');
         Route::middleware('permission:create_expenses')->group(function () {
             Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])->name('accounting.expenses.create');
             Route::post('/accounting/expenses', [ExpenseController::class, 'store'])->name('accounting.expenses.store');
         });
         Route::get('/accounting/expenses/{expense}', [ExpenseController::class, 'show'])->name('accounting.expenses.show');
+        Route::middleware('permission:create_expenses')->group(function () {
+            Route::get('/accounting/expenses/{expense}/edit', [ExpenseController::class, 'edit'])->name('accounting.expenses.edit');
+            Route::put('/accounting/expenses/{expense}', [ExpenseController::class, 'update'])->name('accounting.expenses.update');
+        });
         Route::middleware('permission:delete_expenses')->group(function () {
             Route::delete('/accounting/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('accounting.expenses.destroy');
         });
         Route::middleware('permission:approve_expenses')->group(function () {
             Route::post('/accounting/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('accounting.expenses.approve');
+            Route::post('/accounting/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('accounting.expenses.reject');
             Route::post('/accounting/expenses/{expense}/post', [ExpenseController::class, 'post'])->name('accounting.expenses.post');
         });
     });

@@ -11,6 +11,10 @@
         </div>
         <div class="flex gap-2">
             @if($expense->status === 'draft')
+            @permission('create_expenses')
+            <a href="{{ route('admin.accounting.expenses.edit', $expense) }}"
+               class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">Edit</a>
+            @endpermission
             @permission('approve_expenses')
             <form method="POST" action="{{ route('admin.accounting.expenses.approve', $expense) }}">
                 @csrf<button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Approve</button>
@@ -18,6 +22,10 @@
             @endpermission
             @elseif($expense->status === 'approved')
             @permission('approve_expenses')
+            <form method="POST" action="{{ route('admin.accounting.expenses.reject', $expense) }}"
+                  onsubmit="return confirm('Reject and return to Draft?')">
+                @csrf<button type="submit" class="px-4 py-2 border border-amber-300 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-50">Reject (→ Draft)</button>
+            </form>
             <form method="POST" action="{{ route('admin.accounting.expenses.post', $expense) }}">
                 @csrf<button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">Post to Ledger</button>
             </form>
@@ -54,7 +62,7 @@
                     <dt class="text-gray-500">Reference</dt>
                     <dd class="text-gray-900">{{ $expense->reference ?? '—' }}</dd>
                     <dt class="text-gray-500">Source</dt>
-                    <dd class="text-gray-900">{{ ucfirst($expense->source_type ?? 'manual') }}</dd>
+                    <dd class="text-gray-900">{{ $expense->source_label }}</dd>
                     @if($expense->createdBy)
                     <dt class="text-gray-500">Created By</dt>
                     <dd class="text-gray-900">{{ $expense->createdBy->name }}</dd>
