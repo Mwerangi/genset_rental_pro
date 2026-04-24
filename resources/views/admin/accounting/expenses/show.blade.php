@@ -6,6 +6,12 @@
             <div class="flex items-center gap-3 mt-1">
                 @php $colors = ['draft'=>'bg-gray-100 text-gray-600','approved'=>'bg-blue-50 text-blue-700','posted'=>'bg-green-50 text-green-700']; @endphp
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $colors[$expense->status] ?? 'bg-gray-100' }}">{{ ucfirst($expense->status) }}</span>
+                @if($expense->bank_reconciled_at)
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Bank Verified
+                </span>
+                @endif
                 <span class="text-sm text-gray-500">{{ $expense->expense_date?->format('d M Y') }}</span>
             </div>
         </div>
@@ -131,10 +137,10 @@
 
             @if($expense->bankTransaction)
             @php $bt = $expense->bankTransaction; @endphp
-            <div class="bg-purple-50 border border-purple-200 rounded-xl shadow-sm p-4">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm p-4">
                 <p class="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                    Bank Reconciliation
+                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Bank Verified / Reconciled
                 </p>
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
@@ -154,11 +160,27 @@
                     </div>
                     @endif
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Reconciled</span>
-                        <span class="text-purple-700 font-medium text-xs">{{ $bt->reconciled_at?->format('d M Y H:i') }}</span>
+                        <span class="text-gray-500">Confirmed</span>
+                        <span class="text-emerald-700 font-medium text-xs">{{ $expense->bank_reconciled_at?->format('d M Y H:i') }}</span>
                     </div>
+                    @if($expense->bankReconciledBy)
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">By</span>
+                        <span class="text-xs">{{ $expense->bankReconciledBy->name }}</span>
+                    </div>
+                    @endif
                 </div>
             </div>
+            @else
+            @if($expense->status === 'posted')
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p class="text-xs text-amber-700 font-medium flex items-center gap-1.5">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                    Not yet reconciled against a bank statement.
+                </p>
+                <p class="text-xs text-amber-600 mt-1">Open the bank statement for <strong>{{ $expense->bankAccount?->name }}</strong> and reconcile the matching debit line to confirm this payment.</p>
+            </div>
+            @endif
             @endif
         </div>
     </div>

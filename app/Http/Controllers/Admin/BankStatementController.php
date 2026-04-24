@@ -719,6 +719,12 @@ class BankStatementController extends Controller
                 'journal_entry_id'         => $expense->journal_entry_id ?? $transaction->journal_entry_id,
             ]);
 
+            // Mark the expense as bank-confirmed (paid)
+            $expense->update([
+                'bank_reconciled_at' => now(),
+                'bank_reconciled_by' => auth()->id(),
+            ]);
+
             return back()->with('success',
                 "Transaction reconciled → linked to Expense {$expense->expense_number}. No duplicate journal entry was created.");
         }
@@ -791,6 +797,15 @@ class BankStatementController extends Controller
     {
         abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
         abort_if($transaction->status !== 'reconciled', 422, 'Transaction is not reconciled.');
+
+        // If this was reconciled against an expense, clear the bank-confirmed flag on it
+        if ($transaction->reconciled_payment_type === \App\Models\Expense::class
+            && $transaction->reconciled_payment_id) {
+            \App\Models\Expense::where('id', $transaction->reconciled_payment_id)->update([
+                'bank_reconciled_at' => null,
+                'bank_reconciled_by' => null,
+            ]);
+        }
 
         $transaction->update([
             'status'                  => 'pending',

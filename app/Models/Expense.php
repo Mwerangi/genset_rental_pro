@@ -14,14 +14,16 @@ class Expense extends Model
         'expense_date', 'reference', 'attachment',
         'source_type', 'source_id', 'journal_entry_id',
         'status', 'created_by', 'approved_by', 'approved_at',
+        'bank_reconciled_at', 'bank_reconciled_by',
     ];
 
     protected $casts = [
-        'amount'       => 'decimal:2',
-        'vat_amount'   => 'decimal:2',
-        'total_amount' => 'decimal:2',
-        'expense_date' => 'date',
-        'approved_at'  => 'datetime',
+        'amount'             => 'decimal:2',
+        'vat_amount'         => 'decimal:2',
+        'total_amount'       => 'decimal:2',
+        'expense_date'       => 'date',
+        'approved_at'        => 'datetime',
+        'bank_reconciled_at' => 'datetime',
     ];
 
     protected static function boot()
@@ -73,6 +75,11 @@ class Expense extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function bankReconciledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'bank_reconciled_by');
     }
 
     /**
