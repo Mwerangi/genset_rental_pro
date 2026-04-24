@@ -14,6 +14,16 @@
     @if(session('success'))<div class="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="mb-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
 
+    @if($unlinkedCount > 0)
+    <div class="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800 flex items-start gap-3">
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div>
+            <p class="font-semibold">{{ $unlinkedCount }} {{ Str::plural('category', $unlinkedCount) }} not linked to a ledger account.</p>
+            <p class="text-amber-700 mt-0.5">Expenses in these categories will fail when posting to the ledger. Edit each category to link an account.</p>
+        </div>
+    </div>
+    @endif
+
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
@@ -32,9 +42,12 @@
                     <td class="px-4 py-3 font-medium text-gray-900">{{ $cat->name }}</td>
                     <td class="px-4 py-3 text-xs text-gray-600">
                         @if($cat->account)
-                        <span class="font-mono">{{ $cat->account->code }}</span> {{ $cat->account->name }}
+                        <span class="font-mono text-gray-700">{{ $cat->account->code }}</span> {{ $cat->account->name }}
                         @else
-                        <span class="text-gray-400 italic">Not mapped</span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            Not mapped
+                        </span>
                         @endif
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $cat->description ?? '—' }}</td>
@@ -48,11 +61,15 @@
                     </td>
                     <td class="px-4 py-3 text-right">
                         <div class="flex items-center justify-end gap-2">
-                            <a href="{{ route('admin.accounting.expense-categories.edit', $cat) }}" class="text-xs text-gray-500 hover:underline">Edit</a>
+                            <a href="{{ route('admin.accounting.expense-categories.edit', $cat) }}" class="text-xs text-blue-600 hover:underline">Edit</a>
+                            @if($cat->expenses_count === 0)
                             <form method="POST" action="{{ route('admin.accounting.expense-categories.destroy', $cat) }}" onsubmit="return confirm('Delete this category?')">
                                 @csrf @method('DELETE')
                                 <button type="submit" class="text-xs text-red-500 hover:underline">Delete</button>
                             </form>
+                            @else
+                            <span class="text-xs text-gray-300 cursor-default" title="Cannot delete: has {{ $cat->expenses_count }} expense(s)">Delete</span>
+                            @endif
                         </div>
                     </td>
                 </tr>

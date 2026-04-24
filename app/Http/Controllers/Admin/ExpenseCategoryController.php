@@ -11,8 +11,9 @@ class ExpenseCategoryController extends Controller
 {
     public function index()
     {
-        $categories = ExpenseCategory::with('account')->withCount('expenses')->orderBy('name')->get();
-        return view('admin.accounting.expense-categories.index', compact('categories'));
+        $categories    = ExpenseCategory::with('account')->withCount('expenses')->orderBy('name')->get();
+        $unlinkedCount = $categories->whereNull('account_id')->count();
+        return view('admin.accounting.expense-categories.index', compact('categories', 'unlinkedCount'));
     }
 
     public function create()
@@ -30,7 +31,9 @@ class ExpenseCategoryController extends Controller
             'is_active'   => 'boolean',
         ]);
 
-        ExpenseCategory::create($data + ['is_active' => true]);
+        $data['is_active'] = $request->boolean('is_active', true);
+
+        ExpenseCategory::create($data);
 
         return redirect()->route('admin.accounting.expense-categories.index')
                          ->with('success', 'Expense category created.');
@@ -50,6 +53,8 @@ class ExpenseCategoryController extends Controller
             'description' => 'nullable|string',
             'is_active'   => 'boolean',
         ]);
+
+        $data['is_active'] = $request->boolean('is_active');
 
         $expenseCategory->update($data);
 

@@ -21,11 +21,17 @@
                         <option value="{{ $acc->id }}" @selected(old('account_id') == $acc->id)>{{ $acc->code }} — {{ $acc->name }}</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-gray-400 mt-1">The expense ledger account debited when this category is used</p>
+                    <p class="text-xs text-gray-400 mt-1">The expense ledger account debited when posting. Leave blank if this category is for cash requests only.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <textarea name="description" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">{{ old('description') }}</textarea>
+                </div>
+                <div>
+                    <label class="inline-flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700">
+                        <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-red-600">
+                        Active
+                    </label>
                 </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">

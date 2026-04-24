@@ -21,6 +21,11 @@
                         <option value="{{ $acc->id }}" @selected(old('account_id', $expenseCategory->account_id) == $acc->id)>{{ $acc->code }} — {{ $acc->name }}</option>
                         @endforeach
                     </select>
+                    @if(!$expenseCategory->account_id)
+                    <p class="text-xs text-amber-600 font-medium mt-1">⚠ No ledger account linked — expenses in this category cannot be posted to the ledger until one is set.</p>
+                    @else
+                    <p class="text-xs text-gray-400 mt-1">The expense account debited when posting. Only expense-type accounts shown.</p>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
