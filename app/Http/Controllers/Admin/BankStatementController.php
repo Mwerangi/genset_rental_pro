@@ -484,6 +484,8 @@ class BankStatementController extends Controller
                               ->whereNotNull('reconciled_payment_id')
                               ->whereHas('bankStatement', fn($q) => $q->where('bank_account_id', $bankAccountId))
                               ->pluck('reconciled_payment_id');
+        $usedExpenseIds   = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\Expense::class)
+                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
 
         $results = [];
 
@@ -577,6 +579,49 @@ class BankStatementController extends Controller
             }
         }
 
+        // Expenses — debit lines (money out) or free-text search
+        if (!$isCredit || $isSearch) {
+            $query = \App\Models\Expense::with(['category'])
+                ->where('bank_account_id', $bankAccountId)
+                ->whereIn('status', ['approved', 'posted'])
+                ->whereNotIn('id', $usedExpenseIds);
+
+            if ($isSearch) {
+                $query->where(function ($w) use ($q) {
+                    $w->where('expense_number', 'like', "%{$q}%")
+                      ->orWhere('description', 'like', "%{$q}%")
+                      ->orWhere('reference', 'like', "%{$q}%")
+                      ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$q}%"));
+                });
+            } else {
+                $tolerance = max($amount * 0.01, 1);
+                $query->whereBetween('expense_date', [
+                    $date->copy()->subDays(7)->toDateString(),
+                    $date->copy()->addDays(7)->toDateString(),
+                ])->whereBetween('total_amount', [$amount - $tolerance, $amount + $tolerance]);
+            }
+
+            $expMatches = $query
+                ->orderByRaw('ABS(DATEDIFF(expense_date, ?))', [$date->toDateString()])
+                ->orderByRaw('ABS(total_amount - ?)', [$amount])
+                ->limit(15)
+                ->get();
+
+            foreach ($expMatches as $exp) {
+                $results[] = [
+                    'type'           => 'expense',
+                    'id'             => $exp->id,
+                    'date'           => $exp->expense_date->format('d M Y'),
+                    'amount'         => (float) $exp->total_amount,
+                    'reference'      => $exp->reference ?? $exp->expense_number,
+                    'method'         => 'Expense',
+                    'description'    => $exp->expense_number . ' — ' . $exp->description
+                                        . ($exp->category ? ' (' . $exp->category->name . ')' : ''),
+                    'invoice_number' => null,
+                ];
+            }
+        }
+
         // Account Transfers — match both credit (money came IN → to_bank_account) and debit (money went OUT → from_bank_account)
         {
             $query = \App\Models\AccountTransfer::with(['fromAccount', 'toAccount'])
@@ -650,9 +695,33 @@ class BankStatementController extends Controller
         abort_if($transaction->status === 'reconciled', 422, 'Already reconciled.');
 
         $request->validate([
-            'payment_type' => 'required|in:invoice_payment,supplier_payment,account_transfer',
+            'payment_type' => 'required|in:invoice_payment,supplier_payment,account_transfer,expense',
             'payment_id'   => 'required|integer|min:1',
         ]);
+
+        if ($request->payment_type === 'expense') {
+            $expense = \App\Models\Expense::findOrFail($request->payment_id);
+
+            abort_if($expense->bank_account_id !== $bankStatement->bank_account_id, 422,
+                'The selected expense is not for the same bank account as this statement.');
+
+            $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\Expense::class)
+                ->where('reconciled_payment_id', $expense->id)
+                ->exists();
+            abort_if($alreadyUsed, 409, 'This expense is already reconciled to another bank transaction.');
+
+            $transaction->update([
+                'status'                   => 'reconciled',
+                'reconciled_payment_type'  => \App\Models\Expense::class,
+                'reconciled_payment_id'    => $expense->id,
+                'reconciled_at'            => now(),
+                'reconciled_by'            => auth()->id(),
+                'journal_entry_id'         => $expense->journal_entry_id ?? $transaction->journal_entry_id,
+            ]);
+
+            return back()->with('success',
+                "Transaction reconciled → linked to Expense {$expense->expense_number}. No duplicate journal entry was created.");
+        }
 
         if ($request->payment_type === 'account_transfer') {
             $transfer = \App\Models\AccountTransfer::findOrFail($request->payment_id);

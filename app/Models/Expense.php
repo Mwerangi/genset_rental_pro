@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Expense extends Model
 {
@@ -72,6 +73,15 @@ class Expense extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * The bank statement transaction this expense was reconciled to (if any).
+     */
+    public function bankTransaction(): HasOne
+    {
+        return $this->hasOne(BankTransaction::class, 'reconciled_payment_id')
+                    ->where('reconciled_payment_type', static::class);
     }
 
     // ─── Accessors ───────────────────────────────────────────────────

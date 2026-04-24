@@ -52,6 +52,7 @@ class BankTransaction extends Model
         $allowed = [
             \App\Models\InvoicePayment::class  => \App\Models\InvoicePayment::class,
             \App\Models\SupplierPayment::class => \App\Models\SupplierPayment::class,
+            \App\Models\Expense::class         => \App\Models\Expense::class,
         ];
 
         $class = $allowed[$this->reconciled_payment_type] ?? null;

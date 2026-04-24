@@ -163,7 +163,7 @@ class ExpenseController extends Controller
             && $expense->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this expense.');
         }
-        $expense->load(['category', 'bankAccount', 'journalEntry.lines.account', 'createdBy', 'approvedBy']);
+        $expense->load(['category', 'bankAccount', 'journalEntry.lines.account', 'createdBy', 'approvedBy', 'bankTransaction.bankStatement']);
         return view('admin.accounting.expenses.show', compact('expense'));
     }
 

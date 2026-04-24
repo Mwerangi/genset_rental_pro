@@ -653,6 +653,7 @@
         const inv = matches.filter(m => m.type === 'invoice_payment');
         const sup = matches.filter(m => m.type === 'supplier_payment');
         const trf = matches.filter(m => m.type === 'account_transfer');
+        const exp = matches.filter(m => m.type === 'expense');
         let html = '';
 
         if (inv.length) {
@@ -667,6 +668,11 @@
             if (inv.length || sup.length) html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mt-3 mb-1">Bank / Account Transfers</p>`;
             else html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mb-1">Bank / Account Transfers</p>`;
             html += trf.map(m => matchCard(m)).join('');
+        }
+        if (exp.length) {
+            if (inv.length || sup.length || trf.length) html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mt-3 mb-1">Expenses</p>`;
+            else html += `<p class="text-[11px] font-bold text-gray-400 uppercase tracking-wide px-1 mb-1">Expenses</p>`;
+            html += exp.map(m => matchCard(m)).join('');
         }
         list.innerHTML = html;
     }

@@ -128,6 +128,38 @@
                 </a>
             </div>
             @endif
+
+            @if($expense->bankTransaction)
+            @php $bt = $expense->bankTransaction; @endphp
+            <div class="bg-purple-50 border border-purple-200 rounded-xl shadow-sm p-4">
+                <p class="text-xs text-gray-500 uppercase font-semibold mb-3 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                    Bank Reconciliation
+                </p>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Statement</span>
+                        <a href="{{ route('admin.accounting.bank-statements.show', $bt->bankStatement) }}" class="text-blue-600 hover:underline text-xs font-medium">
+                            {{ $bt->bankStatement->reference ?: 'Statement #'.$bt->bankStatement->id }}
+                        </a>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Tx Date</span>
+                        <span class="font-medium">{{ $bt->transaction_date->format('d M Y') }}</span>
+                    </div>
+                    @if($bt->reference)
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Bank Ref</span>
+                        <span class="font-mono text-xs">{{ $bt->reference }}</span>
+                    </div>
+                    @endif
+                    <div class="flex justify-between">
+                        <span class="text-gray-500">Reconciled</span>
+                        <span class="text-purple-700 font-medium text-xs">{{ $bt->reconciled_at?->format('d M Y H:i') }}</span>
+                    </div>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </x-admin-layout>
