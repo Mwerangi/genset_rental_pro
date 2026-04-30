@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class BankTransaction extends Model
 {
@@ -43,7 +44,17 @@ class BankTransaction extends Model
     }
 
     /**
-     * Returns the InvoicePayment or SupplierPayment this transaction was reconciled against.
+     * Polymorphic relationship to the record this transaction was reconciled against.
+     * Supports eager-loading: ->with('reconciledPaymentModel')
+     */
+    public function reconciledPaymentModel(): MorphTo
+    {
+        return $this->morphTo(null, 'reconciled_payment_type', 'reconciled_payment_id');
+    }
+
+    /**
+     * Returns the payment model this transaction was reconciled against.
+     * @deprecated Use reconciledPaymentModel relationship for eager-loading.
      */
     public function reconciledPayment(): ?Model
     {
@@ -52,6 +63,7 @@ class BankTransaction extends Model
         $allowed = [
             \App\Models\InvoicePayment::class  => \App\Models\InvoicePayment::class,
             \App\Models\SupplierPayment::class => \App\Models\SupplierPayment::class,
+            \App\Models\AccountTransfer::class => \App\Models\AccountTransfer::class,
             \App\Models\Expense::class         => \App\Models\Expense::class,
         ];
 

@@ -34,6 +34,14 @@ class Expense extends Model
             if (empty($e->expense_number)) {
                 $e->expense_number = static::generateExpenseNumber();
             }
+            // Inherit zero-rated status from category if not explicitly set
+            if (empty($e->is_zero_rated) && $e->expense_category_id) {
+                $cat = ExpenseCategory::find($e->expense_category_id);
+                if ($cat && $cat->is_zero_rated) {
+                    $e->is_zero_rated = true;
+                    $e->vat_amount    = 0;
+                }
+            }
             if (empty($e->total_amount)) {
                 $e->total_amount = (float) $e->amount + (float) ($e->vat_amount ?? 0);
             }
@@ -42,8 +50,9 @@ class Expense extends Model
 
     public static function generateExpenseNumber(): string
     {
-        $year = date('Y');
-        $prefix = 'EXP-' . $year . '-';
+        $year   = date('Y');
+        $month  = date('m');
+        $prefix = 'EXP-' . $year . '-' . $month . '-';
         $last = static::where('expense_number', 'like', $prefix . '%')
             ->orderBy('expense_number', 'desc')->first();
         $n = $last ? ((int) substr($last->expense_number, -4)) + 1 : 1;

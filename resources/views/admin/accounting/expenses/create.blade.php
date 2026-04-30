@@ -8,7 +8,12 @@
         <form method="POST" action="{{ route('admin.accounting.expenses.store') }}" enctype="multipart/form-data"
               x-data="{
                   zeroRated: {{ old('is_zero_rated') ? 'true' : 'false' }},
-                  vatAmount: '{{ old('vat_amount', 0) }}'
+                  amount: '{{ old('amount', '') }}',
+                  get vatAmount() { return this.zeroRated ? 0 : Math.round((parseFloat(this.amount) || 0) * 0.18 * 100) / 100; },
+                  get vatDisplay() { return this.vatAmount.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2}); },
+                  get total() {
+                      return ((parseFloat(this.amount) || 0) + this.vatAmount).toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                  }
               }">
             @csrf
             <div class="grid grid-cols-2 gap-4">
@@ -19,8 +24,13 @@
                 </div>
                 <div x-data="{
                         selectedCat: '{{ old('expense_category_id') }}',
-                        cats: {{ $categories->map(fn($c) => ['id' => (string)$c->id, 'hasAccount' => (bool)$c->account_id])->toJson() }}
-                    }">
+                        cats: {{ $categories->map(fn($c) => ['id' => (string)$c->id, 'hasAccount' => (bool)$c->account_id, 'isZeroRated' => (bool)$c->is_zero_rated])->toJson() }}
+                    }" x-init="
+                        $watch('selectedCat', val => {
+                            const cat = cats.find(c => c.id === val);
+                            if (cat && cat.isZeroRated) { $root.zeroRated = true; }
+                        })
+                    ">
                     <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
                     <select name="expense_category_id" x-model="selectedCat" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                         <option value="">Select category</option>
@@ -46,7 +56,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Amount (excl. VAT) <span class="text-red-500">*</span></label>
-                    <input type="number" name="amount" value="{{ old('amount') }}" step="0.01" min="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
+                    <input type="number" name="amount" x-model="amount" value="{{ old('amount') }}" step="0.01" min="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                     @error('amount')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
 
@@ -55,26 +65,33 @@
                     <label class="inline-flex items-center gap-2 cursor-pointer select-none">
                         <input type="checkbox" name="is_zero_rated" value="1"
                                class="w-4 h-4 rounded border-gray-300 text-red-600"
-                               x-model="zeroRated"
-                               @change="if(zeroRated) vatAmount = '0'">
+                               x-model="zeroRated">
                         <span class="text-sm font-medium text-gray-700">Zero-rated expense (no VAT applicable)</span>
                     </label>
+                    <template x-if="zeroRated && cats && selectedCat && cats.find(c => c.id === selectedCat && c.isZeroRated)">
+                        <p class="mt-1 text-xs text-green-600 font-medium">✓ This category is set as VAT-exempt — zero-rated applied automatically.</p>
+                    </template>
                 </div>
 
-                {{-- VAT field — hidden when zero-rated --}}
-                <div x-show="!zeroRated" x-cloak>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">VAT Amount</label>
-                    <input type="number" name="vat_amount" :value="zeroRated ? 0 : vatAmount"
-                           @input="vatAmount = $el.value"
-                           step="0.01" min="0"
-                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                </div>
-                <div x-show="zeroRated" x-cloak>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">VAT</label>
-                    <div class="w-full border border-green-200 bg-green-50 rounded-lg px-3 py-2 text-sm text-green-700 font-semibold">
+                {{-- VAT (auto-calculated at 18%) --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">VAT (18% auto-calculated)</label>
+                    <div x-show="!zeroRated" x-cloak
+                         class="w-full border border-blue-200 bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800 font-semibold font-mono"
+                         x-text="vatDisplay"></div>
+                    <div x-show="zeroRated" x-cloak
+                         class="w-full border border-green-200 bg-green-50 rounded-lg px-3 py-2 text-sm text-green-700 font-semibold">
                         Zero-rated — VAT: 0.00
                     </div>
-                    <input type="hidden" name="vat_amount" value="0">
+                    <input type="hidden" name="vat_amount" :value="vatAmount">
+                </div>
+
+                {{-- Live total --}}
+                <div class="col-span-2">
+                    <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                        <span class="text-sm font-semibold text-gray-700">Total (incl. VAT)</span>
+                        <span class="text-lg font-bold text-gray-900 font-mono" x-text="'Tsh ' + total"></span>
+                    </div>
                 </div>
 
                 <div>

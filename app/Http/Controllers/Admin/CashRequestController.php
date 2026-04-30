@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AppNotification;
 use App\Models\BankAccount;
+use App\Models\BankTransaction;
 use App\Models\CashRequest;
 use App\Models\CashRequestItem;
+use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
@@ -23,7 +25,9 @@ class CashRequestController extends Controller
         // Users with approve or full accounting access see ALL requests; others see only their own
         $seeAll = PermissionService::can($user, 'view_all_cash_requests');
 
-        $query = CashRequest::with(['requestedBy', 'approvedBy'])->latest();
+        $query = CashRequest::with(['requestedBy', 'approvedBy', 'expenseCategory'])
+                              ->withCount('items')
+                              ->orderByDesc('id');
 
         if (!$seeAll) {
             $query->where('requested_by', $user->id);
@@ -31,6 +35,9 @@ class CashRequestController extends Controller
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
+        }
+        if ($request->filled('category') && $request->category !== 'all') {
+            $query->where('expense_category_id', $request->category);
         }
         if ($request->filled('search')) {
             $s = $request->search;
@@ -41,18 +48,23 @@ class CashRequestController extends Controller
             });
         }
 
-        $requests = $query->paginate(25)->withQueryString();
+        $perPage  = in_array((int) $request->get('per_page', 25), [10, 25, 50, 100]) ? (int) $request->get('per_page', 25) : 25;
+        $requests = $query->paginate($perPage)->withQueryString();
 
         $base = $seeAll ? CashRequest::query() : CashRequest::where('requested_by', $user->id);
         $stats = [
-            'pending'            => (clone $base)->where('status', 'pending')->count(),
-            'paid_this_month'    => (clone $base)->where('status', 'paid')
-                                                  ->whereMonth('paid_at', now()->month)
-                                                  ->sum('total_amount'),
-            'pending_retirement' => (clone $base)->where('status', 'paid')->count(),
+            'draft'           => (clone $base)->where('status', 'draft')->count(),
+            'pending'         => (clone $base)->where('status', 'pending')->count(),
+            'approved'        => (clone $base)->where('status', 'approved')->count(),
+            'paid_this_month' => (clone $base)->where('status', 'paid')
+                                              ->whereMonth('paid_at', now()->month)
+                                              ->whereYear('paid_at', now()->year)
+                                              ->sum('total_amount'),
         ];
 
-        return view('admin.accounting.cash-requests.index', compact('requests', 'stats', 'seeAll'));
+        $categories = ExpenseCategory::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.accounting.cash-requests.index', compact('requests', 'stats', 'seeAll', 'categories'));
     }
 
     public function create()
@@ -67,31 +79,71 @@ class CashRequestController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'purpose'               => 'required|string|max:500',
-            'items'                 => 'required|array|min:1',
-            'items.*.description'   => 'required|string|max:500',
-            'items.*.estimated_amount' => 'required|numeric|min:0.01',
-            'items.*.expense_category_id' => 'required|exists:expense_categories,id',
-            'notes'                 => 'nullable|string',
+            'purpose'                             => 'required|string|max:500',
+            'expense_date'                        => 'required|date',
+            'items'                               => 'required|array|min:1',
+            'items.*.description'                 => 'required|string|max:500',
+            'items.*.estimated_amount'            => 'required|numeric|min:0.01',
+            'items.*.expense_category_id'         => 'required|exists:expense_categories,id',
+            'items.*.zero_vat_override'           => 'nullable|boolean',
+            'items.*.vat_justification'           => 'nullable|string|max:500',
+            'attachment'                          => 'nullable|file|mimes:jpg,jpeg,png,pdf,heic|max:5120',
+            'notes'                               => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($request, &$cr) {
-            $totalAmount = collect($request->items)->sum('estimated_amount');
+            // Handle attachment
+            $attachmentPath = null;
+            if ($request->hasFile('attachment')) {
+                $attachmentPath = $request->file('attachment')->store('cash-requests', 'private');
+            }
+
+            // Compute per-item VAT
+            $categories = ExpenseCategory::whereIn('id', collect($request->items)->pluck('expense_category_id'))
+                ->get()->keyBy('id');
+
+            $netTotal = 0;
+            $vatTotal = 0;
+            $items    = [];
+            foreach ($request->items as $item) {
+                $cat             = $categories->get($item['expense_category_id']);
+                $manualZero      = !empty($item['zero_vat_override']);
+                $zeroRated       = $manualZero || ($cat ? (bool) $cat->is_zero_rated : false);
+                $net             = round((float) $item['estimated_amount'], 2);
+                $vat             = $zeroRated ? 0 : round($net * 0.18, 2);
+                $total           = $net + $vat;
+                $netTotal       += $net;
+                $vatTotal       += $vat;
+                $items[]         = [
+                    'description'         => $item['description'],
+                    'estimated_amount'    => $net,
+                    'vat_amount'          => $vat,
+                    'is_zero_rated'       => $zeroRated,
+                    'vat_justification'   => $manualZero ? ($item['vat_justification'] ?? null) : null,
+                    'total_amount'        => $total,
+                    'expense_category_id' => $item['expense_category_id'],
+                ];
+            }
+
+            $firstCatId = $items[0]['expense_category_id'] ?? null;
+            $isZeroRated = $vatTotal == 0 && $netTotal > 0;
 
             $cr = CashRequest::create([
-                'requested_by' => auth()->id(),
-                'purpose'      => $request->purpose,
-                'total_amount' => $totalAmount,
-                'status'       => 'draft',
-                'notes'        => $request->notes,
+                'requested_by'        => auth()->id(),
+                'expense_category_id' => $firstCatId,
+                'purpose'             => $request->purpose,
+                'expense_date'        => $request->expense_date,
+                'amount'              => $netTotal,
+                'vat_amount'          => $vatTotal,
+                'total_amount'        => round($netTotal + $vatTotal, 2),
+                'is_zero_rated'       => $isZeroRated,
+                'attachment'          => $attachmentPath,
+                'status'              => 'draft',
+                'notes'               => $request->notes,
             ]);
 
-            foreach ($request->items as $item) {
-                $cr->items()->create([
-                    'description'         => $item['description'],
-                    'estimated_amount'    => $item['estimated_amount'],
-                    'expense_category_id' => $item['expense_category_id'] ?? null,
-                ]);
+            foreach ($items as $item) {
+                $cr->items()->create($item);
             }
         });
 
@@ -101,8 +153,8 @@ class CashRequestController extends Controller
             CashRequest::class, $cr?->id
         );
 
-        return redirect()->route('admin.accounting.cash-requests.index')
-                         ->with('success', 'Cash request submitted as draft.');
+        return redirect()->route('admin.accounting.cash-requests.show', $cr)
+                         ->with('success', 'Cash request saved as draft.');
     }
 
     public function show(CashRequest $cashRequest)
@@ -114,7 +166,8 @@ class CashRequestController extends Controller
         }
 
         $cashRequest->load([
-            'requestedBy', 'approvedBy', 'bankAccount',
+            'requestedBy', 'approvedBy', 'bankAccount', 'expenseCategory',
+            'expense',
             'items.expenseCategory.account',
             'journalEntry.lines.account',
             'retireJournalEntry.lines.account',
@@ -126,7 +179,30 @@ class CashRequestController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.accounting.cash-requests.show', compact('cashRequest', 'bankAccounts', 'categories'));
+        // Unreconciled debit transactions for the payment bank account (for reconciliation modal)
+        $unreconciledTxns = collect();
+        if ($cashRequest->status === 'paid' && $cashRequest->expense && !$cashRequest->expense->bank_reconciled_at && $cashRequest->bank_account_id) {
+            $unreconciledTxns = BankTransaction::whereHas('bankStatement', fn($q) =>
+                    $q->where('bank_account_id', $cashRequest->bank_account_id))
+                ->where('type', 'debit')
+                ->whereNotIn('status', ['reconciled', 'ignored'])
+                ->orderByDesc('transaction_date')
+                ->limit(100)
+                ->get();
+        }
+
+        // If already reconciled, find the linked bank transaction
+        $reconciledTxn = null;
+        if ($cashRequest->status === 'paid' && $cashRequest->expense?->bank_reconciled_at) {
+            $reconciledTxn = BankTransaction::where('reconciled_payment_type', Expense::class)
+                ->where('reconciled_payment_id', $cashRequest->expense_id)
+                ->with('bankStatement')
+                ->first();
+        }
+
+        return view('admin.accounting.cash-requests.show', compact(
+            'cashRequest', 'bankAccounts', 'categories', 'unreconciledTxns', 'reconciledTxn'
+        ));
     }
 
     /** Submit draft for approval */
@@ -223,7 +299,7 @@ class CashRequestController extends Controller
         return back()->with('success', 'Cash request rejected.');
     }
 
-    /** Disburse cash (pay out) */
+    /** Disburse cash (pay out) — creates JE + Expense record */
     public function pay(Request $request, CashRequest $cashRequest)
     {
         if ($cashRequest->status !== 'approved') {
@@ -242,10 +318,33 @@ class CashRequestController extends Controller
             ]);
 
             $je = app(JournalEntryService::class)->onCashRequestDisbursed($cashRequest);
+
             if ($je) {
-                $cashRequest->update(['journal_entry_id' => $je->id]);
                 BankAccount::where('id', $request->bank_account_id)
                            ->decrement('current_balance', (float) $cashRequest->total_amount);
+
+                // Auto-create the linked Expense record
+                $expense = Expense::create([
+                    'expense_category_id' => $cashRequest->expense_category_id,
+                    'bank_account_id'     => $request->bank_account_id,
+                    'description'         => $cashRequest->purpose . ' — ' . $cashRequest->request_number,
+                    'amount'              => (float) $cashRequest->amount ?: ((float) $cashRequest->total_amount - (float) $cashRequest->vat_amount),
+                    'vat_amount'          => (float) $cashRequest->vat_amount,
+                    'total_amount'        => (float) $cashRequest->total_amount,
+                    'is_zero_rated'       => (bool) $cashRequest->is_zero_rated,
+                    'expense_date'        => $cashRequest->expense_date?->toDateString() ?? now()->toDateString(),
+                    'source_type'         => 'cash_request',
+                    'source_id'           => $cashRequest->id,
+                    'status'              => 'posted',
+                    'created_by'          => $cashRequest->requested_by,
+                    'attachment'          => $cashRequest->attachment,
+                    'journal_entry_id'    => $je->id,
+                ]);
+
+                $cashRequest->update([
+                    'journal_entry_id' => $je->id,
+                    'expense_id'       => $expense->id,
+                ]);
             }
         });
 
@@ -255,10 +354,23 @@ class CashRequestController extends Controller
             CashRequest::class, $cashRequest->id
         );
 
-        return back()->with('success', 'Cash disbursed successfully.');
+        return back()->with('success', 'Cash disbursed and expense recorded successfully.');
     }
 
     /** Retire (reconcile) a paid cash request with actual receipts */
+    /** Show the retirement form for a paid cash request */
+    public function retireForm(CashRequest $cashRequest)
+    {
+        if ($cashRequest->status !== 'paid') {
+            return redirect()->route('admin.accounting.cash-requests.show', $cashRequest)
+                             ->with('error', 'Only paid requests can be retired.');
+        }
+
+        $cashRequest->load(['items.expenseCategory', 'requestedBy', 'bankAccount', 'expense']);
+
+        return view('admin.accounting.cash-requests.retire', compact('cashRequest'));
+    }
+
     public function retire(Request $request, CashRequest $cashRequest)
     {
         if ($cashRequest->status !== 'paid') {
@@ -266,54 +378,75 @@ class CashRequestController extends Controller
         }
 
         $request->validate([
-            'items'                       => 'required|array',
-            'items.*.id'                  => 'required|exists:cash_request_items,id',
-            'items.*.actual_amount'       => 'required|numeric|min:0',
-            'items.*.receipt_ref'         => 'nullable|string|max:100',
-            'items.*.receipt_file'        => 'nullable|file|mimes:jpg,jpeg,png,pdf,heic|max:5120',
-            'items.*.expense_category_id' => 'required|exists:expense_categories,id',
+            'items'                 => 'required|array',
+            'items.*.id'            => 'required|exists:cash_request_items,id',
+            'items.*.actual_amount' => 'required|numeric|min:0',
+            'items.*.receipt_ref'   => 'nullable|string|max:100',
+            'items.*.receipt_file'  => 'nullable|file|mimes:jpg,jpeg,png,pdf,heic|max:5120',
+            'notes'                 => 'nullable|string|max:1000',
         ]);
 
-        $jePosted = false;
+        // 'posted' | 'no_variance' | 'failed'
+        $jeResult = 'no_variance';
 
-        DB::transaction(function () use ($request, $cashRequest, &$jePosted) {
-            $totalActual = 0;
+        DB::transaction(function () use ($request, $cashRequest, &$jeResult) {
+            $totalActualNet = 0;
+            $totalActualVat = 0;
+
             foreach ($request->items as $index => $itemData) {
                 $item = $cashRequest->items()->find($itemData['id']);
                 if (!$item) continue;
 
-                $receiptPath = $item->receipt_path; // keep existing if no new upload
+                $receiptPath = $item->receipt_path;
                 if ($request->hasFile("items.{$index}.receipt_file")) {
                     $file = $request->file("items.{$index}.receipt_file");
-                    $receiptPath = $file->store(
-                        "receipts/{$cashRequest->id}",
-                        'private'
-                    );
-                    // Delete old file if replacing
-                    if ($item->receipt_path && $item->receipt_path !== $receiptPath) {
+                    $newPath = $file->store("receipts/{$cashRequest->id}", 'private');
+                    if ($item->receipt_path && $item->receipt_path !== $newPath) {
                         Storage::disk('private')->delete($item->receipt_path);
                     }
+                    $receiptPath = $newPath;
                 }
 
+                $actualNet = (float) $itemData['actual_amount'];
+                $actualVat = $item->is_zero_rated ? 0 : round($actualNet * 0.18, 2);
+
                 $item->update([
-                    'actual_amount'       => $itemData['actual_amount'],
-                    'receipt_ref'         => $itemData['receipt_ref'] ?? null,
-                    'receipt_path'        => $receiptPath,
-                    'expense_category_id' => $itemData['expense_category_id'] ?? $item->expense_category_id,
+                    'actual_amount' => $actualNet,
+                    'receipt_ref'   => $itemData['receipt_ref'] ?? null,
+                    'receipt_path'  => $receiptPath,
                 ]);
-                $totalActual += (float) $itemData['actual_amount'];
+
+                $totalActualNet += $actualNet;
+                $totalActualVat += $actualVat;
             }
+
+            $totalActual = round($totalActualNet + $totalActualVat, 2);
 
             $cashRequest->update([
                 'status'        => 'retired',
                 'actual_amount' => $totalActual,
                 'retired_at'    => now(),
+                'notes'         => $request->filled('notes') ? $request->notes : $cashRequest->notes,
             ]);
 
-            $je = app(JournalEntryService::class)->onCashRequestRetired($cashRequest);
-            if ($je) {
-                $cashRequest->update(['retire_journal_entry_id' => $je->id]);
-                $jePosted = true;
+            // Update linked expense with actual amounts
+            if ($cashRequest->expense_id) {
+                $cashRequest->expense()->update([
+                    'amount'       => round($totalActualNet, 2),
+                    'vat_amount'   => round($totalActualVat, 2),
+                    'total_amount' => $totalActual,
+                ]);
+            }
+
+            $freshCr = $cashRequest->fresh(['items.expenseCategory.account', 'bankAccount']);
+            [$je, $hasVariance] = app(JournalEntryService::class)->onCashRequestRetired($freshCr);
+            if ($hasVariance) {
+                if ($je) {
+                    $cashRequest->update(['retire_journal_entry_id' => $je->id]);
+                    $jeResult = 'posted';
+                } else {
+                    $jeResult = 'failed';
+                }
             }
         });
 
@@ -323,12 +456,14 @@ class CashRequestController extends Controller
             CashRequest::class, $cashRequest->id
         );
 
-        return back()->with(
-            $jePosted ? 'success' : 'warning',
-            $jePosted
-                ? 'Cash request retired and posted to ledger.'
-                : 'Cash request retired, but journal entry could not be posted — ensure all expense categories have a linked COA account.'
-        );
+        $messages = [
+            'posted'      => ['success', 'Cash request retired and variance journal entry posted to ledger.'],
+            'no_variance' => ['success', 'Cash request retired. Actual amounts matched the estimate — no variance journal entry needed.'],
+            'failed'      => ['warning', 'Cash request retired, but the variance journal entry could not be posted. Check that all expense categories have a linked Chart of Accounts entry.'],
+        ];
+        [$level, $msg] = $messages[$jeResult];
+
+        return redirect()->route('admin.accounting.cash-requests.show', $cashRequest)->with($level, $msg);
     }
 
     /** Edit a draft cash request */
@@ -358,30 +493,71 @@ class CashRequestController extends Controller
 
         $request->validate([
             'purpose'                     => 'required|string|max:500',
+            'expense_date'                => 'required|date',
             'items'                       => 'required|array|min:1',
             'items.*.description'         => 'required|string|max:500',
             'items.*.estimated_amount'    => 'required|numeric|min:0.01',
             'items.*.expense_category_id' => 'required|exists:expense_categories,id',
+            'items.*.zero_vat_override'   => 'nullable|boolean',
+            'items.*.vat_justification'   => 'nullable|string|max:500',
+            'attachment'                  => 'nullable|file|mimes:jpg,jpeg,png,pdf,heic|max:5120',
             'notes'                       => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($request, $cashRequest) {
-            $totalAmount = collect($request->items)->sum('estimated_amount');
+            // Handle attachment
+            $attachmentPath = $cashRequest->attachment;
+            if ($request->hasFile('attachment')) {
+                if ($attachmentPath) {
+                    Storage::disk('private')->delete($attachmentPath);
+                }
+                $attachmentPath = $request->file('attachment')->store('cash-requests', 'private');
+            }
+
+            $categories = ExpenseCategory::whereIn('id', collect($request->items)->pluck('expense_category_id'))
+                ->get()->keyBy('id');
+
+            $netTotal = 0;
+            $vatTotal = 0;
+            $items    = [];
+            foreach ($request->items as $item) {
+                $cat             = $categories->get($item['expense_category_id']);
+                $manualZero      = !empty($item['zero_vat_override']);
+                $zeroRated       = $manualZero || ($cat ? (bool) $cat->is_zero_rated : false);
+                $net             = round((float) $item['estimated_amount'], 2);
+                $vat             = $zeroRated ? 0 : round($net * 0.18, 2);
+                $total           = $net + $vat;
+                $netTotal       += $net;
+                $vatTotal       += $vat;
+                $items[]         = [
+                    'description'         => $item['description'],
+                    'estimated_amount'    => $net,
+                    'vat_amount'          => $vat,
+                    'is_zero_rated'       => $zeroRated,
+                    'vat_justification'   => $manualZero ? ($item['vat_justification'] ?? null) : null,
+                    'total_amount'        => $total,
+                    'expense_category_id' => $item['expense_category_id'],
+                ];
+            }
+
+            $firstCatId  = $items[0]['expense_category_id'] ?? $cashRequest->expense_category_id;
+            $isZeroRated = $vatTotal == 0 && $netTotal > 0;
 
             $cashRequest->update([
-                'purpose'      => $request->purpose,
-                'total_amount' => $totalAmount,
-                'notes'        => $request->notes,
+                'expense_category_id' => $firstCatId,
+                'purpose'             => $request->purpose,
+                'expense_date'        => $request->expense_date,
+                'amount'              => $netTotal,
+                'vat_amount'          => $vatTotal,
+                'total_amount'        => round($netTotal + $vatTotal, 2),
+                'is_zero_rated'       => $isZeroRated,
+                'attachment'          => $attachmentPath,
+                'notes'               => $request->notes,
             ]);
 
-            // Replace all items
             $cashRequest->items()->delete();
-            foreach ($request->items as $item) {
-                $cashRequest->items()->create([
-                    'description'         => $item['description'],
-                    'estimated_amount'    => $item['estimated_amount'],
-                    'expense_category_id' => $item['expense_category_id'] ?? null,
-                ]);
+            foreach ($items as $item) {
+                $cashRequest->items()->create($item);
             }
         });
 
@@ -425,5 +601,93 @@ class CashRequestController extends Controller
         }
 
         return Storage::disk('private')->download($item->receipt_path);
+    }
+
+    public function downloadAttachment(CashRequest $cashRequest)
+    {
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'view_all_cash_requests');
+        if (!$seeAll && $cashRequest->requested_by !== $user->id) {
+            abort(403);
+        }
+
+        if (!$cashRequest->attachment) {
+            abort(404);
+        }
+
+        return Storage::disk('private')->download($cashRequest->attachment);
+    }
+
+    public function reconcile(Request $request, CashRequest $cashRequest)
+    {
+        abort_if($cashRequest->status !== 'paid', 422, 'Only paid requests can be reconciled.');
+        abort_unless($cashRequest->expense_id, 422, 'No linked expense found on this request.');
+
+        $request->validate([
+            'bank_transaction_id' => 'required|exists:bank_transactions,id',
+        ]);
+
+        $tx      = BankTransaction::with('bankStatement')->findOrFail($request->bank_transaction_id);
+        $expense = $cashRequest->expense;
+
+        abort_if($tx->bankStatement->bank_account_id !== $cashRequest->bank_account_id, 422,
+            'The selected transaction is not from the same bank account used for disbursement.');
+        abort_if($tx->status === 'reconciled', 409,
+            'This bank transaction is already reconciled to another record.');
+        abort_if($expense->bank_reconciled_at, 409,
+            'This expense is already bank-reconciled.');
+
+        $alreadyUsed = BankTransaction::where('reconciled_payment_type', Expense::class)
+            ->where('reconciled_payment_id', $expense->id)
+            ->exists();
+        abort_if($alreadyUsed, 409, 'This expense is already linked to another bank transaction.');
+
+        DB::transaction(function () use ($tx, $expense) {
+            $tx->update([
+                'status'                   => 'reconciled',
+                'reconciled_payment_type'  => Expense::class,
+                'reconciled_payment_id'    => $expense->id,
+                'reconciled_at'            => now(),
+                'reconciled_by'            => auth()->id(),
+                'journal_entry_id'         => $expense->journal_entry_id ?? $tx->journal_entry_id,
+            ]);
+            $expense->update([
+                'bank_reconciled_at' => now(),
+                'bank_reconciled_by' => auth()->id(),
+            ]);
+        });
+
+        return back()->with('success', 'Reconciled — bank transaction matched to this cash request.');
+    }
+
+    public function unreconcile(CashRequest $cashRequest)
+    {
+        abort_if($cashRequest->status !== 'paid', 422);
+        abort_unless($cashRequest->expense_id, 422);
+
+        $expense = $cashRequest->expense;
+        abort_unless($expense?->bank_reconciled_at, 422, 'This cash request is not yet reconciled.');
+
+        $tx = BankTransaction::where('reconciled_payment_type', Expense::class)
+            ->where('reconciled_payment_id', $expense->id)
+            ->first();
+
+        DB::transaction(function () use ($tx, $expense) {
+            if ($tx) {
+                $tx->update([
+                    'status'                   => 'posted',
+                    'reconciled_payment_type'  => null,
+                    'reconciled_payment_id'    => null,
+                    'reconciled_at'            => null,
+                    'reconciled_by'            => null,
+                ]);
+            }
+            $expense->update([
+                'bank_reconciled_at' => null,
+                'bank_reconciled_by' => null,
+            ]);
+        });
+
+        return back()->with('success', 'Reconciliation removed.');
     }
 }

@@ -17,8 +17,11 @@ use Illuminate\Support\Facades\DB;
 class BankStatementController extends Controller
 {
     // ── Index ────────────────────────────────────────────────────────
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = (int) $request->get('per_page', 20);
+        $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 20;
+
         $statements = BankStatement::with('bankAccount', 'createdBy')
             ->withCount([
                 'transactions',
@@ -26,9 +29,10 @@ class BankStatementController extends Controller
                 'transactions as posted_count'  => fn($q) => $q->where('status', 'posted'),
             ])
             ->latest()
-            ->paginate(20);
+            ->paginate($perPage)
+            ->withQueryString();
 
-        return view('admin.accounting.bank-statements.index', compact('statements'));
+        return view('admin.accounting.bank-statements.index', compact('statements', 'perPage'));
     }
 
     // ── Create form ──────────────────────────────────────────────────
@@ -235,13 +239,13 @@ class BankStatementController extends Controller
         $perPage = in_array($perPage, [10, 20, 50, 100]) ? $perPage : 20;
 
         $allTransactions = $bankStatement->transactions()
-            ->with(['contraAccount', 'journalEntry'])
+            ->with(['contraAccount', 'journalEntry', 'reconciledPaymentModel'])
             ->orderBy('transaction_date')
             ->orderBy('id')
             ->get();
 
         $transactions = $bankStatement->transactions()
-            ->with(['contraAccount', 'journalEntry'])
+            ->with(['contraAccount', 'journalEntry', 'reconciledPaymentModel'])
             ->orderBy('transaction_date')
             ->orderBy('id')
             ->paginate($perPage)

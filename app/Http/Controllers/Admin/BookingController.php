@@ -987,18 +987,25 @@ class BookingController extends Controller
         session(['bulk_historical' => $parsed]);
 
         return view('admin.bookings.bulk-historical-preview', [
-            'rows'       => $parsed,
-            'validCount' => count(array_filter($parsed, fn($r) => empty($r['errors']))),
+            'rows'         => $parsed,
+            'validCount'   => count(array_filter($parsed, fn($r) => empty($r['errors']))),
+            'bankAccounts' => BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'name', 'currency']),
         ]);
     }
 
     public function bulkHistoricalConfirm(\Illuminate\Http\Request $request)
     {
+        $request->validate([
+            'bank_account_id' => 'required|exists:bank_accounts,id',
+        ]);
+
         $rows = session('bulk_historical', []);
         if (empty($rows)) {
             return redirect()->route('admin.bookings.record-historical')
                 ->with('error', 'Session expired. Please upload the file again.');
         }
+
+        $bankAccount = BankAccount::findOrFail($request->bank_account_id);
 
         $saved = 0;
         $failed = 0;
@@ -1010,7 +1017,7 @@ class BookingController extends Controller
             }
 
             try {
-                DB::transaction(function () use ($row) {
+                DB::transaction(function () use ($row, $bankAccount) {
                     // Resolve or create client
                     if ($row['client_id']) {
                         $clientId = $row['client_id'];
@@ -1083,16 +1090,23 @@ class BookingController extends Controller
                     ]);
 
                     InvoicePayment::create([
-                        'invoice_id'     => $invoice->id,
-                        'payment_date'   => $row['payment_date'],
-                        'amount'         => $total,
-                        'payment_method' => $row['payment_method'],
-                        'reference'      => $row['payment_reference'] ?: null,
-                        'notes'          => 'Bulk historical import',
-                        'recorded_by'    => auth()->id(),
+                        'invoice_id'      => $invoice->id,
+                        'bank_account_id' => $bankAccount->id,
+                        'payment_date'    => $row['payment_date'],
+                        'amount'          => $total,
+                        'payment_method'  => $row['payment_method'],
+                        'reference'       => $row['payment_reference'] ?: null,
+                        'notes'           => 'Bulk historical import',
+                        'recorded_by'     => auth()->id(),
                     ]);
 
                     $booking->update(['invoice_id' => $invoice->id]);
+
+                    // Post journal entry (DR Bank / CR Revenue / CR VAT)
+                    $je = app(JournalEntryService::class)->onHistoricalSale($invoice, $bankAccount);
+                    if ($je) {
+                        InvoicePayment::where('invoice_id', $invoice->id)->latest()->first()?->update(['journal_entry_id' => $je->id]);
+                    }
                 });
                 $saved++;
             } catch (\Throwable $e) {

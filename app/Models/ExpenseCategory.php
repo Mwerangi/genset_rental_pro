@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ExpenseCategory extends Model
 {
-    protected $fillable = ['name', 'account_id', 'description', 'is_active'];
+    protected $fillable = ['name', 'account_id', 'description', 'is_active', 'is_zero_rated'];
 
-    protected $casts = ['is_active' => 'boolean'];
+    protected $casts = ['is_active' => 'boolean', 'is_zero_rated' => 'boolean'];
 
     public function account(): BelongsTo
     {

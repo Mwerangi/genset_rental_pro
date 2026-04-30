@@ -33,6 +33,15 @@
                         Active
                     </label>
                 </div>
+                <div class="pt-1 border-t border-gray-100">
+                    <label class="inline-flex items-start gap-2 cursor-pointer select-none">
+                        <input type="checkbox" name="is_zero_rated" value="1" @checked(old('is_zero_rated')) class="mt-0.5 rounded border-gray-300 text-green-600">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700">VAT-exempt category (zero-rated)</span>
+                            <p class="text-xs text-gray-400 mt-0.5">All expenses in this category will automatically have VAT set to 0. Use for fuel purchases and other tax-exempt items.</p>
+                        </div>
+                    </label>
+                </div>
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <a href="{{ route('admin.accounting.expense-categories.index') }}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Cancel</a>

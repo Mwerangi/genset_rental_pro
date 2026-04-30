@@ -59,13 +59,24 @@
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Debit (TZS)</th>
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Credit (TZS)</th>
+                    <th class="text-right px-4 py-3 font-semibold text-gray-600">Balance (TZS)</th>
                     @if($account->isForeignCurrency())
                     <th class="text-right px-4 py-3 font-semibold text-gray-600">Foreign Amt</th>
                     @endif
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
+                @php $runningBal = $openingBalance; @endphp
                 @forelse($lines as $line)
+                @php
+                    // For debit-normal accounts (assets/expenses): debit increases, credit decreases
+                    // For credit-normal accounts (liabilities/equity/revenue): credit increases, debit decreases
+                    if ($account->normal_balance === 'debit') {
+                        $runningBal += ($line->debit - $line->credit);
+                    } else {
+                        $runningBal += ($line->credit - $line->debit);
+                    }
+                @endphp
                 <tr class="hover:bg-gray-50">
                     <td class="px-4 py-3 text-gray-600 text-xs">{{ $line->journalEntry->entry_date?->format('d M Y') }}</td>
                     <td class="px-4 py-3">
@@ -80,6 +91,10 @@
                     <td class="px-4 py-3 text-right font-mono {{ $line->credit > 0 ? 'text-gray-900 font-semibold' : 'text-gray-300' }}">
                         {{ $line->credit > 0 ? number_format($line->credit, 0) : '—' }}
                     </td>
+                    <td class="px-4 py-3 text-right font-mono font-semibold {{ $runningBal >= 0 ? 'text-gray-800' : 'text-red-600' }}">
+                        {{ number_format(abs($runningBal), 0) }}
+                        @if($runningBal < 0)<span class="text-xs font-normal text-red-500"> Cr</span>@endif
+                    </td>
                     @if($account->isForeignCurrency())
                     <td class="px-4 py-3 text-right font-mono text-indigo-700">
                         @if($line->foreign_amount)
@@ -91,7 +106,7 @@
                     @endif
                 </tr>
                 @empty
-                <tr><td colspan="{{ $account->isForeignCurrency() ? 6 : 5 }}" class="px-4 py-10 text-center text-gray-400">No posted transactions yet.</td></tr>
+                <tr><td colspan="{{ $account->isForeignCurrency() ? 7 : 6 }}" class="px-4 py-10 text-center text-gray-400">No posted transactions yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

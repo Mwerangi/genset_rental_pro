@@ -5,17 +5,44 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AccountController extends Controller
 {
     public function index(Request $request)
     {
-        $type   = $request->get('type');
+        $type    = $request->get('type');
+        $perPage = (int) $request->get('per_page', 25);
+        $perPage = in_array($perPage, [10, 25, 50, 100]) ? $perPage : 25;
+
         $query  = Account::with('parent')
                     ->when($type, fn($q) => $q->where('type', $type))
                     ->orderBy('code');
 
-        $accounts = $query->get();
+        $accounts = $query->paginate($perPage)->withQueryString();
+
+        // Build a recursive rolled-up balance map: each parent shows sum of all descendants
+        $allAccs    = Account::get(['id', 'parent_id', 'balance']);
+        $rawBal     = $allAccs->pluck('balance', 'id')->map(fn($v) => (float) $v)->toArray();
+        $childrenOf = [];
+        foreach ($allAccs as $a) {
+            if ($a->parent_id) {
+                $childrenOf[$a->parent_id][] = $a->id;
+            }
+        }
+        $rolledBalances = [];
+        $rollup = null;
+        $rollup = function (int $id) use (&$rollup, $childrenOf, $rawBal, &$rolledBalances): float {
+            if (array_key_exists($id, $rolledBalances)) return $rolledBalances[$id];
+            $total = $rawBal[$id] ?? 0.0;
+            foreach ($childrenOf[$id] ?? [] as $cid) {
+                $total += $rollup($cid);
+            }
+            return $rolledBalances[$id] = $total;
+        };
+        foreach ($allAccs as $a) {
+            $rollup($a->id);
+        }
 
         $totals = [
             'asset'     => Account::where('type', 'asset')->sum('balance'),
@@ -25,7 +52,7 @@ class AccountController extends Controller
             'expense'   => Account::where('type', 'expense')->sum('balance'),
         ];
 
-        return view('admin.accounting.accounts.index', compact('accounts', 'totals', 'type'));
+        return view('admin.accounting.accounts.index', compact('accounts', 'totals', 'type', 'perPage', 'rolledBalances'));
     }
 
     public function create()
@@ -56,15 +83,44 @@ class AccountController extends Controller
 
     public function show(Account $account)
     {
-        $account->load(['parent', 'children', 'journalEntryLines.journalEntry']);
+        $account->load(['parent', 'children']);
 
+        // Order lines oldest-first so running balance is chronologically meaningful
         $lines = $account->journalEntryLines()
                          ->with('journalEntry')
                          ->whereHas('journalEntry', fn($q) => $q->where('status', 'posted'))
-                         ->latest('created_at')
+                         ->join('journal_entries as je', 'journal_entry_lines.journal_entry_id', '=', 'je.id')
+                         ->orderBy('je.entry_date', 'asc')
+                         ->orderBy('journal_entry_lines.id', 'asc')
+                         ->select('journal_entry_lines.*')
                          ->paginate(30);
 
-        return view('admin.accounting.accounts.show', compact('account', 'lines'));
+        // Compute the net balance of all lines BEFORE this page so we can display
+        // a per-row running balance. Split into two queries: first fetch the prior
+        // row IDs (ORDER BY + LIMIT), then aggregate over those IDs (no LIMIT + SUM).
+        $offset = ($lines->currentPage() - 1) * $lines->perPage();
+        if ($offset > 0) {
+            $priorIds = $account->journalEntryLines()
+                ->whereHas('journalEntry', fn($q) => $q->where('status', 'posted'))
+                ->join('journal_entries as je2', 'journal_entry_lines.journal_entry_id', '=', 'je2.id')
+                ->orderBy('je2.entry_date', 'asc')
+                ->orderBy('journal_entry_lines.id', 'asc')
+                ->select('journal_entry_lines.id')
+                ->take($offset)
+                ->pluck('journal_entry_lines.id');
+
+            $priorNet = (float) $account->journalEntryLines()
+                ->whereIn('id', $priorIds)
+                ->selectRaw('SUM(debit) - SUM(credit) as net')
+                ->value('net');
+        } else {
+            $priorNet = 0.0;
+        }
+
+        // Opening balance for this page in "normal balance direction"
+        $openingBalance = $account->normal_balance === 'debit' ? $priorNet : -$priorNet;
+
+        return view('admin.accounting.accounts.show', compact('account', 'lines', 'openingBalance'));
     }
 
     public function edit(Account $account)

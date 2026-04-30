@@ -152,6 +152,27 @@
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                                 Reconciled {{ $tx->reconciled_at?->format('d M Y') }}
                             </span>
+                            @php $rp = $tx->reconciledPaymentModel; @endphp
+                            @if($rp instanceof \App\Models\Expense)
+                                <a href="{{ route('admin.accounting.expenses.show', $rp) }}"
+                                   class="block text-xs text-blue-600 hover:underline mt-0.5 font-medium">
+                                    → {{ $rp->expense_number }}: {{ Str::limit($rp->description, 40) }}
+                                </a>
+                            @elseif($rp instanceof \App\Models\InvoicePayment)
+                                <span class="block text-xs text-gray-500 mt-0.5">
+                                    → Invoice Pmt {{ $rp->receipt_number ?? $rp->reference ?? '#'.$rp->id }}
+                                    @if($rp->invoice?->client)· {{ $rp->invoice->client->company_name ?? $rp->invoice->client->full_name }}@endif
+                                </span>
+                            @elseif($rp instanceof \App\Models\SupplierPayment)
+                                <span class="block text-xs text-gray-500 mt-0.5">
+                                    → Supplier Pmt {{ $rp->payment_number ?? $rp->reference ?? '#'.$rp->id }}
+                                </span>
+                            @elseif($rp instanceof \App\Models\AccountTransfer)
+                                <span class="block text-xs text-gray-500 mt-0.5">
+                                    → Transfer {{ $rp->reference ?? '#'.$rp->id }}
+                                    ({{ $rp->fromAccount?->name }} → {{ $rp->toAccount?->name }})
+                                </span>
+                            @endif
                         @endif
                         @if($tx->notes) <span class="text-xs text-gray-400 block">{{ $tx->notes }}</span> @endif
                     </td>

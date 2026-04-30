@@ -63,6 +63,10 @@
                     </td>
                     <td class="px-4 py-3 text-gray-500 text-xs">{{ $account->parent?->name ?? '—' }}</td>
                     <td class="px-4 py-3 text-right font-mono font-semibold">
+                        @php
+                            $displayBal  = $rolledBalances[$account->id] ?? (float) $account->balance;
+                            $isRolledUp  = isset($rolledBalances[$account->id]) && $displayBal !== (float) $account->balance;
+                        @endphp
                         @if($account->isForeignCurrency())
                             @php $fbal = $account->foreignBalance(); @endphp
                             <span class="block {{ ($fbal ?? 0) >= 0 ? 'text-indigo-700' : 'text-red-600' }}">
@@ -70,18 +74,21 @@
                                 @if(($fbal ?? 0) < 0) <span class="text-xs">(Cr)</span>@endif
                             </span>
                             <span class="block text-xs text-gray-400 mt-0.5">
-                                Tsh {{ number_format(abs($account->balance), 0) }}
-                                @if($account->balance < 0) (Cr)@endif
+                                Tsh {{ number_format(abs($displayBal), 0) }}
+                                @if($displayBal < 0) (Cr)@endif
                             </span>
                         @else
-                            @php $isAbnormal = $account->balance < 0; @endphp
+                            @php $isAbnormal = $displayBal < 0; @endphp
                             <span class="{{ $isAbnormal ? 'text-red-600' : 'text-gray-900' }}">
-                                Tsh {{ number_format(abs($account->balance), 0) }}
+                                Tsh {{ number_format(abs($displayBal), 0) }}
                                 @if($isAbnormal)
                                     <span class="text-xs">(Cr)</span>
                                 @endif
                             </span>
-                            @if($isAbnormal)
+                            @if($isRolledUp)
+                                <span class="block text-xs text-gray-400 font-normal mt-0.5" title="Includes balances of all sub-accounts">∑ subtotal</span>
+                            @endif
+                            @if($isAbnormal && !$isRolledUp)
                                 <span class="block text-xs text-orange-500 font-normal mt-0.5" title="Balance is in the abnormal direction — check for reversed entries">⚠ Abnormal</span>
                             @endif
                         @endif
@@ -111,5 +118,68 @@
                 @endforelse
             </tbody>
         </table>
+    </div>
+
+    {{-- Pagination bar --}}
+    <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+
+        {{-- Left: showing X–Y of Z + per-page selector --}}
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+            <span>
+                Showing
+                <strong>{{ $accounts->firstItem() ?? 0 }}</strong>–<strong>{{ $accounts->lastItem() ?? 0 }}</strong>
+                of <strong>{{ $accounts->total() }}</strong> accounts
+            </span>
+
+            {{-- Per-page dropdown --}}
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
+                <label class="text-xs text-gray-500">Show</label>
+                <select name="per_page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @foreach([10, 25, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }}</option>
+                    @endforeach
+                </select>
+                <span class="text-xs text-gray-500">per page</span>
+            </form>
+        </div>
+
+        {{-- Right: group-jump dropdown + prev/next --}}
+        <div class="flex items-center gap-2">
+            @if($accounts->lastPage() > 1)
+            {{-- Jump to page --}}
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                @if(request('type'))<input type="hidden" name="type" value="{{ request('type') }}">@endif
+                <input type="hidden" name="per_page" value="{{ $perPage }}">
+                <label class="text-xs text-gray-500 whitespace-nowrap">Jump to</label>
+                <select name="page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @for($p = 1; $p <= $accounts->lastPage(); $p++)
+                        @php
+                            $from = (($p - 1) * $perPage) + 1;
+                            $to   = min($p * $perPage, $accounts->total());
+                        @endphp
+                        <option value="{{ $p }}" @selected($accounts->currentPage() === $p)>
+                            {{ number_format($from) }}–{{ number_format($to) }}
+                        </option>
+                    @endfor
+                </select>
+            </form>
+
+            {{-- Prev / Next buttons --}}
+            @if($accounts->onFirstPage())
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">← Prev</span>
+            @else
+                <a href="{{ $accounts->previousPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">← Prev</a>
+            @endif
+
+            @if($accounts->hasMorePages())
+                <a href="{{ $accounts->nextPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Next →</a>
+            @else
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next →</span>
+            @endif
+            @endif
+        </div>
     </div>
 </x-admin-layout>

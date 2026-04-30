@@ -558,7 +558,9 @@ class JournalEntryService
             'bank_account_id'     => $bankAccount->id,
             'description'         => "Fuel — {$fuelLog->genset->asset_number} — " . $fuelLog->fuelled_at->format('d M Y'),
             'amount'              => $total,
+            'vat_amount'          => 0,
             'total_amount'        => $total,
+            'is_zero_rated'       => true,   // Fuel is VAT-exempt
             'expense_date'        => $fuelLog->fuelled_at->toDateString(),
             'source_type'         => 'fuel_log',
             'source_id'           => $fuelLog->id,
@@ -635,72 +637,158 @@ class JournalEntryService
      */
     public function onCashRequestDisbursed(CashRequest $cr): ?JournalEntry
     {
-        $cr->load('bankAccount');
+        $cr->load(['bankAccount', 'items.expenseCategory.account']);
         $bankAccount = $cr->bankAccount;
         if (!$bankAccount || !$bankAccount->account_id) return null;
 
         $bankCoa = Account::find($bankAccount->account_id);
         if (!$bankCoa) return null;
 
+        $lines      = [];
+        $totalNet   = 0;
+        $totalVat   = 0;
+
+        foreach ($cr->items as $item) {
+            $net = round((float) $item->estimated_amount, 2);
+            $vat = round((float) ($item->vat_amount ?? 0), 2);
+            if ($net <= 0) continue;
+
+            $acctCode = $item->expenseCategory?->account?->code ?? '5240';
+            $lines[]  = [
+                'account_code' => $acctCode,
+                'debit'        => $net,
+                'credit'       => 0,
+                'description'  => $item->description,
+            ];
+            $totalNet += $net;
+            $totalVat += $vat;
+        }
+
+        if (empty($lines)) {
+            // Fallback: single line from header category
+            $acctCode = $cr->expenseCategory?->account?->code ?? '5240';
+            $totalNet = round((float) $cr->amount ?: (float) $cr->total_amount, 2);
+            $lines[]  = ['account_code' => $acctCode, 'debit' => $totalNet, 'credit' => 0, 'description' => $cr->purpose];
+            $totalVat = round((float) $cr->vat_amount, 2);
+        }
+
+        if ($totalVat > 0) {
+            $lines[] = [
+                'account_code' => '1180',
+                'debit'        => $totalVat,
+                'credit'       => 0,
+                'description'  => "VAT input — {$cr->request_number}",
+            ];
+        }
+
+        $totalGross = round($totalNet + $totalVat, 2);
+        $lines[]    = [
+            'account_code' => $bankCoa->code,
+            'debit'        => 0,
+            'credit'       => $totalGross,
+            'description'  => "Cash disbursed — {$cr->request_number}",
+        ];
+
         return $this->createAndPost(
-            "Cash disbursed — {$cr->request_number}: {$cr->purpose}",
+            "Cash request — {$cr->request_number}: {$cr->purpose}",
             'cash_request',
             $cr->id,
-            [
-                ['account_code' => '1160',          'debit' => (float) $cr->total_amount, 'credit' => 0,                           'description' => "Advance — {$cr->requestedBy->name}"],
-                ['account_code' => $bankCoa->code,  'debit' => 0,                          'credit' => (float) $cr->total_amount,  'description' => "Cash out — {$cr->request_number}"],
-            ],
-            now()->toDateString(),
+            $lines,
+            $cr->expense_date?->toDateString() ?? now()->toDateString(),
             auth()->id()
         );
     }
 
     /**
-     * When a cash request is retired (reconciled with receipts):
-     *   DR 5XXX Expense accounts  (actual per item)
-     *   CR 1160 Staff Advances    (actual_amount)
-     *   DR/CR 1130 Petty Cash     (over/under spent)
+     * When a cash request is retired (actuals submitted):
+     * Posts a VARIANCE-ONLY journal entry correcting the original disbursement.
+     *   - Per item: DR/CR expense account by (actual – estimated) net delta
+     *   - VAT variance: DR/CR 1180 VAT Input
+     *   - Offset:  DR bank (under-spent / surplus returned) or CR bank (over-spent)
+     * Returns [JournalEntry|null, bool $hasVariance].
+     * hasVariance=false means actual == estimated (no JE needed).
+     * hasVariance=true + null JE means config error (missing bank COA).
      */
-    public function onCashRequestRetired(CashRequest $cr): ?JournalEntry
+    public function onCashRequestRetired(CashRequest $cr): array
     {
-        $cr->loadMissing('items.expenseCategory.account');
-        $actual = (float) $cr->actual_amount;
-        $disbursed = (float) $cr->total_amount;
+        $cr->loadMissing(['items.expenseCategory.account', 'bankAccount']);
+
+        // Compute estimated and actual gross totals first (needed to detect zero variance
+        // before touching the bank account, so we can return early cleanly)
+        $estimatedVat = 0;
+        $actualVat    = 0;
+
+        foreach ($cr->items as $item) {
+            $estimatedVat += (float) ($item->vat_amount ?? 0);
+            $actNet = (float) ($item->actual_amount ?? $item->estimated_amount);
+            $actualVat += $item->is_zero_rated ? 0 : round($actNet * 0.18, 2);
+        }
+
+        $estimatedGross = round(
+            $cr->items->sum(fn($i) => (float) $i->estimated_amount) + $estimatedVat, 2
+        );
+        $actualGross = round(
+            $cr->items->sum(fn($i) => (float) ($i->actual_amount ?? $i->estimated_amount)) + $actualVat, 2
+        );
+
+        $grossVariance = round($actualGross - $estimatedGross, 2);
+
+        if (abs($grossVariance) < 0.01) {
+            return [null, false]; // No variance — nothing to post
+        }
+
+        // Variance exists — now check bank account config
+        $bankAccount = $cr->bankAccount;
+        if (!$bankAccount || !$bankAccount->account_id) return [null, true];
+
+        $bankCoa = Account::find($bankAccount->account_id);
+        if (!$bankCoa) return [null, true];
 
         $lines = [];
 
-        // DR each expense category
+        // Per-item net variance
         foreach ($cr->items as $item) {
-            $amt = (float) ($item->actual_amount ?? $item->estimated_amount);
-            if ($amt <= 0) continue;
-            $acctCode = $item->expenseCategory?->account?->code ?? '5240'; // default to admin
-            $lines[] = ['account_code' => $acctCode, 'debit' => $amt, 'credit' => 0, 'description' => $item->description];
+            $estNet = (float) $item->estimated_amount;
+            $actNet = (float) ($item->actual_amount ?? $estNet);
+            $delta  = round($actNet - $estNet, 2);
+
+            if (abs($delta) < 0.01) continue;
+
+            $acctCode = $item->expenseCategory?->account?->code ?? '5240';
+            if ($delta > 0) {
+                $lines[] = ['account_code' => $acctCode, 'debit' => $delta, 'credit' => 0, 'description' => "Over-spend: {$item->description}"];
+            } else {
+                $lines[] = ['account_code' => $acctCode, 'debit' => 0, 'credit' => abs($delta), 'description' => "Under-spend: {$item->description}"];
+            }
         }
 
-        // CR Staff Advances (actual amount spent)
-        $lines[] = ['account_code' => '1160', 'debit' => 0, 'credit' => $actual, 'description' => "Advance retired — {$cr->request_number}"];
-
-        // Handle over/under spend
-        $diff = round($disbursed - $actual, 2);
-        if ($diff > 0) {
-            // Under-spent — cash returned to petty cash
-            $lines[] = ['account_code' => '1160', 'debit' => 0,     'credit' => $diff, 'description' => 'Under-spend returned'];
-            $lines[] = ['account_code' => '1130', 'debit' => $diff, 'credit' => 0,     'description' => 'Cash return to petty cash'];
-        } elseif ($diff < 0) {
-            // Over-spent — additional charge
-            $extra = abs($diff);
-            $lines[] = ['account_code' => '5240', 'debit' => $extra, 'credit' => 0,      'description' => 'Over-spend'];
-            $lines[] = ['account_code' => '1160', 'debit' => 0,      'credit' => $extra, 'description' => 'Over-spend settled from advance'];
+        // VAT variance
+        $vatVariance = round($actualVat - $estimatedVat, 2);
+        if (abs($vatVariance) >= 0.01) {
+            if ($vatVariance > 0) {
+                $lines[] = ['account_code' => '1180', 'debit' => $vatVariance, 'credit' => 0, 'description' => "VAT variance — {$cr->request_number}"];
+            } else {
+                $lines[] = ['account_code' => '1180', 'debit' => 0, 'credit' => abs($vatVariance), 'description' => "VAT variance — {$cr->request_number}"];
+            }
         }
 
-        return $this->createAndPost(
-            "Cash request retired — {$cr->request_number}",
+        // Offsetting bank entry
+        if ($grossVariance > 0) {
+            $lines[] = ['account_code' => $bankCoa->code, 'debit' => 0, 'credit' => $grossVariance, 'description' => "Over-spend settled — {$cr->request_number}"];
+        } else {
+            $lines[] = ['account_code' => $bankCoa->code, 'debit' => abs($grossVariance), 'credit' => 0, 'description' => "Surplus returned — {$cr->request_number}"];
+        }
+
+        $je = $this->createAndPost(
+            "Cash request variance — {$cr->request_number}: {$cr->purpose}",
             'cash_request',
             $cr->id,
             $lines,
             now()->toDateString(),
             auth()->id()
         );
+
+        return [$je, true];
     }
 
     // ─── CREDIT NOTE ─────────────────────────────────────────────────

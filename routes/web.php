@@ -430,12 +430,16 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::delete('/accounting/cash-requests/{cashRequest}', [CashRequestController::class, 'destroy'])->name('accounting.cash-requests.destroy');
         Route::post('/accounting/cash-requests/{cashRequest}/submit', [CashRequestController::class, 'submit'])->name('accounting.cash-requests.submit');
         Route::get('/accounting/cash-requests/{cashRequest}/receipt/{item}', [CashRequestController::class, 'downloadReceipt'])->name('accounting.cash-requests.receipt');
+        Route::get('/accounting/cash-requests/{cashRequest}/attachment', [CashRequestController::class, 'downloadAttachment'])->name('accounting.cash-requests.attachment');
+        Route::get('/accounting/cash-requests/{cashRequest}/retire', [CashRequestController::class, 'retireForm'])->name('accounting.cash-requests.retire.form');
+        Route::post('/accounting/cash-requests/{cashRequest}/retire', [CashRequestController::class, 'retire'])->name('accounting.cash-requests.retire');
         // Approval actions require approve_cash_requests (or full view_accounting)
         Route::middleware('permission:view_accounting|approve_cash_requests')->group(function () {
             Route::post('/accounting/cash-requests/{cashRequest}/approve', [CashRequestController::class, 'approve'])->name('accounting.cash-requests.approve');
             Route::post('/accounting/cash-requests/{cashRequest}/reject', [CashRequestController::class, 'reject'])->name('accounting.cash-requests.reject');
             Route::post('/accounting/cash-requests/{cashRequest}/pay', [CashRequestController::class, 'pay'])->name('accounting.cash-requests.pay');
-            Route::post('/accounting/cash-requests/{cashRequest}/retire', [CashRequestController::class, 'retire'])->name('accounting.cash-requests.retire');
+            Route::post('/accounting/cash-requests/{cashRequest}/reconcile', [CashRequestController::class, 'reconcile'])->name('accounting.cash-requests.reconcile');
+            Route::post('/accounting/cash-requests/{cashRequest}/unreconcile', [CashRequestController::class, 'unreconcile'])->name('accounting.cash-requests.unreconcile');
         });
     });
 
@@ -536,12 +540,12 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // ─── USER MANAGEMENT ─────────────────────────────────────────────────────
     Route::middleware('permission:view_users')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
-        Route::get('/users/{user}/activity-log', [UserController::class, 'activityLog'])->name('users.activity-log');
         Route::middleware('permission:create_users')->group(function () {
             Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
             Route::post('/users', [UserController::class, 'store'])->name('users.store');
         });
+        Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+        Route::get('/users/{user}/activity-log', [UserController::class, 'activityLog'])->name('users.activity-log');
         Route::middleware('permission:edit_users')->group(function () {
             Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
             Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');

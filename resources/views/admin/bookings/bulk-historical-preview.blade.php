@@ -157,8 +157,15 @@
                     ← Start Over
                 </a>
                 @if($validCount > 0)
-                    <form method="POST" action="{{ route('admin.bookings.bulk-historical-confirm') }}">
+                    <form method="POST" action="{{ route('admin.bookings.bulk-historical-confirm') }}" class="flex items-center gap-3">
                         @csrf
+                        <select name="bank_account_id" required
+                            class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                            <option value="">— Select bank account —</option>
+                            @foreach($bankAccounts as $ba)
+                            <option value="{{ $ba->id }}">{{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})</option>
+                            @endforeach
+                        </select>
                         <button type="submit"
                             class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

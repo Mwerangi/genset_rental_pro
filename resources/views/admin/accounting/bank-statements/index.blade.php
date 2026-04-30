@@ -70,8 +70,63 @@
             </tbody>
         </table>
 
-        @if($statements->hasPages())
-        <div class="px-4 py-3 border-t border-gray-100">{{ $statements->links() }}</div>
-        @endif
+    </div>
+
+    {{-- Pagination bar --}}
+    <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+
+        {{-- Left: showing X–Y of Z + per-page selector --}}
+        <div class="flex items-center gap-3 text-sm text-gray-600">
+            <span>
+                Showing
+                <strong>{{ $statements->firstItem() ?? 0 }}</strong>–<strong>{{ $statements->lastItem() ?? 0 }}</strong>
+                of <strong>{{ $statements->total() }}</strong> statements
+            </span>
+
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                <label class="text-xs text-gray-500">Show</label>
+                <select name="per_page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @foreach([10, 20, 50, 100] as $n)
+                    <option value="{{ $n }}" @selected($perPage === $n)>{{ $n }}</option>
+                    @endforeach
+                </select>
+                <span class="text-xs text-gray-500">per page</span>
+            </form>
+        </div>
+
+        {{-- Right: jump-to + prev/next --}}
+        <div class="flex items-center gap-2">
+            @if($statements->lastPage() > 1)
+            <form method="GET" action="{{ request()->url() }}" class="flex items-center gap-1">
+                <input type="hidden" name="per_page" value="{{ $perPage }}">
+                <label class="text-xs text-gray-500 whitespace-nowrap">Jump to</label>
+                <select name="page" onchange="this.form.submit()"
+                    class="border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    @for($p = 1; $p <= $statements->lastPage(); $p++)
+                        @php
+                            $from = (($p - 1) * $perPage) + 1;
+                            $to   = min($p * $perPage, $statements->total());
+                        @endphp
+                        <option value="{{ $p }}" @selected($statements->currentPage() === $p)>
+                            {{ number_format($from) }}–{{ number_format($to) }}
+                        </option>
+                    @endfor
+                </select>
+            </form>
+
+            @if($statements->onFirstPage())
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">← Prev</span>
+            @else
+                <a href="{{ $statements->previousPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">← Prev</a>
+            @endif
+
+            @if($statements->hasMorePages())
+                <a href="{{ $statements->nextPageUrl() }}" class="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Next →</a>
+            @else
+                <span class="px-3 py-1.5 text-sm text-gray-300 border border-gray-200 rounded-lg cursor-not-allowed">Next →</span>
+            @endif
+            @endif
+        </div>
     </div>
 </x-admin-layout>

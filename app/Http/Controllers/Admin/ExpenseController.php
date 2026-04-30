@@ -18,7 +18,7 @@ class ExpenseController extends Controller
         $user   = auth()->user();
         $seeAll = PermissionService::can($user, 'view_all_expenses');
 
-        $query = Expense::with(['category', 'bankAccount', 'createdBy'])->latest('expense_date');
+        $query = Expense::with(['category', 'bankAccount', 'createdBy'])->orderByDesc('id');
 
         if (!$seeAll) {
             $query->where('created_by', $user->id);

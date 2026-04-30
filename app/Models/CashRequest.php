@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\BankAccount;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,18 +12,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class CashRequest extends Model
 {
     protected $fillable = [
-        'request_number', 'requested_by', 'purpose', 'total_amount',
-        'actual_amount', 'status', 'bank_account_id',
+        'request_number', 'requested_by', 'expense_category_id',
+        'purpose', 'amount', 'vat_amount', 'total_amount', 'actual_amount',
+        'is_zero_rated', 'expense_date', 'attachment',
+        'status', 'bank_account_id',
         'approved_by', 'approved_at', 'paid_at', 'retired_at',
-        'notes', 'rejection_reason', 'journal_entry_id', 'retire_journal_entry_id',
+        'notes', 'rejection_reason',
+        'journal_entry_id', 'retire_journal_entry_id', 'expense_id',
     ];
 
     protected $casts = [
-        'total_amount'  => 'decimal:2',
-        'actual_amount' => 'decimal:2',
-        'approved_at'   => 'datetime',
-        'paid_at'       => 'datetime',
-        'retired_at'    => 'datetime',
+        'total_amount'    => 'decimal:2',
+        'amount'          => 'decimal:2',
+        'vat_amount'      => 'decimal:2',
+        'actual_amount'   => 'decimal:2',
+        'is_zero_rated'   => 'boolean',
+        'expense_date'    => 'date',
+        'approved_at'     => 'datetime',
+        'paid_at'         => 'datetime',
+        'retired_at'      => 'datetime',
     ];
 
     protected static function boot()
@@ -36,8 +46,7 @@ class CashRequest extends Model
 
     public static function generateRequestNumber(): string
     {
-        $year = date('Y');
-        $prefix = 'CR-' . $year . '-';
+        $prefix = 'CR-' . date('Y') . date('m') . '-';
         $last = static::where('request_number', 'like', $prefix . '%')
             ->orderBy('request_number', 'desc')->first();
         $n = $last ? ((int) substr($last->request_number, -4)) + 1 : 1;
@@ -59,6 +68,16 @@ class CashRequest extends Model
     public function bankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class);
+    }
+
+    public function expenseCategory(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseCategory::class);
+    }
+
+    public function expense(): BelongsTo
+    {
+        return $this->belongsTo(Expense::class);
     }
 
     public function journalEntry(): BelongsTo

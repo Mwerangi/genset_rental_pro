@@ -25,13 +25,15 @@ class ExpenseCategoryController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'        => 'required|string|max:200|unique:expense_categories,name',
-            'account_id'  => 'nullable|exists:accounts,id',
-            'description' => 'nullable|string',
-            'is_active'   => 'boolean',
+            'name'          => 'required|string|max:200|unique:expense_categories,name',
+            'account_id'    => 'nullable|exists:accounts,id',
+            'description'   => 'nullable|string',
+            'is_active'     => 'boolean',
+            'is_zero_rated' => 'boolean',
         ]);
 
-        $data['is_active'] = $request->boolean('is_active', true);
+        $data['is_active']     = $request->boolean('is_active', true);
+        $data['is_zero_rated'] = $request->boolean('is_zero_rated', false);
 
         ExpenseCategory::create($data);
 
@@ -48,13 +50,15 @@ class ExpenseCategoryController extends Controller
     public function update(Request $request, ExpenseCategory $expenseCategory)
     {
         $data = $request->validate([
-            'name'        => 'required|string|max:200|unique:expense_categories,name,' . $expenseCategory->id,
-            'account_id'  => 'nullable|exists:accounts,id',
-            'description' => 'nullable|string',
-            'is_active'   => 'boolean',
+            'name'          => 'required|string|max:200|unique:expense_categories,name,' . $expenseCategory->id,
+            'account_id'    => 'nullable|exists:accounts,id',
+            'description'   => 'nullable|string',
+            'is_active'     => 'boolean',
+            'is_zero_rated' => 'boolean',
         ]);
 
-        $data['is_active'] = $request->boolean('is_active');
+        $data['is_active']     = $request->boolean('is_active');
+        $data['is_zero_rated'] = $request->boolean('is_zero_rated', false);
 
         $expenseCategory->update($data);
 
