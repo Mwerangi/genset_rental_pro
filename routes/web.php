@@ -410,6 +410,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
             Route::post('/accounting/expenses/{expense}/approve', [ExpenseController::class, 'approve'])->name('accounting.expenses.approve');
             Route::post('/accounting/expenses/{expense}/reject', [ExpenseController::class, 'reject'])->name('accounting.expenses.reject');
             Route::post('/accounting/expenses/{expense}/post', [ExpenseController::class, 'post'])->name('accounting.expenses.post');
+            Route::post('/accounting/expenses/bulk-approve', [ExpenseController::class, 'bulkApprove'])->name('accounting.expenses.bulk-approve');
+            Route::post('/accounting/expenses/bulk-post', [ExpenseController::class, 'bulkPost'])->name('accounting.expenses.bulk-post');
         });
     });
 
@@ -511,6 +513,8 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/reports/invoices/outstanding/export', [ReportsController::class, 'outstandingInvoicesExport'])->name('reports.invoices.outstanding.export');
         Route::get('/reports/accounting/general-ledger', [ReportsController::class, 'generalLedger'])->name('reports.accounting.general-ledger');
         Route::get('/reports/accounting/general-ledger/export', [ReportsController::class, 'generalLedgerExport'])->name('reports.accounting.general-ledger.export');
+        Route::get('/accounting/reports/daily-cashup', [ReportsController::class, 'dailyCashup'])->name('accounting.reports.daily-cashup');
+        Route::get('/accounting/reports/snapshots', [ReportsController::class, 'snapshotHistory'])->name('accounting.reports.snapshots');
     });
 
     // Expense Reports

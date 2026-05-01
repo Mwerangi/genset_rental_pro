@@ -23,6 +23,13 @@
             .nav-dd .nav-section { font-size: 0.6rem !important; padding: 0.25rem 0.75rem 0.1rem !important; }
             .nav-dd .nav-divider { margin: 0.2rem 0 !important; }
 
+            @media print {
+                header,
+                #page-loader,
+                footer { display: none !important; }
+                body { background: white !important; }
+            }
+
             /* ── Page loader ── */
             #page-loader {
                 position: fixed; inset: 0; z-index: 9999;
@@ -426,6 +433,13 @@
                                 <a href="{{ route('admin.reports.inventory.movements') }}" class="{{ request()->routeIs('admin.reports.inventory.movements') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} block px-4 py-1.5 text-xs">Stock Movements</a>
                                 <a href="{{ route('admin.reports.inventory.valuation') }}" class="{{ request()->routeIs('admin.reports.inventory.valuation') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} block px-4 py-1.5 text-xs">Inventory Valuation</a>
                                 <a href="{{ route('admin.reports.accounting.general-ledger') }}" class="{{ request()->routeIs('admin.reports.accounting.general-ledger') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} block px-4 py-1.5 text-xs">General Ledger</a>
+                                <p class="nav-section text-[10px] font-bold uppercase tracking-widest text-gray-400">Cash &amp; Banking</p>
+                                <a href="{{ route('admin.accounting.reports.daily-cashup') }}" class="{{ request()->routeIs('admin.accounting.reports.daily-cashup') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-1.5 text-xs">
+                                    <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>Daily Cash-Up
+                                </a>
+                                <a href="{{ route('admin.accounting.reports.snapshots') }}" class="{{ request()->routeIs('admin.accounting.reports.snapshots') ? 'text-red-600 bg-red-50' : 'text-gray-700 hover:bg-gray-50 hover:text-red-600' }} flex items-center gap-2 px-4 py-1.5 text-xs">
+                                    <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Snapshot History
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -553,33 +567,55 @@
         <script>
             (function () {
                 var loader = document.getElementById('page-loader');
+                var hideTimer = null;
 
-                // Hide once page is fully ready
                 function hideLoader() {
+                    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
                     loader.classList.add('hide');
                     setTimeout(function () { loader.style.display = 'none'; }, 320);
                 }
 
+                function showLoader() {
+                    loader.style.display = 'flex';
+                    loader.classList.remove('hide');
+                }
+
+                // Hide on initial load
                 if (document.readyState === 'complete') {
                     hideLoader();
                 } else {
                     window.addEventListener('load', hideLoader);
                 }
 
-                // Show again when navigating away (link/form submits)
+                // Always hide when page becomes visible — covers normal loads
+                // AND back/forward button (bfcache restore, e.persisted = true)
+                window.addEventListener('pageshow', hideLoader);
+
+                // Show loader on qualifying link clicks
                 document.addEventListener('click', function (e) {
                     var a = e.target.closest('a[href]');
-                    if (a && !a.target && !a.href.startsWith('#') &&
-                        !a.href.startsWith('javascript') &&
-                        !e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                        loader.style.display = 'flex';
-                        loader.classList.remove('hide');
-                    }
+                    if (!a) return;
+                    // Skip new-tab, anchor-only, javascript:, modifier keys
+                    if (a.target || a.href.startsWith('#') ||
+                        a.href.startsWith('javascript') ||
+                        e.ctrlKey || e.metaKey || e.shiftKey) return;
+
+                    showLoader();
+
+                    // Safety timer: if `pagehide` does NOT fire within 3 s the page
+                    // stayed (file download / streamed response) — hide the loader.
+                    hideTimer = setTimeout(hideLoader, 3000);
                 });
 
+                // `pagehide` fires on real navigation but NOT on file downloads.
+                // Cancel the safety timer so the loader stays until the new page loads.
+                window.addEventListener('pagehide', function () {
+                    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+                });
+
+                // Show loader on form submits (real navigation — pagehide will follow)
                 document.addEventListener('submit', function () {
-                    loader.style.display = 'flex';
-                    loader.classList.remove('hide');
+                    showLoader();
                 });
             })();
         </script>

@@ -322,6 +322,93 @@ class ExpenseController extends Controller
                          ->with('success', 'Expense deleted.');
     }
 
+    // ─── BULK APPROVE ──────────────────────────────────────────────────────────
+
+    public function bulkApprove(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:expenses,id',
+        ]);
+
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'view_all_expenses');
+
+        $query = Expense::whereIn('id', $request->ids)->where('status', 'draft');
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
+
+        $expenses = $query->get();
+        $count    = 0;
+
+        foreach ($expenses as $expense) {
+            $expense->update([
+                'status'      => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+            ]);
+
+            UserActivityLog::record(
+                $user->id, 'approved',
+                'Bulk approved expense ' . $expense->expense_number,
+                Expense::class, $expense->id
+            );
+
+            $count++;
+        }
+
+        $skipped = count($request->ids) - $count;
+        $msg     = "{$count} expense(s) approved.";
+        if ($skipped > 0) {
+            $msg .= " {$skipped} skipped (not draft or no permission).";
+        }
+
+        return redirect()->back()->with('success', $msg);
+    }
+
+    public function bulkPost(Request $request)
+    {
+        $request->validate([
+            'ids'   => 'required|array|min:1',
+            'ids.*' => 'integer|exists:expenses,id',
+        ]);
+
+        $user   = auth()->user();
+        $seeAll = PermissionService::can($user, 'view_all_expenses');
+
+        $query = Expense::whereIn('id', $request->ids)->where('status', 'approved');
+        if (!$seeAll) {
+            $query->where('created_by', $user->id);
+        }
+
+        $expenses = $query->get();
+        $je       = app(JournalEntryService::class);
+        $posted   = 0;
+        $failed   = 0;
+
+        foreach ($expenses as $expense) {
+            $result = $je->onExpensePosted($expense);
+            if ($result) {
+                UserActivityLog::record(
+                    $user->id, 'posted',
+                    'Bulk posted expense ' . $expense->expense_number . ' (JE: ' . $result->entry_number . ')',
+                    Expense::class, $expense->id
+                );
+                $posted++;
+            } else {
+                $failed++;
+            }
+        }
+
+        $skipped = count($request->ids) - $posted - $failed;
+        $msg     = "{$posted} expense(s) posted to ledger.";
+        if ($failed  > 0) $msg .= " {$failed} failed (check COA / category setup).";
+        if ($skipped > 0) $msg .= " {$skipped} skipped (not approved or no permission).";
+
+        return redirect()->back()->with($failed > 0 ? 'error' : 'success', $msg);
+    }
+
     // ─── BULK ENTRY (multi-row form) ──────────────────────────────────────────
 
     public function bulkEntry()
@@ -383,20 +470,103 @@ class ExpenseController extends Controller
 
     public function bulkImportTemplate()
     {
-        $filename = 'expenses-import-template.csv';
+        $categories   = ExpenseCategory::where('is_active', true)->orderBy('name')->pluck('name');
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->pluck('name');
 
-        return response()->stream(function () {
-            $handle = fopen('php://output', 'w');
-            fputs($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['date', 'description', 'category_name', 'bank_account_name', 'amount', 'is_zero_rated', 'reference']);
-            // Example rows
-            fputcsv($handle, ['2026-05-01', 'Office supplies purchase', 'Office Supplies & Stationery', 'Main Account (CRDB)', '50000', 'no', 'REF-001']);
-            fputcsv($handle, ['2026-05-01', 'Fuel for Generator A', 'Fuel', 'Main Account (CRDB)', '120000', 'no', '']);
-            fclose($handle);
-        }, 200, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ]);
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+
+        // ── Sheet 1: Data entry ──────────────────────────────────────
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Import');
+
+        // Header row
+        $headers = ['date', 'description', 'category_name', 'bank_account_name', 'amount', 'is_zero_rated', 'reference'];
+        foreach ($headers as $col => $header) {
+            $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
+            $sheet->setCellValue($cellRef, $header);
+            $sheet->getStyle($cellRef)->getFont()->setBold(true);
+            $sheet->getStyle($cellRef)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('DC2626');
+            $sheet->getStyle($cellRef)->getFont()->getColor()->setRGB('FFFFFF');
+        }
+
+        // Example rows
+        $examples = [
+            ['2026-05-01', 'Office supplies purchase', $categories->first() ?? 'Office Supplies', $bankAccounts->first() ?? 'Petty Cash', 50000, 'no', 'REF-001'],
+            ['2026-05-01', 'Fuel for Generator',       $categories->get(1) ?? 'Fuel',            $bankAccounts->first() ?? 'Petty Cash', 120000, 'no', ''],
+        ];
+        foreach ($examples as $r => $row) {
+            foreach ($row as $col => $val) {
+                $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . ($r + 2);
+                $sheet->setCellValue($cellRef, $val);
+            }
+        }
+
+        // Column widths
+        foreach ([12, 40, 30, 30, 14, 14, 20] as $col => $width) {
+            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
+            $sheet->getColumnDimension($colLetter)->setWidth($width);
+        }
+
+        // ── Sheet 2: Hidden lists for dropdown values ────────────────
+        $listSheet = $spreadsheet->createSheet();
+        $listSheet->setTitle('_lists');
+
+        foreach ($categories as $r => $name) {
+            $listSheet->setCellValue('A' . ($r + 1), $name);
+        }
+        foreach ($bankAccounts as $r => $name) {
+            $listSheet->setCellValue('B' . ($r + 1), $name);
+        }
+
+        $catCount  = max($categories->count(), 1);
+        $bankCount = max($bankAccounts->count(), 1);
+
+        $listSheet->setSheetState(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet::SHEETSTATE_HIDDEN);
+
+        // Named ranges
+        $spreadsheet->addNamedRange(new \PhpOffice\PhpSpreadsheet\NamedRange(
+            'CategoryList', $listSheet, "'_lists'!\$A\$1:\$A\${$catCount}"
+        ));
+        $spreadsheet->addNamedRange(new \PhpOffice\PhpSpreadsheet\NamedRange(
+            'BankList', $listSheet, "'_lists'!\$B\$1:\$B\${$bankCount}"
+        ));
+
+        // ── Dropdowns on data rows 2–500 ─────────────────────────────
+        $addDropdown = function (string $col, string $formula) use ($sheet) {
+            $v = $sheet->getCell("{$col}2")->getDataValidation();
+            $v->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST)
+              ->setErrorStyle(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::STYLE_STOP)
+              ->setAllowBlank(false)
+              ->setShowDropDown(false)  // false = show the arrow in Excel
+              ->setShowErrorMessage(true)
+              ->setErrorTitle('Invalid value')
+              ->setError('Please select a value from the dropdown list.')
+              ->setFormula1($formula);
+            $sheet->setDataValidation("{$col}2:{$col}500", $v);
+        };
+
+        $addDropdown('C', 'CategoryList');
+        $addDropdown('D', 'BankList');
+
+        // yes/no dropdown for is_zero_rated
+        $yn = $sheet->getCell('F2')->getDataValidation();
+        $yn->setType(\PhpOffice\PhpSpreadsheet\Cell\DataValidation::TYPE_LIST)
+           ->setAllowBlank(false)
+           ->setShowDropDown(false)
+           ->setFormula1('"yes,no"');
+        $sheet->setDataValidation('F2:F500', $yn);
+
+        // ── Write to temp file and stream ────────────────────────────
+        $spreadsheet->setActiveSheetIndex(0);
+        $writer  = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $tmpFile = tempnam(sys_get_temp_dir(), 'exp_tpl_');
+        $writer->save($tmpFile);
+
+        return response()->download($tmpFile, 'expenses-import-template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 
     public function bulkImport()
@@ -410,7 +580,7 @@ class ExpenseController extends Controller
     public function bulkImportPreview(Request $request)
     {
         $request->validate([
-            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+            'csv_file' => 'required|file|mimes:csv,txt,xlsx,xls|max:5120',
         ]);
 
         $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
@@ -419,51 +589,104 @@ class ExpenseController extends Controller
         $catMap  = $categories->keyBy(fn($c) => strtolower(trim($c->name)));
         $bankMap = $bankAccounts->keyBy(fn($b) => strtolower(trim($b->name)));
 
-        $handle = fopen($request->file('csv_file')->getRealPath(), 'r');
-        // Strip BOM if present
-        $bom = fread($handle, 3);
-        if ($bom !== "\xEF\xBB\xBF") {
-            rewind($handle);
+        $file      = $request->file('csv_file');
+        $extension = strtolower($file->getClientOriginalExtension());
+        $rows      = [];
+
+        if (in_array($extension, ['xlsx', 'xls'])) {
+            // ── Read via PhpSpreadsheet ──────────────────────────────
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+            // Use first sheet that isn't the hidden _lists sheet
+            $sheet = null;
+            foreach ($spreadsheet->getAllSheets() as $s) {
+                if ($s->getTitle() !== '_lists') { $sheet = $s; break; }
+            }
+            if (!$sheet) {
+                return back()->with('error', 'Could not find a data sheet in the uploaded file.');
+            }
+            $highestRow = $sheet->getHighestDataRow();
+            $lineNum    = 1;
+            for ($row = 2; $row <= $highestRow; $row++) {
+                $lineNum++;
+                $date        = trim((string) $sheet->getCell('A' . $row)->getFormattedValue());
+                $description = trim((string) $sheet->getCell('B' . $row)->getValue());
+                $catName     = trim((string) $sheet->getCell('C' . $row)->getValue());
+                $bankName    = trim((string) $sheet->getCell('D' . $row)->getValue());
+                $amount      = $sheet->getCell('E' . $row)->getValue();
+                $isZeroRaw   = trim((string) $sheet->getCell('F' . $row)->getValue());
+                $reference   = trim((string) $sheet->getCell('G' . $row)->getValue());
+
+                if ($date === '' && $description === '' && $catName === '') continue; // blank row
+
+                $catMatch  = $catMap->get(strtolower($catName));
+                $bankMatch = $bankMap->get(strtolower($bankName));
+                $isZero    = strtolower($isZeroRaw) === 'yes' || $isZeroRaw === '1';
+                $amtVal    = (float) str_replace(',', '', (string) $amount);
+
+                $errors = [];
+                if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat($date, 'Y-m-d')) $errors[] = 'Invalid date';
+                if (!$description) $errors[] = 'Missing description';
+                if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
+                if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
+                if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
+
+                $rows[] = [
+                    'line'                => $lineNum,
+                    'expense_date'        => $date,
+                    'description'         => $description,
+                    'category_name'       => $catName,
+                    'expense_category_id' => $catMatch?->id,
+                    'bank_account_name'   => $bankName,
+                    'bank_account_id'     => $bankMatch?->id,
+                    'amount'              => $amtVal,
+                    'is_zero_rated'       => $isZero,
+                    'reference'           => $reference,
+                    'errors'              => $errors,
+                ];
+            }
+        } else {
+            // ── Read CSV ─────────────────────────────────────────────
+            $handle = fopen($file->getRealPath(), 'r');
+            $bom    = fread($handle, 3);
+            if ($bom !== "\xEF\xBB\xBF") { rewind($handle); }
+
+            $headers = fgetcsv($handle); // skip header row
+            $lineNum = 1;
+
+            while (($cols = fgetcsv($handle)) !== false) {
+                $lineNum++;
+                if (count($cols) < 5) continue;
+
+                [$date, $description, $catName, $bankName, $amount, $isZeroRaw, $reference] = array_pad($cols, 7, '');
+
+                $catMatch  = $catMap->get(strtolower(trim($catName)));
+                $bankMatch = $bankMap->get(strtolower(trim($bankName)));
+                $isZero    = strtolower(trim($isZeroRaw)) === 'yes' || trim($isZeroRaw) === '1';
+                $amtVal    = (float) str_replace(',', '', trim($amount));
+
+                $errors = [];
+                if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat(trim($date), 'Y-m-d')) $errors[] = 'Invalid date';
+                if (!$description) $errors[] = 'Missing description';
+                if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
+                if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
+                if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
+
+                $rows[] = [
+                    'line'                => $lineNum,
+                    'expense_date'        => trim($date),
+                    'description'         => trim($description),
+                    'category_name'       => trim($catName),
+                    'expense_category_id' => $catMatch?->id,
+                    'bank_account_name'   => trim($bankName),
+                    'bank_account_id'     => $bankMatch?->id,
+                    'amount'              => $amtVal,
+                    'is_zero_rated'       => $isZero,
+                    'reference'           => trim($reference),
+                    'errors'              => $errors,
+                ];
+            }
+            fclose($handle);
         }
-
-        $headers = fgetcsv($handle); // skip header row
-        $rows    = [];
-        $lineNum = 1;
-
-        while (($cols = fgetcsv($handle)) !== false) {
-            $lineNum++;
-            if (count($cols) < 5) continue;
-
-            [$date, $description, $catName, $bankName, $amount, $isZeroRaw, $reference] = array_pad($cols, 7, '');
-
-            $catMatch  = $catMap->get(strtolower(trim($catName)));
-            $bankMatch = $bankMap->get(strtolower(trim($bankName)));
-            $isZero    = strtolower(trim($isZeroRaw)) === 'yes' || trim($isZeroRaw) === '1';
-            $amtVal    = (float) str_replace(',', '', trim($amount));
-
-            $errors = [];
-            if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat(trim($date), 'Y-m-d')) $errors[] = 'Invalid date';
-            if (!$description) $errors[] = 'Missing description';
-            if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
-            if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
-            if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
-
-            $rows[] = [
-                'line'                => $lineNum,
-                'expense_date'        => trim($date),
-                'description'         => trim($description),
-                'category_name'       => trim($catName),
-                'expense_category_id' => $catMatch?->id,
-                'bank_account_name'   => trim($bankName),
-                'bank_account_id'     => $bankMatch?->id,
-                'amount'              => $amtVal,
-                'is_zero_rated'       => $isZero,
-                'reference'           => trim($reference),
-                'errors'              => $errors,
-            ];
-        }
-
-        fclose($handle);
 
         return view('admin.accounting.expenses.bulk-import-preview',
             compact('rows', 'categories', 'bankAccounts'));
@@ -484,9 +707,17 @@ class ExpenseController extends Controller
 
         $saved = 0;
         foreach ($request->input('rows') as $row) {
-            $isZero = !empty($row['is_zero_rated']);
             $amount = round((float) $row['amount'], 2);
-            $vat    = $isZero ? 0 : round($amount * 0.18, 2);
+
+            // Respect the imported is_zero_rated flag; also check the category's flag
+            $isZero = !empty($row['is_zero_rated']);
+            if (!$isZero) {
+                $cat = ExpenseCategory::find($row['expense_category_id']);
+                if ($cat && $cat->is_zero_rated) $isZero = true;
+            }
+
+            $vatRate = 0.18;
+            $vat     = $isZero ? 0 : round($amount * $vatRate, 2);
 
             $expense = Expense::create([
                 'expense_category_id' => $row['expense_category_id'],

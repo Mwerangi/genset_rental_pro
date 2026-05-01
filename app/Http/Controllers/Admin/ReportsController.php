@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Account;
+use App\Models\BankAccount;
 use App\Models\Booking;
 use App\Models\CashRequest;
 use App\Models\Client;
@@ -1176,12 +1177,12 @@ class ReportsController extends Controller
         $from = $request->get('from', now()->startOfYear()->toDateString());
         $to   = $request->get('to', now()->toDateString());
 
-        $expenses = Expense::with('expenseCategory')
+        $expenses = Expense::with('category')
             ->whereIn('status', ['approved', 'posted'])
             ->whereBetween('expense_date', [$from, $to])->get();
 
         $byCategory = $expenses->groupBy('expense_category_id')->map(function ($g) {
-            $cat = $g->first()->expenseCategory;
+            $cat = $g->first()->category;
             return [
                 'name'  => $cat?->name ?? 'Uncategorized',
                 'count' => $g->count(),
@@ -1204,13 +1205,13 @@ class ReportsController extends Controller
         $from = $request->get('from', now()->startOfYear()->toDateString());
         $to   = $request->get('to', now()->toDateString());
 
-        $expenses = Expense::with('expenseCategory')
+        $expenses = Expense::with('category')
             ->whereIn('status', ['approved', 'posted'])
             ->whereBetween('expense_date', [$from, $to])->get();
 
         $grandTotal = $expenses->sum('total_amount');
         $byCategory = $expenses->groupBy('expense_category_id')->map(function ($g) {
-            $cat = $g->first()->expenseCategory;
+            $cat = $g->first()->category;
             return ['name' => $cat?->name ?? 'Uncategorized', 'count' => $g->count(), 'total' => $g->sum('total_amount'), 'vat' => $g->sum('vat_amount')];
         })->sortByDesc('total')->values();
 
@@ -1231,7 +1232,7 @@ class ReportsController extends Controller
         $to         = $request->get('to', now()->toDateString());
         $categoryId = $request->get('category_id');
 
-        $query = Expense::with('expenseCategory')
+        $query = Expense::with('category')
             ->whereIn('status', ['approved', 'posted'])
             ->whereBetween('expense_date', [$from, $to]);
         if ($categoryId) $query->where('expense_category_id', $categoryId);
@@ -1353,15 +1354,24 @@ class ReportsController extends Controller
         $to     = $request->get('to', now()->toDateString());
         $search = trim($request->get('search', ''));
 
-        $rows = Booking::with(['invoice', 'genset', 'client'])
+        $bookings = Booking::with(['invoice', 'genset', 'client'])
             ->whereIn('status', ['invoiced', 'paid', 'returned'])
-            ->whereBetween('rental_start_date', [$from, $to])->get()
-            ->map(function ($b) {
+            ->whereBetween('rental_start_date', [$from, $to])->get();
+
+        $bookingIds     = $bookings->pluck('id');
+        $fuelByBooking  = FuelLog::whereIn('booking_id', $bookingIds)
+            ->groupBy('booking_id')->selectRaw('booking_id, SUM(total_cost) as total')
+            ->pluck('total', 'booking_id');
+        $maintByBooking = MaintenanceRecord::whereIn('booking_id', $bookingIds)
+            ->groupBy('booking_id')->selectRaw('booking_id, SUM(cost) as total')
+            ->pluck('total', 'booking_id');
+
+        $rows = $bookings->map(function ($b) use ($fuelByBooking, $maintByBooking) {
                 $revenue = $b->invoice
                     ? (float) $b->invoice->total_amount * ($b->invoice->exchange_rate_to_tzs ?? 1)
                     : (float) $b->total_amount * ($b->exchange_rate_to_tzs ?? 1);
-                $fuelCost        = (float) FuelLog::where('booking_id', $b->id)->sum('total_cost');
-                $maintenanceCost = (float) MaintenanceRecord::where('booking_id', $b->id)->sum('cost');
+                $fuelCost        = (float) ($fuelByBooking[$b->id] ?? 0);
+                $maintenanceCost = (float) ($maintByBooking[$b->id] ?? 0);
                 $directCost      = $fuelCost + $maintenanceCost;
                 $grossProfit     = $revenue - $directCost;
                 return ['id' => $b->id, 'booking_number' => $b->booking_number, 'client_name' => $b->client?->company_name ?: ($b->client?->full_name ?? $b->customer_name), 'genset_name' => $b->genset ? $b->genset->asset_number . ' — ' . $b->genset->name : '—', 'start_date' => $b->rental_start_date, 'duration' => $b->rental_duration_days, 'revenue' => $revenue, 'fuel_cost' => $fuelCost, 'maintenance_cost' => $maintenanceCost, 'direct_cost' => $directCost, 'gross_profit' => $grossProfit, 'margin_pct' => $revenue > 0 ? round($grossProfit / $revenue * 100, 1) : 0];
@@ -1396,13 +1406,22 @@ class ReportsController extends Controller
         $to     = $request->get('to', now()->toDateString());
         $search = trim($request->get('search', ''));
 
-        $rows = Booking::with(['invoice', 'genset', 'client'])
+        $bookings = Booking::with(['invoice', 'genset', 'client'])
             ->whereIn('status', ['invoiced', 'paid', 'returned'])
-            ->whereBetween('rental_start_date', [$from, $to])->get()
-            ->map(function ($b) {
-                $revenue = $b->invoice ? (float) $b->invoice->total_amount * ($b->invoice->exchange_rate_to_tzs ?? 1) : (float) $b->total_amount * ($b->exchange_rate_to_tzs ?? 1);
-                $fuelCost = (float) FuelLog::where('booking_id', $b->id)->sum('total_cost');
-                $mCost    = (float) MaintenanceRecord::where('booking_id', $b->id)->sum('cost');
+            ->whereBetween('rental_start_date', [$from, $to])->get();
+
+        $bookingIds     = $bookings->pluck('id');
+        $fuelByBooking  = FuelLog::whereIn('booking_id', $bookingIds)
+            ->groupBy('booking_id')->selectRaw('booking_id, SUM(total_cost) as total')
+            ->pluck('total', 'booking_id');
+        $maintByBooking = MaintenanceRecord::whereIn('booking_id', $bookingIds)
+            ->groupBy('booking_id')->selectRaw('booking_id, SUM(cost) as total')
+            ->pluck('total', 'booking_id');
+
+        $rows = $bookings->map(function ($b) use ($fuelByBooking, $maintByBooking) {
+                $revenue  = $b->invoice ? (float) $b->invoice->total_amount * ($b->invoice->exchange_rate_to_tzs ?? 1) : (float) $b->total_amount * ($b->exchange_rate_to_tzs ?? 1);
+                $fuelCost = (float) ($fuelByBooking[$b->id] ?? 0);
+                $mCost    = (float) ($maintByBooking[$b->id] ?? 0);
                 $profit   = $revenue - $fuelCost - $mCost;
                 return ['booking_number' => $b->booking_number, 'client_name' => $b->client?->company_name ?: ($b->client?->full_name ?? $b->customer_name), 'genset_name' => $b->genset ? $b->genset->asset_number . ' — ' . $b->genset->name : '', 'start_date' => $b->rental_start_date, 'duration' => $b->rental_duration_days, 'revenue' => $revenue, 'fuel_cost' => $fuelCost, 'maintenance_cost' => $mCost, 'direct_cost' => $fuelCost + $mCost, 'gross_profit' => $profit, 'margin_pct' => $revenue > 0 ? round($profit / $revenue * 100, 1) : 0];
             })->sortByDesc('gross_profit');
@@ -1925,7 +1944,7 @@ class ReportsController extends Controller
             $salesValue  = Booking::whereBetween('created_at', [$f, $t])->whereNotIn('status', ['cancelled'])->sum('total_amount');
             $salesCount  = Booking::whereBetween('created_at', [$f, $t])->whereNotIn('status', ['cancelled'])->count();
             $revenue     = InvoicePayment::whereBetween('payment_date', [$f, $t])->where('is_reversed', false)->sum('amount');
-            $expenses    = Expense::whereBetween('expense_date', [$f, $t])->sum('total_amount');
+            $expenses    = Expense::where('status', 'posted')->whereBetween('expense_date', [$f, $t])->sum('total_amount');
             $cashSpend   = CashRequest::whereBetween('created_at', [$f, $t])->whereIn('status', ['retired', 'issued'])->sum('actual_amount');
             $poSpend     = (float) DB::table('purchase_order_items')
                 ->join('purchase_orders', 'purchase_orders.id', '=', 'purchase_order_items.purchase_order_id')
@@ -1953,7 +1972,7 @@ class ReportsController extends Controller
             ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as m, SUM(amount) as total")
             ->groupBy('m')->orderBy('m')->pluck('total', 'm');
 
-        $mExpenses = Expense::whereBetween('expense_date', [$fromDate, $toDate])
+        $mExpenses = Expense::where('status', 'posted')->whereBetween('expense_date', [$fromDate, $toDate])
             ->selectRaw("DATE_FORMAT(expense_date, '%Y-%m') as m, SUM(total_amount) as total")
             ->groupBy('m')->orderBy('m')->pluck('total', 'm');
 
@@ -1967,7 +1986,7 @@ class ReportsController extends Controller
             ->selectRaw("DATE_FORMAT(payment_date, '%Y-%m') as m, SUM(amount) as total")
             ->groupBy('m')->orderBy('m')->pluck('total', 'm');
 
-        $mPrevExpenses = Expense::whereBetween('expense_date', [$cFromDate, $cToDate])
+        $mPrevExpenses = Expense::where('status', 'posted')->whereBetween('expense_date', [$cFromDate, $cToDate])
             ->selectRaw("DATE_FORMAT(expense_date, '%Y-%m') as m, SUM(total_amount) as total")
             ->groupBy('m')->orderBy('m')->pluck('total', 'm');
 
@@ -2005,7 +2024,7 @@ class ReportsController extends Controller
             ->selectRaw('created_by, COUNT(*) as bookings_count, SUM(total_amount) as total_value')
             ->groupBy('created_by')->orderByDesc('bookings_count')->limit(5)->get();
 
-        $topExpenseCategories = Expense::whereBetween('expense_date', [$fromDate, $toDate])
+        $topExpenseCategories = Expense::where('status', 'posted')->whereBetween('expense_date', [$fromDate, $toDate])
             ->with('category:id,name')
             ->selectRaw('expense_category_id, SUM(total_amount) as total, COUNT(*) as cnt')
             ->groupBy('expense_category_id')->orderByDesc('total')->limit(6)->get();
@@ -2062,7 +2081,7 @@ class ReportsController extends Controller
             $salesValue  = Booking::whereBetween('created_at', [$f, $t])->whereNotIn('status', ['cancelled'])->sum('total_amount');
             $salesCount  = Booking::whereBetween('created_at', [$f, $t])->whereNotIn('status', ['cancelled'])->count();
             $revenue     = InvoicePayment::whereBetween('payment_date', [$f, $t])->where('is_reversed', false)->sum('amount');
-            $expenses    = Expense::whereBetween('expense_date', [$f, $t])->sum('total_amount');
+            $expenses    = Expense::where('status', 'posted')->whereBetween('expense_date', [$f, $t])->sum('total_amount');
             $cashSpend   = CashRequest::whereBetween('created_at', [$f, $t])->whereIn('status', ['retired', 'issued'])->sum('actual_amount');
             $poSpend     = (float) DB::table('purchase_order_items')
                 ->join('purchase_orders', 'purchase_orders.id', '=', 'purchase_order_items.purchase_order_id')
@@ -2095,7 +2114,7 @@ class ReportsController extends Controller
             ->selectRaw('created_by, COUNT(*) as bookings_count, SUM(total_amount) as total_value')
             ->groupBy('created_by')->orderByDesc('bookings_count')->limit(10)->get();
 
-        $topCats = Expense::whereBetween('expense_date', [$fromDate, $toDate])
+        $topCats = Expense::where('status', 'posted')->whereBetween('expense_date', [$fromDate, $toDate])
             ->with('category:id,name')
             ->selectRaw('expense_category_id, SUM(total_amount) as total, COUNT(*) as cnt')
             ->groupBy('expense_category_id')->orderByDesc('total')->limit(10)->get();
@@ -2144,6 +2163,154 @@ class ReportsController extends Controller
             }
             fclose($h);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    // =========================================================================
+    // DAILY CASH-UP
+    // =========================================================================
+
+    public function dailyCashup(Request $request)
+    {
+        $date = $request->get('date', now()->toDateString());
+
+        // Pre-load all closings for this date keyed by bank_account_id
+        $closings = \App\Models\DailyClosing::where('closing_date', $date)
+            ->get()
+            ->keyBy('bank_account_id');
+
+        $bankAccounts = BankAccount::with('account')
+            ->where('is_active', true)
+            ->orderByRaw("FIELD(account_type, 'cash', 'mobile_money', 'bank')")
+            ->orderBy('name')
+            ->get();
+
+        $accounts = $bankAccounts->map(function (BankAccount $ba) use ($date, $closings) {
+
+            // ── Use saved snapshot if available ───────────────────────────────
+            $closing = $closings->get($ba->id);
+            if ($closing) {
+                $snap = $closing->snapshot ?? [];
+                // Rebuild collection-like arrays from snapshot so the view works unchanged
+                $payments = collect($snap['payments'] ?? []);
+                $expenses = collect($snap['expenses'] ?? []);
+                $cashReqs = collect($snap['cash_requests'] ?? []);
+
+                return [
+                    'id'              => $ba->id,
+                    'name'            => $ba->name,
+                    'account_type'    => $ba->account_type,
+                    'currency'        => $ba->currency,
+                    'opening_balance' => (float) $closing->opening_balance,
+                    'closing_balance' => (float) $closing->closing_balance,
+                    'total_in'        => (float) $closing->total_in,
+                    'total_out'       => (float) $closing->total_out,
+                    'payments'        => $payments,
+                    'expenses'        => $expenses,
+                    'cash_reqs'       => $cashReqs,
+                    'has_activity'    => $closing->total_in > 0 || $closing->total_out > 0,
+                    'is_snapshot'     => true,
+                    'closed_at'       => $closing->updated_at,
+                ];
+            }
+
+            // ── Live computation (no snapshot yet) ────────────────────────────
+
+            $openingBalance = null;
+            if ($ba->account_id) {
+                $before = DB::table('journal_entry_lines')
+                    ->join('journal_entries', 'journal_entry_lines.journal_entry_id', '=', 'journal_entries.id')
+                    ->where('journal_entries.status', 'posted')
+                    ->where('journal_entry_lines.account_id', $ba->account_id)
+                    ->where('journal_entries.entry_date', '<', $date)
+                    ->selectRaw('COALESCE(SUM(debit), 0) as total_debit, COALESCE(SUM(credit), 0) as total_credit')
+                    ->first();
+                $openingBalance = round((float) $before->total_debit - (float) $before->total_credit, 2);
+            }
+
+            $payments = InvoicePayment::with(['invoice.client', 'recordedBy'])
+                ->where('bank_account_id', $ba->id)
+                ->whereDate('payment_date', $date)
+                ->where('is_reversed', false)
+                ->orderBy('payment_date')
+                ->get();
+
+            $expenses = Expense::with(['category', 'createdBy'])
+                ->where('bank_account_id', $ba->id)
+                ->where('status', 'posted')
+                ->whereDate('expense_date', $date)
+                ->orderBy('expense_date')
+                ->get();
+
+            $cashReqs = CashRequest::with(['requestedBy'])
+                ->where('bank_account_id', $ba->id)
+                ->whereNotNull('paid_at')
+                ->whereDate('paid_at', $date)
+                ->orderBy('paid_at')
+                ->get();
+
+            $totalIn  = round((float) $payments->sum('amount'), 2);
+            $totalOut = round(
+                (float) $expenses->sum('total_amount') +
+                (float) $cashReqs->sum(fn ($cr) => $cr->actual_amount ?? $cr->total_amount),
+                2
+            );
+
+            if ($openingBalance === null) {
+                $openingBalance = round((float) $ba->current_balance - $totalIn + $totalOut, 2);
+            }
+
+            $closingBalance = round($openingBalance + $totalIn - $totalOut, 2);
+
+            return [
+                'id'              => $ba->id,
+                'name'            => $ba->name,
+                'account_type'    => $ba->account_type,
+                'currency'        => $ba->currency,
+                'opening_balance' => $openingBalance,
+                'closing_balance' => $closingBalance,
+                'total_in'        => $totalIn,
+                'total_out'       => $totalOut,
+                'payments'        => $payments,
+                'expenses'        => $expenses,
+                'cash_reqs'       => $cashReqs,
+                'has_activity'    => $totalIn > 0 || $totalOut > 0,
+                'is_snapshot'     => false,
+                'closed_at'       => null,
+            ];
+        });
+
+        $currencyTotals = $accounts->groupBy('currency')->map(fn ($group) => [
+            'total_in'  => round((float) $group->sum('total_in'), 2),
+            'total_out' => round((float) $group->sum('total_out'), 2),
+            'net'       => round((float) ($group->sum('total_in') - $group->sum('total_out')), 2),
+        ]);
+
+        if ($request->boolean('print')) {
+            return view('admin.reports.daily-cashup-print', compact('accounts', 'currencyTotals', 'date'));
+        }
+
+        return view('admin.reports.daily-cashup', compact('accounts', 'currencyTotals', 'date'));
+    }
+
+    // =========================================================================
+    // SNAPSHOT HISTORY
+    // =========================================================================
+
+    public function snapshotHistory(Request $request)
+    {
+        $from = $request->get('from', now()->subDays(29)->toDateString());
+        $to   = $request->get('to',   now()->toDateString());
+
+        $closings = \App\Models\DailyClosing::with('bankAccount')
+            ->whereBetween('closing_date', [$from, $to])
+            ->orderBy('closing_date', 'desc')
+            ->orderBy('bank_account_id')
+            ->get();
+
+        // Group by date for summary rows
+        $byDate = $closings->groupBy(fn ($c) => $c->closing_date->toDateString());
+
+        return view('admin.reports.snapshot-history', compact('closings', 'byDate', 'from', 'to'));
     }
 
     // =========================================================================

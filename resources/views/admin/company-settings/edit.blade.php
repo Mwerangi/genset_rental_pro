@@ -56,6 +56,7 @@
                         'tax'        => ['label' => 'Tax & Registration','icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
                         'banking'    => ['label' => 'Banking',           'icon' => 'M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z'],
                         'documents'  => ['label' => 'Documents',         'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
+                        'day-close'  => ['label' => 'Day-End Close',     'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
                         'branding'   => ['label' => 'Branding',          'icon' => 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01'],
                     ];
                 @endphp
@@ -554,7 +555,64 @@
                                               placeholder="Standard rental contract terms and conditions...">{{ old('contract_terms', $settings->contract_terms) }}</textarea>
                                     <p class="text-xs text-gray-400 mt-1">Used as default terms in generated rental contracts</p>
                                 </div>
+
+
                             </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {{-- ════════════════════ TAB: DAY-END CLOSE ════════════════════ --}}
+            <div x-show="activeTab === 'day-close'" x-cloak>
+                <div class="max-w-2xl space-y-6">
+
+                    {{-- Status card --}}
+                    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                        <h3 class="text-sm font-semibold text-gray-800 uppercase tracking-wide mb-1 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            Automatic Day-End Snapshot
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-6">At the configured time each day, the system automatically takes a snapshot of every bank account — recording opening balances, all transactions, and closing balances. The Daily Cash-Up report will display this saved data for closed days instead of re-computing it live.</p>
+
+                        <div class="space-y-5">
+                            {{-- Enable toggle --}}
+                            <div class="flex items-start gap-3 p-4 rounded-xl border {{ $settings->day_close_enabled ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50' }}">
+                                <input type="hidden" name="day_close_enabled" value="0">
+                                <input type="checkbox" id="day_close_enabled" name="day_close_enabled" value="1"
+                                       {{ old('day_close_enabled', $settings->day_close_enabled ?? false) ? 'checked' : '' }}
+                                       class="mt-0.5 w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500">
+                                <div>
+                                    <label for="day_close_enabled" class="block text-sm font-medium text-gray-800 cursor-pointer">Enable automatic daily close</label>
+                                    <p class="text-xs text-gray-500 mt-0.5">The Laravel task scheduler must be running on your server for this to work.<br>
+                                        Run <code class="bg-white border border-gray-200 px-1.5 py-0.5 rounded text-xs font-mono">php artisan schedule:work</code> (development) or configure a cron job (production).</p>
+                                </div>
+                            </div>
+
+                            {{-- Close time --}}
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1.5">Daily Close Time</label>
+                                <input type="time" name="day_close_time"
+                                       value="{{ old('day_close_time', $settings->day_close_time ?? '23:00') }}"
+                                       class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:outline-none w-40">
+                                <p class="text-xs text-gray-400 mt-1">24-hour format. The snapshot will run within one minute of this time.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Current status info --}}
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex gap-3">
+                        <svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <div class="text-xs text-blue-700 space-y-1">
+                            <p class="font-semibold">Current status</p>
+                            @if($settings->day_close_enabled ?? false)
+                                <p>Automatic close is <strong>enabled</strong> — scheduled to run at <strong>{{ $settings->day_close_time ?? '23:00' }}</strong> every day.</p>
+                            @else
+                                <p>Automatic close is <strong>disabled</strong>. You can still run a manual snapshot any day from the <a href="{{ route('admin.accounting.reports.daily-cashup') }}" class="underline">Daily Cash-Up report</a>.</p>
+                            @endif
+                            <p>To trigger a manual snapshot for today, run: <code class="bg-blue-100 px-1.5 py-0.5 rounded font-mono">php artisan accounting:daily-close</code></p>
+                            <p>To force-overwrite an existing snapshot: <code class="bg-blue-100 px-1.5 py-0.5 rounded font-mono">php artisan accounting:daily-close --force</code></p>
                         </div>
                     </div>
 

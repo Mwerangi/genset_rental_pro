@@ -2,8 +2,8 @@
     <div class="mb-6 flex items-center justify-between">
         <div>
             <a href="{{ route('admin.accounting.expenses.index') }}" class="text-sm text-gray-500 hover:text-gray-700">← Expenses</a>
-            <h1 class="text-2xl font-bold text-gray-900 mt-1">Import Expenses from CSV</h1>
-            <p class="text-sm text-gray-500 mt-1">Upload a CSV file — rows will be parsed into a preview for you to confirm.</p>
+            <h1 class="text-2xl font-bold text-gray-900 mt-1">Import Expenses from Excel / CSV</h1>
+            <p class="text-sm text-gray-500 mt-1">Upload the filled Excel template — rows will be parsed into a preview for you to confirm.</p>
         </div>
         <a href="{{ route('admin.accounting.expenses.bulk-entry') }}"
            class="inline-flex items-center gap-2 text-sm border border-gray-300 rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-50">
@@ -20,21 +20,20 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z"/>
         </svg>
         <div class="text-sm text-blue-800">
-            <p class="font-semibold mb-1">CSV Format Requirements</p>
-            <p class="mb-2">The file must have these columns in order: <code class="bg-blue-100 px-1 rounded">date, description, category_name, bank_account_name, amount, is_zero_rated, reference</code></p>
-            <ul class="list-disc list-inside space-y-0.5 text-blue-700">
+            <p class="font-semibold mb-1">How to fill the template</p>
+            <ul class="list-disc list-inside space-y-0.5 text-blue-700 mb-3">
+                <li>Download the Excel template below — columns C, D and F have <strong>dropdown lists</strong> pre-filled with your categories and bank accounts.</li>
                 <li><strong>date</strong>: YYYY-MM-DD format (e.g. 2026-05-01)</li>
-                <li><strong>category_name</strong>: must exactly match a category name in the system</li>
-                <li><strong>bank_account_name</strong>: must exactly match a bank account name</li>
-                <li><strong>is_zero_rated</strong>: <code class="bg-blue-100 px-1 rounded">yes</code> or <code class="bg-blue-100 px-1 rounded">no</code></li>
-                <li><strong>reference</strong>: optional</li>
+                <li><strong>amount</strong>: number only, no commas (e.g. 120000)</li>
+                <li><strong>reference</strong>: optional free text</li>
+                <li>You can also upload a plain <code class="bg-blue-100 px-1 rounded">.csv</code> file if you prefer.</li>
             </ul>
             <a href="{{ route('admin.accounting.expenses.bulk-import.template') }}"
-               class="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-blue-700 hover:text-blue-900 underline">
+               class="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
-                Download template CSV
+                Download Excel template (.xlsx)
             </a>
         </div>
     </div>
@@ -45,8 +44,8 @@
             @csrf
 
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">CSV File <span class="text-red-500">*</span></label>
-                <input type="file" name="csv_file" accept=".csv,.txt"
+                <label class="block text-sm font-medium text-gray-700 mb-2">Excel or CSV File <span class="text-red-500">*</span></label>
+                <input type="file" name="csv_file" accept=".xlsx,.csv,.txt"
                     class="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-red-50 file:text-red-700 hover:file:bg-red-100">
                 @error('csv_file')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
             </div>

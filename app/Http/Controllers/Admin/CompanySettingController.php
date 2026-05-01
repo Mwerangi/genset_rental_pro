@@ -80,6 +80,10 @@ class CompanySettingController extends Controller
             'stamp'                  => 'nullable|image|mimes:png,jpg,jpeg,webp|max:2048',
             'primary_color'          => 'nullable|string|max:20',
             'secondary_color'        => 'nullable|string|max:20',
+
+            // Day-end close
+            'day_close_time'         => 'nullable|string|regex:/^\d{2}:\d{2}$/',
+            'day_close_enabled'      => 'nullable|boolean',
         ]);
 
         $settings = CompanySetting::current();
@@ -103,6 +107,9 @@ class CompanySettingController extends Controller
 
         // Remove raw file keys (not DB columns)
         unset($validated['logo'], $validated['stamp']);
+
+        // Checkbox: if unchecked the hidden input sends '0', cast to bool
+        $validated['day_close_enabled'] = (bool) ($validated['day_close_enabled'] ?? false);
 
         $settings->update($validated);
 

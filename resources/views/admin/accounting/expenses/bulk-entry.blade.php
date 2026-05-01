@@ -74,18 +74,23 @@
     </form>
 
     {{-- Data for JS --}}
+    @php
+        $jsCategories = $categories->map(function($c) {
+            return [
+                'id'          => (string) $c->id,
+                'name'        => $c->name,
+                'isZeroRated' => (bool) $c->is_zero_rated,
+                'hasAccount'  => (bool) $c->account_id,
+                'accountCode' => optional($c->account)->code,
+            ];
+        })->values();
+        $jsBankAccounts = $bankAccounts->map(function($b) {
+            return ['id' => (string) $b->id, 'name' => $b->name];
+        })->values();
+    @endphp
     <script>
-    const CATEGORIES = @json($categories->map(fn($c) => [
-        'id'         => (string) $c->id,
-        'name'       => $c->name,
-        'isZeroRated'=> (bool) $c->is_zero_rated,
-        'hasAccount' => (bool) $c->account_id,
-        'accountCode'=> optional($c->account)->code,
-    ]));
-    const BANK_ACCOUNTS = @json($bankAccounts->map(fn($b) => [
-        'id'   => (string) $b->id,
-        'name' => $b->name,
-    ]));
+    const CATEGORIES = @json($jsCategories);
+    const BANK_ACCOUNTS = @json($jsBankAccounts);
 
     let rowIndex = 0;
 

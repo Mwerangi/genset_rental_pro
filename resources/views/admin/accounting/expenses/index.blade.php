@@ -38,7 +38,7 @@
                     <a href="{{ route('admin.accounting.expenses.bulk-import') }}"
                        class="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 border-t border-gray-100">
                         <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-                        Import from CSV
+                        Import from Excel / CSV
                     </a>
                 </div>
             </div>
@@ -112,10 +112,156 @@
     </form>
 
     <!-- Table -->
+    <div x-data="bulkExpenses()">
+
+    {{-- Bulk action bar (visible when rows selected) --}}
+    @permission('approve_expenses')
+    <div x-show="selected.length > 0" x-cloak
+         class="mb-3 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+        <span class="text-sm font-medium text-amber-800" x-text="selected.length + ' expense(s) selected'"></span>
+
+        {{-- Approve button — only when draft rows are selected --}}
+        <button type="button"
+            x-show="draftSelected.length > 0"
+            x-on:click="showModal = true"
+            class="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Approve (<span x-text="draftSelected.length"></span>)
+        </button>
+
+        {{-- Post button — only when approved rows are selected --}}
+        <button type="button"
+            x-show="approvedSelected.length > 0"
+            x-on:click="showPostModal = true"
+            class="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Post to Ledger (<span x-text="approvedSelected.length"></span>)
+        </button>
+
+        <button type="button" x-on:click="selected = []"
+            class="text-sm text-amber-700 hover:text-amber-900 underline ml-1">Clear selection</button>
+    </div>
+
+    {{-- Bulk approve confirmation modal --}}
+    <div x-show="showModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         x-on:keydown.escape.window="showModal = false">
+
+        {{-- Backdrop --}}
+        <div class="absolute inset-0 bg-black/40" x-on:click="showModal = false"></div>
+
+        {{-- Panel --}}
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95">
+
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">Approve expenses?</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        You are about to approve
+                        <span class="font-semibold text-gray-800" x-text="selected.length"></span>
+                        draft expense(s). They will be moved to <span class="font-medium text-blue-700">Approved</span> status and will be ready to post to the ledger.
+                    </p>
+                    <p class="mt-2 text-xs text-gray-400">This action can be reversed by rejecting individual expenses.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{{ route('admin.accounting.expenses.bulk-approve') }}" x-ref="bulkApproveForm">
+                @csrf
+                <template x-for="id in selected" :key="id">
+                    <input type="hidden" name="ids[]" :value="id">
+                </template>
+            </form>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button"
+                    x-on:click="showModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="button"
+                    x-on:click="$refs.bulkApproveForm.submit()"
+                    class="px-5 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
+                    Yes, Approve
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{-- Bulk post confirmation modal --}}
+    <div x-show="showPostModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center"
+         x-on:keydown.escape.window="showPostModal = false">
+        <div class="absolute inset-0 bg-black/40" x-on:click="showPostModal = false"></div>
+        <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 scale-100"
+             x-transition:leave-end="opacity-0 scale-95">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">Post expenses to ledger?</h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        You are about to post
+                        <span class="font-semibold text-gray-800" x-text="approvedSelected.length"></span>
+                        approved expense(s). For each one a journal entry will be created:
+                    </p>
+                    <ul class="mt-2 text-xs text-gray-500 list-disc list-inside space-y-0.5">
+                        <li><span class="font-medium text-red-700">DR</span> Expense account (e.g. Office Supplies)</li>
+                        <li><span class="font-medium text-blue-700">CR</span> Payment account (e.g. Petty Cash)</li>
+                    </ul>
+                    <p class="mt-2 text-xs text-gray-400">This reduces the petty cash / bank balance in the ledger. Cannot be undone without reversing the JE.</p>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('admin.accounting.expenses.bulk-post') }}" x-ref="bulkPostForm">
+                @csrf
+                <template x-for="id in approvedSelected" :key="id">
+                    <input type="hidden" name="ids[]" :value="id">
+                </template>
+            </form>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button"
+                    x-on:click="showPostModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="button"
+                    x-on:click="$refs.bulkPostForm.submit()"
+                    class="px-5 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg">
+                    Yes, Post to Ledger
+                </button>
+            </div>
+        </div>
+    </div>
+    @endpermission
+
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b border-gray-200">
                 <tr>
+                    <th class="px-4 py-3 w-8">
+                        <input type="checkbox" class="w-4 h-4 accent-red-600 cursor-pointer"
+                            x-on:change="toggleAll($event)"
+                            x-bind:checked="allChecked"
+                            x-bind:indeterminate="someChecked">
+                    </th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">Expense #</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600 whitespace-nowrap">Date</th>
                     <th class="text-left px-4 py-3 font-semibold text-gray-600">Description</th>
@@ -133,7 +279,17 @@
             <tbody class="divide-y divide-gray-100">
                 @forelse($expenses as $expense)
                 @php $colors = ['draft'=>'bg-gray-100 text-gray-600','approved'=>'bg-blue-50 text-blue-700','posted'=>'bg-green-50 text-green-700']; @endphp
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50" x-bind:class="selected.includes({{ $expense->id }}) ? 'bg-amber-50' : ''">
+                    <td class="px-4 py-3">
+                        @if(in_array($expense->status, ['draft', 'approved']))
+                        <input type="checkbox" class="w-4 h-4 accent-red-600 cursor-pointer"
+                            :value="{{ $expense->id }}"
+                            x-on:change="toggle({{ $expense->id }})"
+                            x-bind:checked="selected.includes({{ $expense->id }})">
+                        @else
+                        <span class="block w-4"></span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3 font-mono text-xs font-semibold text-gray-700 whitespace-nowrap">{{ $expense->expense_number }}</td>
                     <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{{ $expense->expense_date?->format('d M Y') }}</td>
                     <td class="px-4 py-3 text-gray-800 max-w-xs">
@@ -194,6 +350,9 @@
                             @endpermission
                             @elseif($expense->status === 'approved')
                             @permission('approve_expenses')
+                            <form method="POST" action="{{ route('admin.accounting.expenses.reject', $expense) }}">
+                                @csrf<button type="submit" class="text-xs text-amber-600 hover:underline">Reject</button>
+                            </form>
                             <form method="POST" action="{{ route('admin.accounting.expenses.post', $expense) }}">
                                 @csrf<button type="submit" class="text-xs text-purple-600 hover:underline">Post</button>
                             </form>
@@ -203,10 +362,38 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="12" class="px-4 py-10 text-center text-gray-400">No expenses found.</td></tr>
+                <tr><td colspan="13" class="px-4 py-10 text-center text-gray-400">No expenses found.</td></tr>
                 @endforelse
             </tbody>
         </table>
         <x-pagination-bar :paginator="$expenses" :per-page="$perPage" />
     </div>
+    </div>{{-- end x-data --}}
+
+    <script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('bulkExpenses', () => ({
+            selected: [],
+            showModal: false,
+            showPostModal: false,
+            draftIds: @json($expenses->where('status', 'draft')->pluck('id')->values()),
+            approvedIds: @json($expenses->where('status', 'approved')->pluck('id')->values()),
+            get allSelectableIds() { return [...this.draftIds, ...this.approvedIds]; },
+            get draftSelected() { return this.selected.filter(id => this.draftIds.includes(id)); },
+            get approvedSelected() { return this.selected.filter(id => this.approvedIds.includes(id)); },
+            get allChecked() { return this.allSelectableIds.length > 0 && this.selected.length === this.allSelectableIds.length; },
+            get someChecked() { return this.selected.length > 0 && this.selected.length < this.allSelectableIds.length; },
+            toggle(id) {
+                if (this.selected.includes(id)) {
+                    this.selected = this.selected.filter(i => i !== id);
+                } else {
+                    this.selected.push(id);
+                }
+            },
+            toggleAll(e) {
+                this.selected = e.target.checked ? [...this.allSelectableIds] : [];
+            },
+        }));
+    });
+    </script>
 </x-admin-layout>

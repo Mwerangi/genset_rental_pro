@@ -10,8 +10,9 @@ class CompanySetting extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
-        'vat_rate'            => 'decimal:2',
-        'payment_terms_days'  => 'integer',
+        'vat_rate'           => 'decimal:2',
+        'payment_terms_days' => 'integer',
+        'day_close_enabled'  => 'boolean',
     ];
 
     /**
@@ -31,6 +32,8 @@ class CompanySetting extends Model
                 'payment_terms_days' => 30,
                 'primary_color'      => '#dc2626',
                 'secondary_color'    => '#1f2937',
+                'day_close_time'     => '23:00',
+                'day_close_enabled'  => false,
             ]
         );
     }
