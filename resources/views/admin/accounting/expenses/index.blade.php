@@ -20,6 +20,29 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 New Expense
             </a>
+            @permission('create_expenses')
+            <div x-data="{ open: false }" class="relative">
+                <button x-on:click="open = !open"
+                    class="inline-flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    Bulk
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="open" x-on:click.outside="open = false" x-cloak
+                    class="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 text-sm overflow-hidden">
+                    <a href="{{ route('admin.accounting.expenses.bulk-entry') }}"
+                       class="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>
+                        Bulk Entry Form
+                    </a>
+                    <a href="{{ route('admin.accounting.expenses.bulk-import') }}"
+                       class="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-gray-50 border-t border-gray-100">
+                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Import from CSV
+                    </a>
+                </div>
+            </div>
+            @endpermission
         </div>
     </div>
 

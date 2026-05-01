@@ -9,6 +9,7 @@ use App\Models\ExpenseCategory;
 use App\Models\UserActivityLog;
 use App\Services\JournalEntryService;
 use App\Services\PermissionService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ExpenseController extends Controller
@@ -319,5 +320,198 @@ class ExpenseController extends Controller
 
         return redirect()->route('admin.accounting.expenses.index')
                          ->with('success', 'Expense deleted.');
+    }
+
+    // ─── BULK ENTRY (multi-row form) ──────────────────────────────────────────
+
+    public function bulkEntry()
+    {
+        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.accounting.expenses.bulk-entry', compact('categories', 'bankAccounts'));
+    }
+
+    public function bulkStore(Request $request)
+    {
+        $request->validate([
+            'rows'                           => 'required|array|min:1',
+            'rows.*.expense_date'            => 'required|date',
+            'rows.*.description'             => 'required|string|max:500',
+            'rows.*.expense_category_id'     => 'required|exists:expense_categories,id',
+            'rows.*.bank_account_id'         => 'required|exists:bank_accounts,id',
+            'rows.*.amount'                  => 'required|numeric|min:0.01',
+            'rows.*.is_zero_rated'           => 'nullable|boolean',
+            'rows.*.reference'               => 'nullable|string|max:100',
+        ]);
+
+        $saved = 0;
+        foreach ($request->input('rows') as $row) {
+            $isZero     = !empty($row['is_zero_rated']);
+            $amount     = round((float) $row['amount'], 2);
+            $vat        = $isZero ? 0 : round($amount * 0.18, 2);
+            $total      = $amount + $vat;
+
+            $expense = Expense::create([
+                'expense_category_id' => $row['expense_category_id'],
+                'bank_account_id'     => $row['bank_account_id'],
+                'description'         => $row['description'],
+                'amount'              => $amount,
+                'is_zero_rated'       => $isZero,
+                'vat_amount'          => $vat,
+                'total_amount'        => $total,
+                'expense_date'        => $row['expense_date'],
+                'reference'           => $row['reference'] ?? null,
+                'status'              => 'draft',
+                'created_by'          => auth()->id(),
+            ]);
+
+            UserActivityLog::record(
+                auth()->id(), 'created',
+                'Created expense ' . $expense->expense_number . ' (bulk entry)',
+                Expense::class, $expense->id
+            );
+
+            $saved++;
+        }
+
+        return redirect()->route('admin.accounting.expenses.index')
+                         ->with('success', "{$saved} expense(s) saved as draft.");
+    }
+
+    // ─── CSV IMPORT ───────────────────────────────────────────────────────────
+
+    public function bulkImportTemplate()
+    {
+        $filename = 'expenses-import-template.csv';
+
+        return response()->stream(function () {
+            $handle = fopen('php://output', 'w');
+            fputs($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, ['date', 'description', 'category_name', 'bank_account_name', 'amount', 'is_zero_rated', 'reference']);
+            // Example rows
+            fputcsv($handle, ['2026-05-01', 'Office supplies purchase', 'Office Supplies & Stationery', 'Main Account (CRDB)', '50000', 'no', 'REF-001']);
+            fputcsv($handle, ['2026-05-01', 'Fuel for Generator A', 'Fuel', 'Main Account (CRDB)', '120000', 'no', '']);
+            fclose($handle);
+        }, 200, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    public function bulkImport()
+    {
+        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+
+        return view('admin.accounting.expenses.bulk-import', compact('categories', 'bankAccounts'));
+    }
+
+    public function bulkImportPreview(Request $request)
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+        ]);
+
+        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+
+        $catMap  = $categories->keyBy(fn($c) => strtolower(trim($c->name)));
+        $bankMap = $bankAccounts->keyBy(fn($b) => strtolower(trim($b->name)));
+
+        $handle = fopen($request->file('csv_file')->getRealPath(), 'r');
+        // Strip BOM if present
+        $bom = fread($handle, 3);
+        if ($bom !== "\xEF\xBB\xBF") {
+            rewind($handle);
+        }
+
+        $headers = fgetcsv($handle); // skip header row
+        $rows    = [];
+        $lineNum = 1;
+
+        while (($cols = fgetcsv($handle)) !== false) {
+            $lineNum++;
+            if (count($cols) < 5) continue;
+
+            [$date, $description, $catName, $bankName, $amount, $isZeroRaw, $reference] = array_pad($cols, 7, '');
+
+            $catMatch  = $catMap->get(strtolower(trim($catName)));
+            $bankMatch = $bankMap->get(strtolower(trim($bankName)));
+            $isZero    = strtolower(trim($isZeroRaw)) === 'yes' || trim($isZeroRaw) === '1';
+            $amtVal    = (float) str_replace(',', '', trim($amount));
+
+            $errors = [];
+            if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat(trim($date), 'Y-m-d')) $errors[] = 'Invalid date';
+            if (!$description) $errors[] = 'Missing description';
+            if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
+            if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
+            if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
+
+            $rows[] = [
+                'line'                => $lineNum,
+                'expense_date'        => trim($date),
+                'description'         => trim($description),
+                'category_name'       => trim($catName),
+                'expense_category_id' => $catMatch?->id,
+                'bank_account_name'   => trim($bankName),
+                'bank_account_id'     => $bankMatch?->id,
+                'amount'              => $amtVal,
+                'is_zero_rated'       => $isZero,
+                'reference'           => trim($reference),
+                'errors'              => $errors,
+            ];
+        }
+
+        fclose($handle);
+
+        return view('admin.accounting.expenses.bulk-import-preview',
+            compact('rows', 'categories', 'bankAccounts'));
+    }
+
+    public function bulkImportConfirm(Request $request)
+    {
+        $request->validate([
+            'rows'                       => 'required|array|min:1',
+            'rows.*.expense_date'        => 'required|date',
+            'rows.*.description'         => 'required|string|max:500',
+            'rows.*.expense_category_id' => 'required|exists:expense_categories,id',
+            'rows.*.bank_account_id'     => 'required|exists:bank_accounts,id',
+            'rows.*.amount'              => 'required|numeric|min:0.01',
+            'rows.*.is_zero_rated'       => 'nullable|boolean',
+            'rows.*.reference'           => 'nullable|string|max:100',
+        ]);
+
+        $saved = 0;
+        foreach ($request->input('rows') as $row) {
+            $isZero = !empty($row['is_zero_rated']);
+            $amount = round((float) $row['amount'], 2);
+            $vat    = $isZero ? 0 : round($amount * 0.18, 2);
+
+            $expense = Expense::create([
+                'expense_category_id' => $row['expense_category_id'],
+                'bank_account_id'     => $row['bank_account_id'],
+                'description'         => $row['description'],
+                'amount'              => $amount,
+                'is_zero_rated'       => $isZero,
+                'vat_amount'          => $vat,
+                'total_amount'        => $amount + $vat,
+                'expense_date'        => $row['expense_date'],
+                'reference'           => $row['reference'] ?? null,
+                'status'              => 'draft',
+                'created_by'          => auth()->id(),
+            ]);
+
+            UserActivityLog::record(
+                auth()->id(), 'created',
+                'Created expense ' . $expense->expense_number . ' (CSV import)',
+                Expense::class, $expense->id
+            );
+
+            $saved++;
+        }
+
+        return redirect()->route('admin.accounting.expenses.index')
+                         ->with('success', "{$saved} expense(s) imported and saved as draft.");
     }
 }

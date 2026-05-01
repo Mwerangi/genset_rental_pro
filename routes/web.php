@@ -389,6 +389,14 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::middleware('permission:create_expenses')->group(function () {
             Route::get('/accounting/expenses/create', [ExpenseController::class, 'create'])->name('accounting.expenses.create');
             Route::post('/accounting/expenses', [ExpenseController::class, 'store'])->name('accounting.expenses.store');
+            // Bulk entry (multi-row form)
+            Route::get('/accounting/expenses/bulk-entry', [ExpenseController::class, 'bulkEntry'])->name('accounting.expenses.bulk-entry');
+            Route::post('/accounting/expenses/bulk-entry', [ExpenseController::class, 'bulkStore'])->name('accounting.expenses.bulk-store');
+            // CSV import
+            Route::get('/accounting/expenses/bulk-import/template', [ExpenseController::class, 'bulkImportTemplate'])->name('accounting.expenses.bulk-import.template');
+            Route::get('/accounting/expenses/bulk-import', [ExpenseController::class, 'bulkImport'])->name('accounting.expenses.bulk-import');
+            Route::post('/accounting/expenses/bulk-import/preview', [ExpenseController::class, 'bulkImportPreview'])->name('accounting.expenses.bulk-import.preview');
+            Route::post('/accounting/expenses/bulk-import/confirm', [ExpenseController::class, 'bulkImportConfirm'])->name('accounting.expenses.bulk-import.confirm');
         });
         Route::get('/accounting/expenses/{expense}', [ExpenseController::class, 'show'])->name('accounting.expenses.show');
         Route::middleware('permission:create_expenses')->group(function () {
