@@ -48,6 +48,7 @@
                             <th class="px-3 py-3 text-left min-w-48">Description</th>
                             <th class="px-3 py-3 text-left w-40">Category</th>
                             <th class="px-3 py-3 text-left w-36">Bank Account</th>
+                            <th class="px-3 py-3 text-left w-36">Supplier</th>
                             <th class="px-3 py-3 text-right w-28">Amount</th>
                             <th class="px-3 py-3 text-center w-16">No VAT</th>
                             <th class="px-3 py-3 text-right w-24">VAT</th>
@@ -71,6 +72,7 @@
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-700' : 'text-gray-700' }}">{{ $row['description'] }}</td>
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-600' : 'text-gray-700' }}">{{ $row['category_name'] }}</td>
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-600' : 'text-gray-700' }}">{{ $row['bank_account_name'] }}</td>
+                                <td class="px-3 py-2 {{ $hasError ? 'text-red-600' : 'text-gray-500' }}">{{ $row['supplier_name'] ?: '—' }}</td>
                                 <td class="px-3 py-2 text-right {{ $hasError ? 'text-red-700' : 'text-gray-700' }}">{{ number_format($amount, 2) }}</td>
                                 <td class="px-3 py-2 text-center">
                                     @if($isZero)<span class="text-amber-600 text-xs font-medium">Yes</span>@else<span class="text-gray-400 text-xs">No</span>@endif
@@ -103,6 +105,7 @@
             <input type="hidden" name="rows[{{ $j }}][description]"         value="{{ $row['description'] }}">
             <input type="hidden" name="rows[{{ $j }}][expense_category_id]" value="{{ $row['expense_category_id'] }}">
             <input type="hidden" name="rows[{{ $j }}][bank_account_id]"     value="{{ $row['bank_account_id'] }}">
+            <input type="hidden" name="rows[{{ $j }}][supplier_id]"         value="{{ $row['supplier_id'] ?? '' }}">
             <input type="hidden" name="rows[{{ $j }}][amount]"              value="{{ $row['amount'] }}">
             <input type="hidden" name="rows[{{ $j }}][is_zero_rated]"       value="{{ $row['is_zero_rated'] ? 1 : 0 }}">
             <input type="hidden" name="rows[{{ $j }}][reference]"           value="{{ $row['reference'] }}">

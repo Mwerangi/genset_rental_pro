@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Expense extends Model
 {
     protected $fillable = [
-        'expense_number', 'expense_category_id', 'bank_account_id',
+        'expense_number', 'expense_category_id', 'bank_account_id', 'supplier_id',
         'description', 'amount', 'vat_amount', 'is_zero_rated', 'total_amount',
         'expense_date', 'reference', 'attachment',
         'source_type', 'source_id', 'journal_entry_id',
@@ -69,6 +69,11 @@ class Expense extends Model
     public function bankAccount(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class);
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
     }
 
     public function journalEntry(): BelongsTo

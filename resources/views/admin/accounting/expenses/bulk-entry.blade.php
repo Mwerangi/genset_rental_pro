@@ -33,6 +33,7 @@
                             <th class="px-3 py-3 text-left min-w-48">Description <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-left w-44">Category <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-left w-40">Pay From <span class="text-red-500">*</span></th>
+                            <th class="px-3 py-3 text-left w-40">Supplier / Vendor</th>
                             <th class="px-3 py-3 text-right w-28">Amount (TZS) <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-center w-20">No VAT</th>
                             <th class="px-3 py-3 text-right w-24">VAT</th>
@@ -87,10 +88,14 @@
         $jsBankAccounts = $bankAccounts->map(function($b) {
             return ['id' => (string) $b->id, 'name' => $b->name];
         })->values();
+        $jsSuppliers = $suppliers->map(function($s) {
+            return ['id' => (string) $s->id, 'name' => $s->name];
+        })->values();
     @endphp
     <script>
     const CATEGORIES = @json($jsCategories);
     const BANK_ACCOUNTS = @json($jsBankAccounts);
+    const SUPPLIERS = @json($jsSuppliers);
 
     let rowIndex = 0;
 
@@ -109,6 +114,15 @@
         BANK_ACCOUNTS.forEach(b => {
             const sel = b.id === String(selectedId) ? 'selected' : '';
             html += `<option value="${b.id}" ${sel}>${b.name}</option>`;
+        });
+        return html;
+    }
+
+    function supplierOptions(selectedId = '') {
+        let html = '<option value="">— None —</option>';
+        SUPPLIERS.forEach(s => {
+            const sel = s.id === String(selectedId) ? 'selected' : '';
+            html += `<option value="${s.id}" ${sel}>${s.name}</option>`;
         });
         return html;
     }
@@ -140,6 +154,12 @@
                 <select name="rows[${i}][bank_account_id]"
                     class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-red-400" required>
                     ${bankOptions(defaults.bank_account_id || '')}
+                </select>
+            </td>
+            <td class="px-2 py-2">
+                <select name="rows[${i}][supplier_id]"
+                    class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-red-400">
+                    ${supplierOptions(defaults.supplier_id || '')}
                 </select>
             </td>
             <td class="px-2 py-2">
