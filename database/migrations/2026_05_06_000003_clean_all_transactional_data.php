@@ -67,55 +67,61 @@ return new class extends Migration
     {
         DB::transaction(function () {
 
-            // Disable FK checks for the duration so we can delete in any order
+            // Disable FK checks so we can delete in any order without constraint errors
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
             try {
+                // Helper: delete from table only if it exists (guards against
+                // tables not yet created on this environment).
+                $wipe   = fn(string $t) => \Schema::hasTable($t) ? DB::statement("DELETE FROM `{$t}`") : null;
+                $reset  = fn(string $t, string $col, mixed $val = 0) => \Schema::hasTable($t) ? DB::statement("UPDATE `{$t}` SET `{$col}` = {$val}") : null;
+                $nullify = fn(string $t, string $col) => \Schema::hasTable($t) && \Schema::hasColumn($t, $col) ? DB::statement("UPDATE `{$t}` SET `{$col}` = NULL") : null;
+
                 // ── 1. Journal entries ─────────────────────────────────────────
-                DB::statement('DELETE FROM journal_entry_lines');
-                DB::statement('DELETE FROM journal_entries');
+                $wipe('journal_entry_lines');
+                $wipe('journal_entries');
 
                 // ── 2. Accounting records ──────────────────────────────────────
-                DB::statement('DELETE FROM account_transfers');
-                DB::statement('DELETE FROM supplier_payments');
-                DB::statement('DELETE FROM invoice_payments');
-                DB::statement('DELETE FROM expenses');
-                DB::statement('DELETE FROM bank_transactions');
-                DB::statement('DELETE FROM bank_statements');
-                DB::statement('DELETE FROM cash_request_items');
-                DB::statement('DELETE FROM cash_requests');
-                DB::statement('DELETE FROM daily_closings');
+                $wipe('account_transfers');
+                $wipe('supplier_payments');
+                $wipe('invoice_payments');
+                $wipe('expenses');
+                $wipe('bank_transactions');
+                $wipe('bank_statements');
+                $wipe('cash_request_items');
+                $wipe('cash_requests');
+                $wipe('daily_closings');
 
                 // ── 3. Client transactions ─────────────────────────────────────
-                DB::statement('DELETE FROM quote_requests');
-                DB::statement('DELETE FROM quotation_items');
-                DB::statement('DELETE FROM quotations');
-                DB::statement('DELETE FROM invoice_items');
-                DB::statement('DELETE FROM invoices');
-                DB::statement('DELETE FROM deliveries');
-                DB::statement('DELETE FROM bookings');
-                DB::statement('DELETE FROM credit_notes');
+                $wipe('quote_requests');
+                $wipe('quotation_items');
+                $wipe('quotations');
+                $wipe('invoice_items');
+                $wipe('invoices');
+                $wipe('deliveries');
+                $wipe('bookings');
+                $wipe('credit_notes');
 
                 // ── 4. Supplier transactions ───────────────────────────────────
-                DB::statement('DELETE FROM purchase_order_items');
-                DB::statement('DELETE FROM purchase_orders');
+                $wipe('purchase_order_items');
+                $wipe('purchase_orders');
 
                 // ── 5. Operations ──────────────────────────────────────────────
-                DB::statement('DELETE FROM fuel_logs');
-                DB::statement('DELETE FROM maintenance_records');
-                DB::statement('DELETE FROM stock_movements');
+                $wipe('fuel_logs');
+                $wipe('maintenance_records');
+                $wipe('stock_movements');
 
                 // ── 6. Logs & notifications ────────────────────────────────────
-                DB::statement('DELETE FROM user_activity_logs');
-                DB::statement('DELETE FROM notifications');
+                $wipe('user_activity_logs');
+                $wipe('notifications');
 
-                // ── 7. Reset running balances on accounts ──────────────────────
-                DB::statement('UPDATE accounts SET balance = 0');
-                DB::statement('UPDATE bank_accounts SET current_balance = 0');
-                DB::statement('UPDATE inventory_items SET current_stock = 0');
+                // ── 7. Reset running balances ──────────────────────────────────
+                $reset('accounts',        'balance');
+                $reset('bank_accounts',   'current_balance');
+                $reset('inventory_items', 'current_stock');
 
                 // ── 8. Unlink journal_entry_id on gensets ──────────────────────
-                DB::statement('UPDATE gensets SET journal_entry_id = NULL');
+                $nullify('gensets', 'journal_entry_id');
 
             } finally {
                 DB::statement('SET FOREIGN_KEY_CHECKS=1');
