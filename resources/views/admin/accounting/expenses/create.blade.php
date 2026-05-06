@@ -22,28 +22,24 @@
                     <input type="text" name="description" value="{{ old('description') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                     @error('description')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
-                <div x-data="{
-                        selectedCat: '{{ old('expense_category_id') }}',
-                        cats: {{ $categories->map(fn($c) => ['id' => (string)$c->id, 'hasAccount' => (bool)$c->account_id, 'isZeroRated' => (bool)$c->is_zero_rated])->toJson() }}
-                    }" x-init="
-                        $watch('selectedCat', val => {
-                            const cat = cats.find(c => c.id === val);
-                            if (cat && cat.isZeroRated) { $root.zeroRated = true; }
-                        })
-                    ">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
-                    <select name="expense_category_id" x-model="selectedCat" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
-                        <option value="">Select category</option>
-                        @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}" @selected(old('expense_category_id') == $cat->id)>
-                            {{ $cat->name }}{{ $cat->account ? ' — ' . $cat->account->code . ' ' . $cat->account->name : ' ⚠ No ledger account' }}
-                        </option>
-                        @endforeach
-                    </select>
-                    @error('expense_category_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
-                    <template x-if="selectedCat && cats.find(c => c.id === selectedCat && !c.hasAccount)">
-                        <p class="mt-1 text-xs text-amber-600 font-medium">⚠ This category has no ledger account — posting will fail. <a href="{{ route('admin.accounting.expense-categories.index') }}" class="underline">Link one in Categories</a>.</p>
-                    </template>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Account (COA) <span class="text-red-500">*</span></label>
+                    @php
+                        $jsAccounts = $accounts->map(fn($a) => ['id' => (string)$a->id, 'code' => $a->code, 'name' => $a->name, 'label' => $a->code.' — '.$a->name]);
+                        $oldAccountId = old('account_id');
+                        $oldAccountLabel = $oldAccountId ? ($accounts->firstWhere('id', $oldAccountId)?->code . ' — ' . $accounts->firstWhere('id', $oldAccountId)?->name) : '';
+                    @endphp
+                    <div class="relative" id="acctWrap">
+                        <input type="hidden" name="account_id" id="acctId" value="{{ $oldAccountId }}">
+                        <input type="text" id="acctSearch"
+                               value="{{ $oldAccountLabel }}"
+                               placeholder="Search by code or name…"
+                               autocomplete="off"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 pr-7">
+                        <button type="button" id="acctClear"
+                                class="{{ $oldAccountId ? '' : 'hidden' }} absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-sm">&times;</button>
+                    </div>
+                    @error('account_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pay From Account <span class="text-red-500">*</span></label>
@@ -68,9 +64,6 @@
                                x-model="zeroRated">
                         <span class="text-sm font-medium text-gray-700">Zero-rated expense (no VAT applicable)</span>
                     </label>
-                    <template x-if="zeroRated && cats && selectedCat && cats.find(c => c.id === selectedCat && c.isZeroRated)">
-                        <p class="mt-1 text-xs text-green-600 font-medium">✓ This category is set as VAT-exempt — zero-rated applied automatically.</p>
-                    </template>
                 </div>
 
                 {{-- VAT (auto-calculated at 18%) --}}
@@ -113,4 +106,74 @@
             </div>
         </form>
     </div>
+
+<div id="acctDrop"
+     style="display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:.5rem;box-shadow:0 4px 12px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;min-width:280px;font-size:.875rem">
+</div>
+
+<script>
+const ACCOUNTS = @json($jsAccounts);
+const acctDrop = document.getElementById('acctDrop');
+let acctDropTarget = null;
+
+function openAccountDrop(wrap) {
+    acctDropTarget = wrap;
+    const rect = wrap.querySelector('.acct-search, #acctSearch').getBoundingClientRect();
+    acctDrop.style.left  = rect.left + window.scrollX + 'px';
+    acctDrop.style.top   = rect.bottom + window.scrollY + 4 + 'px';
+    acctDrop.style.width = rect.width + 'px';
+    renderAccountDrop(wrap);
+    acctDrop.style.display = 'block';
+}
+
+function renderAccountDrop(wrap) {
+    const q = (wrap.querySelector('.acct-search, #acctSearch').value || '').toLowerCase().trim();
+    const rows = q.length < 1 ? ACCOUNTS.slice(0, 40)
+        : ACCOUNTS.filter(a => a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)).slice(0, 40);
+    if (!rows.length) {
+        acctDrop.innerHTML = '<div style="padding:10px 14px;color:#9ca3af">No accounts found</div>';
+        return;
+    }
+    acctDrop.innerHTML = rows.map(a =>
+        `<div class="acct-opt" data-id="${a.id}" data-label="${a.label.replace(/"/g,'&quot;')}"
+              style="padding:8px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+              onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">${a.code} — ${a.name}</div>`
+    ).join('');
+}
+
+function setAccount(wrap, id, label) {
+    wrap.querySelector('#acctId, .acct-id-value').value = id;
+    const srch = wrap.querySelector('#acctSearch, .acct-search');
+    srch.value = label;
+    const clr = wrap.querySelector('#acctClear, .acct-clear');
+    if (clr) clr.classList.toggle('hidden', !id);
+    acctDrop.style.display = 'none';
+}
+
+function initAccountTypeahead(wrap, defaultId) {
+    const srch = wrap.querySelector('#acctSearch, .acct-search');
+    const clr  = wrap.querySelector('#acctClear, .acct-clear');
+
+    if (defaultId) {
+        const a = ACCOUNTS.find(a => a.id === String(defaultId));
+        if (a) setAccount(wrap, a.id, a.label);
+    }
+
+    srch.addEventListener('focus', () => openAccountDrop(wrap));
+    srch.addEventListener('input', () => { renderAccountDrop(wrap); acctDrop.style.display = 'block'; acctDropTarget = wrap; });
+    srch.addEventListener('blur', () => setTimeout(() => { if (acctDropTarget === wrap) acctDrop.style.display = 'none'; }, 160));
+
+    acctDrop.addEventListener('mousedown', e => {
+        const opt = e.target.closest('.acct-opt');
+        if (!opt || acctDropTarget !== wrap) return;
+        setAccount(wrap, opt.dataset.id, opt.dataset.label);
+    });
+
+    if (clr) clr.addEventListener('click', () => setAccount(wrap, '', ''));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    initAccountTypeahead(document.getElementById('acctWrap'), '{{ $oldAccountId }}');
+});
+</script>
 </x-admin-layout>

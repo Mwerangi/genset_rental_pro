@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Account;
 use App\Models\BankAccount;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -114,17 +115,17 @@ class ExpenseController extends Controller
 
     public function create()
     {
-        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.accounting.expenses.create', compact('categories', 'bankAccounts'));
+        return view('admin.accounting.expenses.create', compact('accounts', 'bankAccounts'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'expense_category_id' => 'required|exists:expense_categories,id',
-            'bank_account_id'     => 'required|exists:bank_accounts,id',
+            'account_id'      => 'required|exists:accounts,id',
+            'bank_account_id' => 'required|exists:bank_accounts,id',
             'description'         => 'required|string|max:500',
             'amount'              => 'required|numeric|min:0.01',
             'is_zero_rated'       => 'nullable|boolean',
@@ -414,11 +415,11 @@ class ExpenseController extends Controller
 
     public function bulkEntry()
     {
-        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
         $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.accounting.expenses.bulk-entry', compact('categories', 'bankAccounts', 'suppliers'));
+        return view('admin.accounting.expenses.bulk-entry', compact('accounts', 'bankAccounts', 'suppliers'));
     }
 
     public function bulkStore(Request $request)
@@ -427,7 +428,7 @@ class ExpenseController extends Controller
             'rows'                           => 'required|array|min:1',
             'rows.*.expense_date'            => 'required|date',
             'rows.*.description'             => 'required|string|max:500',
-            'rows.*.expense_category_id'     => 'required|exists:expense_categories,id',
+            'rows.*.account_id'              => 'required|exists:accounts,id',
             'rows.*.bank_account_id'         => 'required|exists:bank_accounts,id',
             'rows.*.supplier_id'             => 'nullable|exists:suppliers,id',
             'rows.*.amount'                  => 'required|numeric|min:0.01',
@@ -443,7 +444,7 @@ class ExpenseController extends Controller
             $total      = $amount + $vat;
 
             $expense = Expense::create([
-                'expense_category_id' => $row['expense_category_id'],
+                'account_id'          => $row['account_id'],
                 'bank_account_id'     => $row['bank_account_id'],
                 'supplier_id'         => $row['supplier_id'] ?? null,
                 'description'         => $row['description'],
