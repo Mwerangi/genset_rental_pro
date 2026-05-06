@@ -31,7 +31,7 @@
                         <tr>
                             <th class="px-3 py-3 text-left w-32">Date <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-left min-w-48">Description <span class="text-red-500">*</span></th>
-                            <th class="px-3 py-3 text-left w-44">Category <span class="text-red-500">*</span></th>
+                            <th class="px-3 py-3 text-left w-52">Account (COA) <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-left w-40">Pay From <span class="text-red-500">*</span></th>
                             <th class="px-3 py-3 text-left w-40">Supplier / Vendor</th>
                             <th class="px-3 py-3 text-right w-28">Amount (TZS) <span class="text-red-500">*</span></th>
@@ -76,13 +76,12 @@
 
     {{-- Data for JS --}}
     @php
-        $jsCategories = $categories->map(function($c) {
+        $jsAccounts = $accounts->map(function($a) {
             return [
-                'id'          => (string) $c->id,
-                'name'        => $c->name,
-                'isZeroRated' => (bool) $c->is_zero_rated,
-                'hasAccount'  => (bool) $c->account_id,
-                'accountCode' => optional($c->account)->code,
+                'id'    => (string) $a->id,
+                'code'  => $a->code,
+                'name'  => $a->name,
+                'label' => $a->code . ' — ' . $a->name,
             ];
         })->values();
         $jsBankAccounts = $bankAccounts->map(function($b) {
@@ -93,20 +92,73 @@
         })->values();
     @endphp
     <script>
-    const CATEGORIES = @json($jsCategories);
+    const ACCOUNTS = @json($jsAccounts);
     const BANK_ACCOUNTS = @json($jsBankAccounts);
     const SUPPLIERS = @json($jsSuppliers);
 
     let rowIndex = 0;
 
-    function catOptions(selectedId = '') {
-        let html = '<option value="">Select category</option>';
-        CATEGORIES.forEach(c => {
-            const sel = c.id === String(selectedId) ? 'selected' : '';
-            const warn = !c.hasAccount ? ' ⚠' : '';
-            html += `<option value="${c.id}" ${sel}>${c.name}${warn}</option>`;
-        });
-        return html;
+    // ── Shared floating dropdown for COA account typeahead ─────────────
+    const sharedDrop = document.createElement('div');
+    sharedDrop.className = 'fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl max-h-56 overflow-y-auto hidden text-sm';
+    document.body.appendChild(sharedDrop);
+    let activeDrop = null, closeTimer = null;
+
+    function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function openAccountDrop(searchEl, hiddenEl) {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        activeDrop = { searchEl, hiddenEl };
+        renderAccountDrop(searchEl.value);
+        const r = searchEl.getBoundingClientRect();
+        sharedDrop.style.top   = (r.bottom + window.scrollY + 2) + 'px';
+        sharedDrop.style.left  = (r.left + window.scrollX) + 'px';
+        sharedDrop.style.width = Math.max(r.width, 260) + 'px';
+        sharedDrop.classList.remove('hidden');
+    }
+
+    function renderAccountDrop(q) {
+        q = (q || '').toLowerCase().trim();
+        const list = q ? ACCOUNTS.filter(a => a.label.toLowerCase().includes(q)) : ACCOUNTS;
+        sharedDrop.innerHTML = list.length
+            ? list.map(a => `<div class="pdrop-opt px-3 py-2 cursor-pointer hover:bg-red-50 flex gap-2 items-baseline" data-value="${escH(a.id)}" data-label="${escH(a.label)}"><span class="font-mono text-xs text-gray-400 shrink-0">${escH(a.code)}</span><span class="truncate">${escH(a.name)}</span></div>`).join('')
+            : '<div class="px-3 py-2 text-gray-400 italic text-xs">No results</div>';
+    }
+
+    function closeAccountDrop() { sharedDrop.classList.add('hidden'); activeDrop = null; }
+    function scheduleClose()    { closeTimer = setTimeout(closeAccountDrop, 180); }
+
+    sharedDrop.addEventListener('mousedown', e => {
+        const opt = e.target.closest('[data-value]');
+        if (!opt || !activeDrop) return;
+        e.preventDefault();
+        setAccount(activeDrop.searchEl, activeDrop.hiddenEl, opt.dataset.value, opt.dataset.label);
+        closeAccountDrop();
+    });
+    document.addEventListener('mousedown', e => {
+        if (!sharedDrop.contains(e.target) && !e.target.classList.contains('acct-search')) closeAccountDrop();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAccountDrop(); });
+
+    function setAccount(searchEl, hiddenEl, value, label) {
+        hiddenEl.value = value;
+        searchEl.value = label;
+        const wrap = searchEl.closest('.acct-wrap');
+        wrap?.querySelector('.acct-clear')?.classList.toggle('hidden', !value);
+    }
+
+    function initAccountTypeahead(wrap, defaultId) {
+        const s = wrap.querySelector('.acct-search');
+        const h = wrap.querySelector('.acct-id-value');
+        const c = wrap.querySelector('.acct-clear');
+        s.addEventListener('focus', () => openAccountDrop(s, h));
+        s.addEventListener('input', () => { h.value = ''; c?.classList.add('hidden'); openAccountDrop(s, h); });
+        s.addEventListener('blur', scheduleClose);
+        c?.addEventListener('click', () => { setAccount(s, h, '', ''); s.focus(); });
+        if (defaultId) {
+            const a = ACCOUNTS.find(x => x.id === String(defaultId));
+            if (a) setAccount(s, h, a.id, a.label);
+        }
     }
 
     function bankOptions(selectedId = '') {
@@ -145,10 +197,11 @@
                     class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-red-400" required>
             </td>
             <td class="px-2 py-2">
-                <select name="rows[${i}][expense_category_id]"
-                    class="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 cat-select" required>
-                    ${catOptions(defaults.expense_category_id || '')}
-                </select>
+                <div class="acct-wrap relative">
+                    <input type="hidden" name="rows[${i}][account_id]" class="acct-id-value" value="${defaults.account_id || ''}">
+                    <input type="text" class="acct-search w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-red-400 pr-6 truncate" placeholder="Search account…" autocomplete="off" required>
+                    <button type="button" class="acct-clear hidden absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs p-0.5">&times;</button>
+                </div>
             </td>
             <td class="px-2 py-2">
                 <select name="rows[${i}][bank_account_id]"
@@ -208,7 +261,10 @@
         const zeroCheck  = tr.querySelector('.zero-rated-check');
         const vatDisplay = tr.querySelector('.vat-display');
         const totDisplay = tr.querySelector('.total-display');
-        const catSelect  = tr.querySelector('.cat-select');
+
+        // Init COA typeahead
+        const acctWrap = tr.querySelector('.acct-wrap');
+        if (acctWrap) initAccountTypeahead(acctWrap, defaults.account_id || null);
 
         function recalc() {
             const isZero = zeroCheck.checked;
@@ -219,15 +275,6 @@
             totDisplay.value = total.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             recalcGrandTotal();
         }
-
-        // Auto-detect zero-rated from category
-        catSelect.addEventListener('change', () => {
-            const cat = CATEGORIES.find(c => c.id === catSelect.value);
-            if (cat && cat.isZeroRated) {
-                zeroCheck.checked = true;
-            }
-            recalc();
-        });
 
         amtInput.addEventListener('input', recalc);
         zeroCheck.addEventListener('change', recalc);

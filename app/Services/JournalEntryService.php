@@ -488,7 +488,7 @@ class JournalEntryService
         $bankCoa = Account::find($bankAccount->account_id);
         if (!$bankCoa) return null;
 
-        $expenseAccount = $expense->category?->account;
+        $expenseAccount = $expense->account ?? $expense->category?->account;
         if (!$expenseAccount) return null;
 
         $amount = round((float) $expense->amount, 2);

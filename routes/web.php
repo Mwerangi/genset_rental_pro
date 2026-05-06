@@ -504,6 +504,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
         Route::get('/accounting/reports/balance-sheet', [ReportsController::class, 'balanceSheet'])->name('accounting.reports.balance-sheet');
         Route::get('/accounting/reports/aging', [ReportsController::class, 'aging'])->name('accounting.reports.aging');
         Route::get('/accounting/reports/statement', [ReportsController::class, 'statement'])->name('accounting.reports.statement');
+        Route::get('/accounting/reports/statement/pdf', [ReportsController::class, 'statementPdf'])->name('accounting.reports.statement.pdf');
         Route::get('/accounting/reports/payables', [ReportsController::class, 'payables'])->name('accounting.reports.payables');
         Route::get('/reports/invoices/revenue-by-period', [ReportsController::class, 'revenueByPeriod'])->name('reports.invoices.revenue-by-period');
         Route::get('/reports/invoices/revenue-by-period/export', [ReportsController::class, 'revenueByPeriodExport'])->name('reports.invoices.revenue-by-period.export');

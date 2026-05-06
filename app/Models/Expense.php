@@ -5,11 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Models\Account;
 
 class Expense extends Model
 {
     protected $fillable = [
-        'expense_number', 'expense_category_id', 'bank_account_id', 'supplier_id',
+        'expense_number', 'expense_category_id', 'account_id', 'bank_account_id', 'supplier_id',
         'description', 'amount', 'vat_amount', 'is_zero_rated', 'total_amount',
         'expense_date', 'reference', 'attachment',
         'source_type', 'source_id', 'journal_entry_id',
@@ -64,6 +65,11 @@ class Expense extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ExpenseCategory::class, 'expense_category_id');
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
     }
 
     public function bankAccount(): BelongsTo

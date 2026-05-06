@@ -226,6 +226,102 @@ class ReportsController extends Controller
     }
 
     /**
+     * Download Statement of Accounts as PDF.
+     */
+    public function statementPdf(Request $request)
+    {
+        $clientId = $request->get('client_id');
+        $from     = $request->get('from', now()->startOfYear()->toDateString());
+        $to       = $request->get('to', now()->toDateString());
+
+        abort_if(!$clientId, 400, 'Client required.');
+
+        $client = Client::findOrFail($clientId);
+
+        $opening  = ['USD' => 0.0, 'TZS' => 0.0];
+        $invoiced = ['USD' => 0.0, 'TZS' => 0.0];
+        $paid     = ['USD' => 0.0, 'TZS' => 0.0];
+        $closing  = ['USD' => 0.0, 'TZS' => 0.0];
+        $lines    = collect();
+
+        $openingInvoices = Invoice::where('client_id', $clientId)
+            ->whereIn('status', ['sent', 'partially_paid', 'disputed', 'draft'])
+            ->where('issue_date', '<', $from)
+            ->get();
+
+        foreach ($openingInvoices as $i) {
+            $ccy = $i->currency === 'USD' ? 'USD' : 'TZS';
+            $opening[$ccy] += max(0, (float)$i->total_amount - (float)$i->amount_paid);
+        }
+
+        $invoices = Invoice::with('payments')
+            ->where('client_id', $clientId)
+            ->whereBetween('issue_date', [$from, $to])
+            ->orderBy('issue_date')
+            ->orderBy('invoice_number')
+            ->get();
+
+        $running = ['USD' => $opening['USD'], 'TZS' => $opening['TZS']];
+
+        foreach ($invoices as $inv) {
+            $ccy    = $inv->currency === 'USD' ? 'USD' : 'TZS';
+            $amount = (float)$inv->total_amount;
+
+            $running[$ccy]  += $amount;
+            $invoiced[$ccy] += $amount;
+
+            $lines->push([
+                'date'        => $inv->issue_date,
+                'type'        => 'invoice',
+                'reference'   => $inv->invoice_number,
+                'description' => 'Invoice',
+                'currency'    => $ccy,
+                'debit'       => $amount,
+                'credit'      => 0.0,
+                'balance_usd' => $running['USD'],
+                'balance_tzs' => $running['TZS'],
+                'status'      => $inv->status,
+            ]);
+
+            foreach ($inv->payments as $pmt) {
+                if ($pmt->payment_date->between($from, $to)) {
+                    $pmtAmt         = (float)$pmt->amount;
+                    $running[$ccy] -= $pmtAmt;
+                    $paid[$ccy]    += $pmtAmt;
+
+                    $lines->push([
+                        'date'        => $pmt->payment_date,
+                        'type'        => 'payment',
+                        'reference'   => $pmt->reference ?? 'PMT-' . $pmt->id,
+                        'description' => 'Payment — ' . ucfirst(str_replace('_', ' ', $pmt->payment_method ?? '')),
+                        'currency'    => $ccy,
+                        'debit'       => 0.0,
+                        'credit'      => $pmtAmt,
+                        'balance_usd' => $running['USD'],
+                        'balance_tzs' => $running['TZS'],
+                        'status'      => null,
+                    ]);
+                }
+            }
+        }
+
+        $lines = $lines->sortBy('date')->values();
+
+        $closing['USD'] = $opening['USD'] + $invoiced['USD'] - $paid['USD'];
+        $closing['TZS'] = $opening['TZS'] + $invoiced['TZS'] - $paid['TZS'];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('admin.accounting.reports.statement-pdf', compact(
+            'client', 'lines', 'opening', 'invoiced', 'paid', 'closing', 'from', 'to'
+        ));
+        $pdf->setPaper('A4', 'landscape');
+
+        $filename = 'Statement_' . str_replace([' ', '/'], '_', $client->company_name ?: $client->full_name)
+            . '_' . $from . '_to_' . $to . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    /**
      * Payables Register — all open Purchase Orders with AP exposure.
      * Gives the accounts team visibility of committed spend and outstanding balances.
      */
