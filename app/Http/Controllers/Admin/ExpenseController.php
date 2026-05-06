@@ -477,7 +477,7 @@ class ExpenseController extends Controller
 
     public function bulkImportTemplate()
     {
-        $categories   = ExpenseCategory::where('is_active', true)->orderBy('name')->pluck('name');
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->pluck('name');
         $suppliers    = Supplier::where('is_active', true)->orderBy('name')->pluck('name');
 
@@ -488,7 +488,7 @@ class ExpenseController extends Controller
         $sheet->setTitle('Import');
 
         // Header row
-        $headers = ['date', 'description', 'category_name', 'bank_account_name', 'amount', 'is_zero_rated', 'reference', 'supplier_name'];
+        $headers = ['date', 'description', 'account_code', 'bank_account_name', 'amount', 'is_zero_rated', 'reference', 'supplier_name'];
         foreach ($headers as $col => $header) {
             $cellRef = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1) . '1';
             $sheet->setCellValue($cellRef, $header);
@@ -500,9 +500,11 @@ class ExpenseController extends Controller
         }
 
         // Example rows
+        $firstAcct  = $accounts->first();
+        $secondAcct = $accounts->get(1);
         $examples = [
-            ['2026-05-01', 'Office supplies purchase', $categories->first() ?? 'Office Supplies', $bankAccounts->first() ?? 'Petty Cash', 50000, 'no', 'REF-001', ''],
-            ['2026-05-01', 'Fuel for Generator',       $categories->get(1) ?? 'Fuel',            $bankAccounts->first() ?? 'Petty Cash', 120000, 'no', '', $suppliers->first() ?? ''],
+            ['2026-05-01', 'Office supplies purchase', $firstAcct  ? $firstAcct->code  . ' — ' . $firstAcct->name  : '6001 — Office Supplies', $bankAccounts->first() ?? 'Petty Cash', 50000,  'no', 'REF-001', ''],
+            ['2026-05-01', 'Fuel for Generator',       $secondAcct ? $secondAcct->code . ' — ' . $secondAcct->name : '6002 — Fuel',             $bankAccounts->first() ?? 'Petty Cash', 120000, 'no', '',        $suppliers->first() ?? ''],
         ];
         foreach ($examples as $r => $row) {
             foreach ($row as $col => $val) {
@@ -512,7 +514,7 @@ class ExpenseController extends Controller
         }
 
         // Column widths
-        foreach ([12, 40, 30, 30, 14, 14, 20, 30] as $col => $width) {
+        foreach ([12, 40, 36, 30, 14, 14, 20, 30] as $col => $width) {
             $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
             $sheet->getColumnDimension($colLetter)->setWidth($width);
         }
@@ -521,8 +523,8 @@ class ExpenseController extends Controller
         $listSheet = $spreadsheet->createSheet();
         $listSheet->setTitle('_lists');
 
-        foreach ($categories as $r => $name) {
-            $listSheet->setCellValue('A' . ($r + 1), $name);
+        foreach ($accounts as $r => $acct) {
+            $listSheet->setCellValue('A' . ($r + 1), $acct->code . ' — ' . $acct->name);
         }
         foreach ($bankAccounts as $r => $name) {
             $listSheet->setCellValue('B' . ($r + 1), $name);
@@ -531,7 +533,7 @@ class ExpenseController extends Controller
             $listSheet->setCellValue('C' . ($r + 1), $name);
         }
 
-        $catCount      = max($categories->count(), 1);
+        $acctCount     = max($accounts->count(), 1);
         $bankCount     = max($bankAccounts->count(), 1);
         $supplierCount = max($suppliers->count(), 1);
 
@@ -539,7 +541,7 @@ class ExpenseController extends Controller
 
         // Named ranges
         $spreadsheet->addNamedRange(new \PhpOffice\PhpSpreadsheet\NamedRange(
-            'CategoryList', $listSheet, "'_lists'!\$A\$1:\$A\${$catCount}"
+            'AccountList', $listSheet, "'_lists'!\$A\$1:\$A\${$acctCount}"
         ));
         $spreadsheet->addNamedRange(new \PhpOffice\PhpSpreadsheet\NamedRange(
             'BankList', $listSheet, "'_lists'!\$B\$1:\$B\${$bankCount}"
@@ -562,7 +564,7 @@ class ExpenseController extends Controller
             $sheet->setDataValidation("{$col}2:{$col}500", $v);
         };
 
-        $addDropdown('C', 'CategoryList');
+        $addDropdown('C', 'AccountList');
         $addDropdown('D', 'BankList');
 
         // Supplier dropdown (optional — allow blank)
@@ -594,10 +596,10 @@ class ExpenseController extends Controller
 
     public function bulkImport()
     {
-        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
 
-        return view('admin.accounting.expenses.bulk-import', compact('categories', 'bankAccounts'));
+        return view('admin.accounting.expenses.bulk-import', compact('accounts', 'bankAccounts'));
     }
 
     public function bulkImportPreview(Request $request)
@@ -606,10 +608,10 @@ class ExpenseController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt,xlsx,xls|max:5120',
         ]);
 
-        $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
 
-        $catMap      = $categories->keyBy(fn($c) => strtolower(trim($c->name)));
+        $acctMap     = $accounts->keyBy(fn($a) => strtolower(trim($a->code)));
         $bankMap     = $bankAccounts->keyBy(fn($b) => strtolower(trim($b->name)));
         $supplierMap = Supplier::where('is_active', true)->get()->keyBy(fn($s) => strtolower(trim($s->name)));
 
@@ -634,16 +636,18 @@ class ExpenseController extends Controller
                 $lineNum++;
                 $date        = trim((string) $sheet->getCell('A' . $row)->getFormattedValue());
                 $description = trim((string) $sheet->getCell('B' . $row)->getValue());
-                $catName     = trim((string) $sheet->getCell('C' . $row)->getValue());
+                $acctRaw     = trim((string) $sheet->getCell('C' . $row)->getValue());
                 $bankName    = trim((string) $sheet->getCell('D' . $row)->getValue());
                 $amount      = $sheet->getCell('E' . $row)->getValue();
                 $isZeroRaw   = trim((string) $sheet->getCell('F' . $row)->getValue());
                 $reference   = trim((string) $sheet->getCell('G' . $row)->getValue());
                 $supplierName = trim((string) $sheet->getCell('H' . $row)->getValue());
 
-                if ($date === '' && $description === '' && $catName === '') continue; // blank row
+                if ($date === '' && $description === '' && $acctRaw === '') continue; // blank row
 
-                $catMatch      = $catMap->get(strtolower($catName));
+                // Dropdown value may be "CODE — Name"; extract code part only
+                $acctCode  = strtolower(explode(' — ', $acctRaw, 2)[0]);
+                $acctMatch     = $acctMap->get($acctCode);
                 $bankMatch     = $bankMap->get(strtolower($bankName));
                 $supplierMatch = $supplierName !== '' ? $supplierMap->get(strtolower($supplierName)) : null;
                 $isZero        = strtolower($isZeroRaw) === 'yes' || $isZeroRaw === '1';
@@ -652,25 +656,25 @@ class ExpenseController extends Controller
                 $errors = [];
                 if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat($date, 'Y-m-d')) $errors[] = 'Invalid date';
                 if (!$description) $errors[] = 'Missing description';
-                if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
+                if (!$acctMatch)   $errors[] = "Account not found: \"{$acctRaw}\"";
                 if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
                 if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
                 if ($supplierName !== '' && !$supplierMatch) $errors[] = "Supplier not found: \"{$supplierName}\"";
 
                 $rows[] = [
-                    'line'                => $lineNum,
-                    'expense_date'        => $date,
-                    'description'         => $description,
-                    'category_name'       => $catName,
-                    'expense_category_id' => $catMatch?->id,
-                    'bank_account_name'   => $bankName,
-                    'bank_account_id'     => $bankMatch?->id,
-                    'supplier_name'       => $supplierName,
-                    'supplier_id'         => $supplierMatch?->id,
-                    'amount'              => $amtVal,
-                    'is_zero_rated'       => $isZero,
-                    'reference'           => $reference,
-                    'errors'              => $errors,
+                    'line'            => $lineNum,
+                    'expense_date'    => $date,
+                    'description'     => $description,
+                    'account_code'    => $acctRaw,
+                    'account_id'      => $acctMatch?->id,
+                    'bank_account_name' => $bankName,
+                    'bank_account_id' => $bankMatch?->id,
+                    'supplier_name'   => $supplierName,
+                    'supplier_id'     => $supplierMatch?->id,
+                    'amount'          => $amtVal,
+                    'is_zero_rated'   => $isZero,
+                    'reference'       => $reference,
+                    'errors'          => $errors,
                 ];
             }
         } else {
@@ -686,9 +690,11 @@ class ExpenseController extends Controller
                 $lineNum++;
                 if (count($cols) < 5) continue;
 
-                [$date, $description, $catName, $bankName, $amount, $isZeroRaw, $reference, $supplierName] = array_pad($cols, 8, '');
+                [$date, $description, $acctRaw, $bankName, $amount, $isZeroRaw, $reference, $supplierName] = array_pad($cols, 8, '');
 
-                $catMatch      = $catMap->get(strtolower(trim($catName)));
+                // Value may be "CODE — Name"; extract code part only
+                $acctCode  = strtolower(explode(' — ', trim($acctRaw), 2)[0]);
+                $acctMatch     = $acctMap->get($acctCode);
                 $bankMatch     = $bankMap->get(strtolower(trim($bankName)));
                 $supplierName  = trim($supplierName);
                 $supplierMatch = $supplierName !== '' ? $supplierMap->get(strtolower($supplierName)) : null;
@@ -698,42 +704,42 @@ class ExpenseController extends Controller
                 $errors = [];
                 if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat(trim($date), 'Y-m-d')) $errors[] = 'Invalid date';
                 if (!$description) $errors[] = 'Missing description';
-                if (!$catMatch)    $errors[] = "Category not found: \"{$catName}\"";
+                if (!$acctMatch)   $errors[] = "Account not found: \"{$acctRaw}\"";
                 if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
                 if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
                 if ($supplierName !== '' && !$supplierMatch) $errors[] = "Supplier not found: \"{$supplierName}\"";
 
                 $rows[] = [
-                    'line'                => $lineNum,
-                    'expense_date'        => trim($date),
-                    'description'         => trim($description),
-                    'category_name'       => trim($catName),
-                    'expense_category_id' => $catMatch?->id,
-                    'bank_account_name'   => trim($bankName),
-                    'bank_account_id'     => $bankMatch?->id,
-                    'supplier_name'       => $supplierName,
-                    'supplier_id'         => $supplierMatch?->id,
-                    'amount'              => $amtVal,
-                    'is_zero_rated'       => $isZero,
-                    'reference'           => trim($reference),
-                    'errors'              => $errors,
+                    'line'            => $lineNum,
+                    'expense_date'    => trim($date),
+                    'description'     => trim($description),
+                    'account_code'    => trim($acctRaw),
+                    'account_id'      => $acctMatch?->id,
+                    'bank_account_name' => trim($bankName),
+                    'bank_account_id' => $bankMatch?->id,
+                    'supplier_name'   => $supplierName,
+                    'supplier_id'     => $supplierMatch?->id,
+                    'amount'          => $amtVal,
+                    'is_zero_rated'   => $isZero,
+                    'reference'       => trim($reference),
+                    'errors'          => $errors,
                 ];
             }
             fclose($handle);
         }
 
         return view('admin.accounting.expenses.bulk-import-preview',
-            compact('rows', 'categories', 'bankAccounts'));
+            compact('rows', 'accounts', 'bankAccounts'));
     }
 
     public function bulkImportConfirm(Request $request)
     {
         $request->validate([
             'rows'                       => 'required|array|min:1',
-            'rows.*.expense_date'        => 'required|date',
-            'rows.*.description'         => 'required|string|max:500',
-            'rows.*.expense_category_id' => 'required|exists:expense_categories,id',
-            'rows.*.bank_account_id'     => 'required|exists:bank_accounts,id',
+            'rows.*.expense_date'  => 'required|date',
+            'rows.*.description'   => 'required|string|max:500',
+            'rows.*.account_id'    => 'required|exists:accounts,id',
+            'rows.*.bank_account_id' => 'required|exists:bank_accounts,id',
             'rows.*.supplier_id'         => 'nullable|exists:suppliers,id',
             'rows.*.amount'              => 'required|numeric|min:0.01',
             'rows.*.is_zero_rated'       => 'nullable|boolean',
@@ -744,18 +750,14 @@ class ExpenseController extends Controller
         foreach ($request->input('rows') as $row) {
             $amount = round((float) $row['amount'], 2);
 
-            // Respect the imported is_zero_rated flag; also check the category's flag
+            // Respect the imported is_zero_rated flag
             $isZero = !empty($row['is_zero_rated']);
-            if (!$isZero) {
-                $cat = ExpenseCategory::find($row['expense_category_id']);
-                if ($cat && $cat->is_zero_rated) $isZero = true;
-            }
 
             $vatRate = 0.18;
             $vat     = $isZero ? 0 : round($amount * $vatRate, 2);
 
             $expense = Expense::create([
-                'expense_category_id' => $row['expense_category_id'],
+                'account_id'          => $row['account_id'],
                 'bank_account_id'     => $row['bank_account_id'],
                 'supplier_id'         => $row['supplier_id'] ?? null,
                 'description'         => $row['description'],

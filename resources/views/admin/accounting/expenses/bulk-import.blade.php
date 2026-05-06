@@ -22,7 +22,7 @@
         <div class="text-sm text-blue-800">
             <p class="font-semibold mb-1">How to fill the template</p>
             <ul class="list-disc list-inside space-y-0.5 text-blue-700 mb-3">
-                <li>Download the Excel template below — columns C, D and F have <strong>dropdown lists</strong> pre-filled with your categories and bank accounts.</li>
+                <li>Download the Excel template below — column C has <strong>account codes (COA)</strong> pre-filled with your expense accounts; column D has bank accounts; column F has yes/no.</li>
                 <li><strong>date</strong>: YYYY-MM-DD format (e.g. 2026-05-01)</li>
                 <li><strong>amount</strong>: number only, no commas (e.g. 120000)</li>
                 <li><strong>reference</strong>: optional free text</li>
@@ -57,20 +57,13 @@
         </form>
     </div>
 
-    {{-- Category & bank account reference --}}
+    {{-- COA & bank account reference --}}
     <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-2">Available Categories</h3>
-            <ul class="text-xs text-gray-600 space-y-0.5 max-h-48 overflow-y-auto">
-                @foreach($categories as $cat)
-                <li class="flex items-center gap-1">
-                    @if(!$cat->account_id)
-                        <span class="text-amber-500">⚠</span>
-                    @else
-                        <span class="text-green-500">✓</span>
-                    @endif
-                    {{ $cat->name }}
-                </li>
+            <h3 class="text-sm font-semibold text-gray-700 mb-2">Available Expense Accounts (COA)</h3>
+            <ul class="text-xs text-gray-600 space-y-0.5 max-h-48 overflow-y-auto font-mono">
+                @foreach($accounts as $acct)
+                <li>{{ $acct->code }} — {{ $acct->name }}</li>
                 @endforeach
             </ul>
         </div>
