@@ -42,6 +42,16 @@
                     @error('account_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Supplier / Vendor</label>
+                    <select name="supplier_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                        <option value="">— None —</option>
+                        @foreach($suppliers as $s)
+                        <option value="{{ $s->id }}" @selected(old('supplier_id') == $s->id)>{{ $s->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('supplier_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
+                </div>
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Pay From Account <span class="text-red-500">*</span></label>
                     <select name="bank_account_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" required>
                         <option value="">Select account</option>

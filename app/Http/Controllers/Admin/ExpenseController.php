@@ -117,8 +117,9 @@ class ExpenseController extends Controller
     {
         $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.accounting.expenses.create', compact('accounts', 'bankAccounts'));
+        return view('admin.accounting.expenses.create', compact('accounts', 'bankAccounts', 'suppliers'));
     }
 
     public function store(Request $request)
@@ -126,6 +127,7 @@ class ExpenseController extends Controller
         $data = $request->validate([
             'account_id'      => 'required|exists:accounts,id',
             'bank_account_id' => 'required|exists:bank_accounts,id',
+            'supplier_id'     => 'nullable|exists:suppliers,id',
             'description'         => 'required|string|max:500',
             'amount'              => 'required|numeric|min:0.01',
             'is_zero_rated'       => 'nullable|boolean',
