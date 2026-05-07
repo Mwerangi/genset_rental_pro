@@ -297,20 +297,6 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-2">Payment Method <span class="text-red-500">*</span></label>
-                            <select name="payment_method" required
-                                class="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                                <option value="">— select —</option>
-                                <option value="bank_transfer" {{ old('payment_method') === 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
-                                <option value="cash"          {{ old('payment_method') === 'cash'          ? 'selected' : '' }}>Cash</option>
-                                <option value="cheque"        {{ old('payment_method') === 'cheque'        ? 'selected' : '' }}>Cheque</option>
-                                <option value="mpesa"         {{ old('payment_method') === 'mpesa'         ? 'selected' : '' }}>M-Pesa</option>
-                                <option value="other"         {{ old('payment_method') === 'other'         ? 'selected' : '' }}>Other</option>
-                            </select>
-                            @error('payment_method') <p class="text-red-600 text-xs mt-1">{{ $message }}</p> @enderror
-                        </div>
-
-                        <div>
                             <label class="block text-sm font-medium text-slate-700 mb-2">Payment Reference</label>
                             <x-input type="text" name="payment_reference"
                                 value="{{ old('payment_reference') }}"

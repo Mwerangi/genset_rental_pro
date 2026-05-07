@@ -595,7 +595,6 @@ class BookingController extends Controller
             'description'          => 'required|string|max:500',
             'bank_account_id'      => 'required|exists:bank_accounts,id',
             'payment_date'         => 'required|date',
-            'payment_method'       => 'required|in:cash,mpesa,bank_transfer,cheque,other',
             'payment_reference'    => 'nullable|string|max:100',
             'issue_date'           => 'required|date',
             'notes'                => 'nullable|string',
@@ -668,7 +667,7 @@ class BookingController extends Controller
                 'bank_account_id' => $validated['bank_account_id'],
                 'payment_date'    => $validated['payment_date'],
                 'amount'          => $total,
-                'payment_method'  => $validated['payment_method'],
+                'payment_method'  => 'bank_transfer',
                 'reference'       => $validated['payment_reference'] ?? null,
                 'notes'           => 'Historical record imported',
                 'recorded_by'     => auth()->id(),
@@ -728,6 +727,7 @@ class BookingController extends Controller
             'payment_method',      // cash / bank_transfer / mpesa / cheque / other
             'payment_reference',   // Optional
             'notes',               // Optional
+            'bank_account',        // Bank name or account name (must match a bank account in the system)
         ];
 
         foreach ($headers as $col => $header) {
@@ -743,7 +743,7 @@ class BookingController extends Controller
         ]);
 
         // Column widths
-        $widths = [28, 16, 26, 22, 16, 16, 30, 10, 14, 14, 11, 35, 14, 14, 16, 20, 30];
+        $widths = [28, 16, 26, 22, 16, 16, 30, 10, 14, 14, 11, 35, 14, 14, 16, 20, 30, 28];
         foreach ($widths as $col => $width) {
             $letter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col + 1);
             $sheet->getColumnDimension($letter)->setWidth($width);
@@ -769,6 +769,7 @@ class BookingController extends Controller
                 'bank_transfer',            // payment_method
                 'REF-20240220-001',         // payment_reference
                 '',                         // notes
+                'CRDB Bank',                // bank_account
             ],
             [
                 'Kilimanjaro Breweries',
@@ -788,6 +789,7 @@ class BookingController extends Controller
                 'bank_transfer',
                 'REF-USD-001',
                 'Long-term rental contract',
+                'NBC Bank',                 // bank_account
             ],
         ];
 
@@ -825,6 +827,7 @@ class BookingController extends Controller
             ['payment_method', 'Yes', 'One of: cash, bank_transfer, mpesa, cheque, other'],
             ['payment_reference', 'No', 'Receipt number, transfer ref, cheque number, etc.'],
             ['notes', 'No', 'Any additional context.'],
+            ['bank_account', 'Yes', 'Bank name or account name exactly as it appears in the system (e.g. CRDB Bank, NBC Bank). If left blank or unmatched, you will select a fallback account at import time.'],
         ];
         foreach ($infoRows as $r => $cols) {
             foreach ($cols as $c => $val) {
@@ -898,7 +901,8 @@ class BookingController extends Controller
         };
 
         $parsed = [];
-        $allClients = Client::orderBy('company_name')->get(['id', 'client_number', 'company_name', 'full_name']);
+        $allClients      = Client::orderBy('company_name')->get(['id', 'client_number', 'company_name', 'full_name']);
+        $allBankAccounts = BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'name', 'currency']);
 
         for ($i = 1; $i < count($rows); $i++) {
             $row = $rows[$i];
@@ -954,6 +958,21 @@ class BookingController extends Controller
             }
             if ($currency === 'USD' && $exRate <= 0) $errors[] = 'exchange_rate required for USD';
 
+            // Resolve bank_account column (optional per-row override)
+            $bankAccountRaw   = $get($row, 'bank_account');
+            $matchedBankAccId = null;
+            $matchedBankLabel = null;
+            if (!empty($bankAccountRaw)) {
+                $matchedBank = $allBankAccounts->first(fn($b) => strcasecmp($b->bank_name, $bankAccountRaw) === 0)
+                    ?? $allBankAccounts->first(fn($b) => strcasecmp($b->name ?? '', $bankAccountRaw) === 0);
+                if ($matchedBank) {
+                    $matchedBankAccId = $matchedBank->id;
+                    $matchedBankLabel = $matchedBank->bank_name . ' — ' . $matchedBank->name . ' (' . $matchedBank->currency . ')';
+                } else {
+                    $errors[] = "bank_account \"{$bankAccountRaw}\" not found in the system";
+                }
+            }
+
             $parsed[] = [
                 'row'               => $i + 1,
                 'client_identifier' => $clientId,
@@ -980,6 +999,8 @@ class BookingController extends Controller
                 'payment_method'    => strtolower($get($row, 'payment_method')),
                 'payment_reference' => $get($row, 'payment_reference'),
                 'notes'             => $get($row, 'notes'),
+                'bank_account_id'   => $matchedBankAccId,
+                'bank_account_label'=> $matchedBankLabel,
                 'errors'            => $errors,
             ];
         }
@@ -989,7 +1010,7 @@ class BookingController extends Controller
         return view('admin.bookings.bulk-historical-preview', [
             'rows'         => $parsed,
             'validCount'   => count(array_filter($parsed, fn($r) => empty($r['errors']))),
-            'bankAccounts' => BankAccount::orderBy('bank_name')->get(['id', 'bank_name', 'name', 'currency']),
+            'bankAccounts' => $allBankAccounts,
         ]);
     }
 
@@ -1005,7 +1026,7 @@ class BookingController extends Controller
                 ->with('error', 'Session expired. Please upload the file again.');
         }
 
-        $bankAccount = BankAccount::findOrFail($request->bank_account_id);
+        $fallbackBankAccount = BankAccount::findOrFail($request->bank_account_id);
 
         $saved = 0;
         $failed = 0;
@@ -1015,6 +1036,11 @@ class BookingController extends Controller
                 $failed++;
                 continue;
             }
+
+            // Use the per-row bank account if specified, otherwise fall back to the globally selected one
+            $bankAccount = ($row['bank_account_id'] ?? null)
+                ? BankAccount::find($row['bank_account_id']) ?? $fallbackBankAccount
+                : $fallbackBankAccount;
 
             try {
                 DB::transaction(function () use ($row, $bankAccount) {

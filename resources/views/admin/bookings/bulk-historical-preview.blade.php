@@ -54,6 +54,7 @@
                         <th class="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">VAT</th>
                         <th class="py-3 px-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">Total</th>
                         <th class="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment</th>
+                        <th class="py-3 px-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">Bank Account</th>
                         <th class="py-3 px-4 text-center text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
                     </tr>
                 </thead>
@@ -117,6 +118,15 @@
                                 <p class="text-xs text-slate-400">{{ $row['payment_date'] }}</p>
                             </td>
 
+                            <!-- Bank Account -->
+                            <td class="py-3 px-4">
+                                @if($row['bank_account_label'])
+                                    <p class="text-slate-700 text-xs">{{ $row['bank_account_label'] }}</p>
+                                @else
+                                    <span class="text-xs text-slate-400 italic">uses global selector</span>
+                                @endif
+                            </td>
+
                             <!-- Status -->
                             <td class="py-3 px-4 text-center">
                                 @if($hasErrors)
@@ -159,13 +169,17 @@
                 @if($validCount > 0)
                     <form method="POST" action="{{ route('admin.bookings.bulk-historical-confirm') }}" class="flex items-center gap-3">
                         @csrf
-                        <select name="bank_account_id" required
-                            class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                            <option value="">— Select bank account —</option>
-                            @foreach($bankAccounts as $ba)
-                            <option value="{{ $ba->id }}">{{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})</option>
-                            @endforeach
-                        </select>
+                        <div class="flex flex-col gap-0.5">
+                            <label class="text-xs text-slate-500 font-medium">Fallback bank account <span class="text-red-500">*</span></label>
+                            <select name="bank_account_id" required
+                                class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                <option value="">— Select bank account —</option>
+                                @foreach($bankAccounts as $ba)
+                                <option value="{{ $ba->id }}">{{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})</option>
+                                @endforeach
+                            </select>
+                            <p class="text-xs text-slate-400">Used for rows without a bank_account in the spreadsheet.</p>
+                        </div>
                         <button type="submit"
                             class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
