@@ -657,7 +657,6 @@ class ExpenseController extends Controller
                 if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat($date, 'Y-m-d')) $errors[] = 'Invalid date';
                 if (!$description) $errors[] = 'Missing description';
                 if (!$acctMatch)   $errors[] = "Account not found: \"{$acctRaw}\"";
-                if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
                 if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
                 if ($supplierName !== '' && !$supplierMatch) $errors[] = "Supplier not found: \"{$supplierName}\"";
 
@@ -705,7 +704,6 @@ class ExpenseController extends Controller
                 if (!$date || !\Carbon\Carbon::canBeCreatedFromFormat(trim($date), 'Y-m-d')) $errors[] = 'Invalid date';
                 if (!$description) $errors[] = 'Missing description';
                 if (!$acctMatch)   $errors[] = "Account not found: \"{$acctRaw}\"";
-                if (!$bankMatch)   $errors[] = "Bank account not found: \"{$bankName}\"";
                 if ($amtVal <= 0)  $errors[] = 'Amount must be > 0';
                 if ($supplierName !== '' && !$supplierMatch) $errors[] = "Supplier not found: \"{$supplierName}\"";
 
@@ -728,6 +726,13 @@ class ExpenseController extends Controller
             fclose($handle);
         }
 
+        // Assign a sequential valid_index to each error-free row (used by the view for bank account selects)
+        $j = 0;
+        foreach ($rows as &$row) {
+            $row['valid_index'] = empty($row['errors']) ? $j++ : null;
+        }
+        unset($row);
+
         return view('admin.accounting.expenses.bulk-import-preview',
             compact('rows', 'accounts', 'bankAccounts'));
     }
@@ -735,19 +740,22 @@ class ExpenseController extends Controller
     public function bulkImportConfirm(Request $request)
     {
         $request->validate([
-            'rows'                       => 'required|array|min:1',
-            'rows.*.expense_date'  => 'required|date',
-            'rows.*.description'   => 'required|string|max:500',
-            'rows.*.account_id'    => 'required|exists:accounts,id',
-            'rows.*.bank_account_id' => 'required|exists:bank_accounts,id',
-            'rows.*.supplier_id'         => 'nullable|exists:suppliers,id',
-            'rows.*.amount'              => 'required|numeric|min:0.01',
-            'rows.*.is_zero_rated'       => 'nullable|boolean',
-            'rows.*.reference'           => 'nullable|string|max:100',
+            'rows'                   => 'required|array|min:1',
+            'rows.*.expense_date'    => 'required|date',
+            'rows.*.description'     => 'required|string|max:500',
+            'rows.*.account_id'      => 'required|exists:accounts,id',
+            'rows.*.supplier_id'     => 'nullable|exists:suppliers,id',
+            'rows.*.amount'          => 'required|numeric|min:0.01',
+            'rows.*.is_zero_rated'   => 'nullable|boolean',
+            'rows.*.reference'       => 'nullable|string|max:100',
+            'bank_accounts'          => 'required|array',
+            'bank_accounts.*'        => 'required|exists:bank_accounts,id',
         ]);
 
+        $bankAccountSelections = $request->input('bank_accounts', []);
+
         $saved = 0;
-        foreach ($request->input('rows') as $row) {
+        foreach ($request->input('rows') as $j => $row) {
             $amount = round((float) $row['amount'], 2);
 
             // Respect the imported is_zero_rated flag
@@ -758,7 +766,7 @@ class ExpenseController extends Controller
 
             $expense = Expense::create([
                 'account_id'          => $row['account_id'],
-                'bank_account_id'     => $row['bank_account_id'],
+                'bank_account_id'     => $bankAccountSelections[$j],
                 'supplier_id'         => $row['supplier_id'] ?? null,
                 'description'         => $row['description'],
                 'amount'              => $amount,

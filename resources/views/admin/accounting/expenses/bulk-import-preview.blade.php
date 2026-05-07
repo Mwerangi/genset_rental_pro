@@ -47,7 +47,7 @@
                             <th class="px-3 py-3 text-left w-28">Date</th>
                             <th class="px-3 py-3 text-left min-w-48">Description</th>
                             <th class="px-3 py-3 text-left w-40">Account (COA)</th>
-                            <th class="px-3 py-3 text-left w-36">Bank Account</th>
+                            <th class="px-3 py-3 text-left w-44">Pay From Account</th>
                             <th class="px-3 py-3 text-left w-36">Supplier</th>
                             <th class="px-3 py-3 text-right w-28">Amount</th>
                             <th class="px-3 py-3 text-center w-16">No VAT</th>
@@ -71,7 +71,21 @@
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-700' : 'text-gray-700' }}">{{ $row['expense_date'] }}</td>
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-700' : 'text-gray-700' }}">{{ $row['description'] }}</td>
                                 <td class="px-3 py-2 font-mono {{ $hasError ? 'text-red-600' : 'text-gray-700' }}">{{ $row['account_code'] }}</td>
-                                <td class="px-3 py-2 {{ $hasError ? 'text-red-600' : 'text-gray-700' }}">{{ $row['bank_account_name'] }}</td>
+                                <td class="px-3 py-2">
+                                    @if(!$hasError)
+                                        <select name="bank_accounts[{{ $row['valid_index'] }}]" required
+                                            class="w-44 border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                            <option value="">— select account —</option>
+                                            @foreach($bankAccounts as $ba)
+                                                <option value="{{ $ba->id }}" @selected($row['bank_account_id'] == $ba->id)>
+                                                    {{ $ba->name }} ({{ $ba->currency }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    @else
+                                        <span class="text-xs text-gray-400">{{ $row['bank_account_name'] ?: '—' }}</span>
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2 {{ $hasError ? 'text-red-600' : 'text-gray-500' }}">{{ $row['supplier_name'] ?: '—' }}</td>
                                 <td class="px-3 py-2 text-right {{ $hasError ? 'text-red-700' : 'text-gray-700' }}">{{ number_format($amount, 2) }}</td>
                                 <td class="px-3 py-2 text-center">
@@ -104,7 +118,6 @@
             <input type="hidden" name="rows[{{ $j }}][expense_date]"    value="{{ $row['expense_date'] }}">
             <input type="hidden" name="rows[{{ $j }}][description]"     value="{{ $row['description'] }}">
             <input type="hidden" name="rows[{{ $j }}][account_id]"      value="{{ $row['account_id'] }}">
-            <input type="hidden" name="rows[{{ $j }}][bank_account_id]" value="{{ $row['bank_account_id'] }}">
             <input type="hidden" name="rows[{{ $j }}][supplier_id]"         value="{{ $row['supplier_id'] ?? '' }}">
             <input type="hidden" name="rows[{{ $j }}][amount]"              value="{{ $row['amount'] }}">
             <input type="hidden" name="rows[{{ $j }}][is_zero_rated]"       value="{{ $row['is_zero_rated'] ? 1 : 0 }}">

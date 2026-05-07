@@ -41,6 +41,8 @@
     @endif
 
     <!-- Table -->
+    <form method="POST" action="{{ route('admin.bookings.bulk-historical-confirm') }}" id="confirm-form">
+    @csrf
     <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-24">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -120,10 +122,16 @@
 
                             <!-- Bank Account -->
                             <td class="py-3 px-4">
-                                @if($row['bank_account_label'])
-                                    <p class="text-slate-700 text-xs">{{ $row['bank_account_label'] }}</p>
+                                @if(!$hasErrors)
+                                    <select name="bank_accounts[{{ $loop->index }}]" required
+                                        class="w-52 border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                        <option value="">— select account —</option>
+                                        @foreach($bankAccounts as $ba)
+                                            <option value="{{ $ba->id }}">{{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})</option>
+                                        @endforeach
+                                    </select>
                                 @else
-                                    <span class="text-xs text-slate-400 italic">uses global selector</span>
+                                    <span class="text-xs text-slate-400">—</span>
                                 @endif
                             </td>
 
@@ -151,6 +159,7 @@
             </table>
         </div>
     </div>
+    </form>
 
     <!-- Sticky bottom bar -->
     <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-lg z-40">
@@ -167,27 +176,13 @@
                     ← Start Over
                 </a>
                 @if($validCount > 0)
-                    <form method="POST" action="{{ route('admin.bookings.bulk-historical-confirm') }}" class="flex items-center gap-3">
-                        @csrf
-                        <div class="flex flex-col gap-0.5">
-                            <label class="text-xs text-slate-500 font-medium">Fallback bank account <span class="text-red-500">*</span></label>
-                            <select name="bank_account_id" required
-                                class="border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-                                <option value="">— Select bank account —</option>
-                                @foreach($bankAccounts as $ba)
-                                <option value="{{ $ba->id }}">{{ $ba->bank_name }} — {{ $ba->name }} ({{ $ba->currency }})</option>
-                                @endforeach
-                            </select>
-                            <p class="text-xs text-slate-400">Used for rows without a bank_account in the spreadsheet.</p>
-                        </div>
-                        <button type="submit"
-                            class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                            </svg>
-                            Save {{ $validCount }} Sale{{ $validCount !== 1 ? 's' : '' }}
-                        </button>
-                    </form>
+                    <button type="submit" form="confirm-form"
+                        class="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Save {{ $validCount }} Sale{{ $validCount !== 1 ? 's' : '' }}
+                    </button>
                 @endif
             </div>
         </div>
