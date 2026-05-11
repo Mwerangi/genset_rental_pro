@@ -544,6 +544,67 @@
                 {{ $slot }}
             </main>
 
+            {{-- ═══════════════════════════════════════════════════════════
+                 FOOTER
+            ════════════════════════════════════════════════════════════ --}}
+            <footer class="bg-gray-900 text-white mt-auto" id="admin-footer">
+                <!-- Top divider with red accent -->
+                <div class="h-0.5 bg-gradient-to-r from-red-600 via-red-500 to-red-600"></div>
+
+                <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+
+                        <!-- Brand -->
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-7 h-7 bg-red-600 rounded flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold tracking-wide text-white leading-none">MILELE POWER LTD</p>
+                                <p class="text-[10px] text-gray-500 mt-0.5">Generator Rental Management</p>
+                            </div>
+                        </div>
+
+                        <!-- Quick Access — inline pills -->
+                        <div class="flex items-center gap-1 flex-wrap">
+                            <a href="{{ route('dashboard') }}" class="text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 px-2.5 py-1 rounded transition-colors">Dashboard</a>
+                            @permission('view_bookings')
+                            <a href="{{ route('admin.bookings.index') }}" class="text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 px-2.5 py-1 rounded transition-colors">Bookings</a>
+                            @endpermission
+                            @permission('view_clients')
+                            <a href="{{ route('admin.clients.index') }}" class="text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 px-2.5 py-1 rounded transition-colors">Clients</a>
+                            @endpermission
+                            @permission('view_invoices')
+                            <a href="{{ route('admin.invoices.index') }}" class="text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 px-2.5 py-1 rounded transition-colors">Invoices</a>
+                            @endpermission
+                            @permission('view_fleet')
+                            <a href="{{ route('admin.gensets.index') }}" class="text-[11px] text-gray-400 hover:text-white hover:bg-gray-700 px-2.5 py-1 rounded transition-colors">Fleet</a>
+                            @endpermission
+                        </div>
+
+                        <!-- Contact & meta -->
+                        <div class="flex items-center gap-3 text-[11px] text-gray-500 flex-wrap">
+                            <span class="flex items-center gap-1">
+                                <svg class="w-3 h-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                info@milelepower.co.tz
+                            </span>
+                            <span class="text-gray-700">&bull;</span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                Operational
+                            </span>
+                            <span class="text-gray-700">&bull;</span>
+                            <span>&copy; {{ date('Y') }} Milele Power Ltd</span>
+                            <span class="text-gray-700">&bull;</span>
+                            <span class="text-gray-500">{{ Auth::user()->name }}</span>
+                        </div>
+
+                    </div>
+                </div>
+            </footer>
+
         </div>
 
         <!-- Toast Notifications -->
