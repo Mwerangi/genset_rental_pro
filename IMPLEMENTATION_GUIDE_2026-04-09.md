@@ -1,7 +1,7 @@
-# Implementation Guide — Historical Sales & Bank Statements
-**Date:** April 9, 2026  
+# Implementation Guide — Genset Rental Management System
+**Started:** April 9, 2026 · **Last Updated:** May 11, 2026  
 **System:** Genset Rental Management (Laravel 11 / Blade / Tailwind CSS / Alpine.js)  
-**Scope:** All features added, enhancements, and bug fixes in this session.
+**Scope:** Cumulative record of all features, enhancements, and bug fixes since April 1, 2026.
 
 ---
 
@@ -38,6 +38,27 @@
 22. *(April 24)* [Expense Categories — is_active Fix, Unlinked Warning, Delete Guard](#22-expense-categories--is_active-fix-unlinked-warning-delete-guard)
 23. *(April 24)* [Bank Statement — Expense Reconciliation](#23-bank-statement--expense-reconciliation)
 24. *(April 25)* [Expense bank_reconciled_at — Bank-Verified / Paid Status](#24-expense-bank_reconciled_at--bank-verified--paid-status)
+25. *(April 25)* [Updated Accounting Rules Reference](#25-updated-accounting-rules-reference-april-25)
+26. *(April 13)* [Multi-Genset Booking, Contract PDF, Zero-Rated, Genset Type Dropdown](#26-april-13--multi-genset-booking-contract-pdf-zero-rated-genset-type)
+27. *(April 15)* [Invoice Improvements — Pagination, Financial Summary Cards, Amount Paid](#27-april-15--invoice-improvements)
+28. *(April 17)* [Bank Statement JE Reversal + COA Balance Fixes + Recalculate Command](#28-april-17--bank-statement-je-reversal--coa-balance-fixes)
+29. *(April 20)* [Multi-Currency & FX — COA Currency, Account Transfer FX, Option A JE Lines](#29-april-20--multi-currency--fx)
+30. *(April 22)* [Custom Pagination Bar + JE Source Filter + Independent Bank Transfer Reconciliation](#30-april-22--custom-pagination--je-filter--bank-transfer-reconciliation)
+31. *(April 23)* [Account Transfer Reversal Fix + JE Reversed Tab + Backfill Migration](#31-april-23--account-transfer-reversal--je-reversed-tab)
+32. *(April 8)* [Company Stamp Upload + Display on PDFs](#32-april-8--company-stamp-upload)
+33. *(April 8)* [Separate Cancelled / Voided views for Invoices, Bookings, Quotations](#33-april-8--separate-cancelledvoided-views)
+34. *(March 24)* [Permissions Overhaul — Granular Access Control + Row-Level Scoping](#34-march-24--permissions-overhaul)
+35. *(March 24)* [Audit Trail + Supplier Profile Enhancements + Zero-Rated Expenses](#35-march-24--audit-trail--supplier-profile--zero-rated-expenses)
+36. *(March 25)* [Booking Contract PDF, Re-Approval on Edit, JE Export, Expense COA Linkage](#36-march-25--booking-contract-pdf--je-export--expense-coa)
+37. *(March 30)* [Company Settings Module — Logo, PDFs, Bank Details, Branding](#37-march-30--company-settings-module)
+38. *(March 30–31)* [Dynamic Quotation Line Item Types + Payment Ledger Fixes + March 31 Bug Fixes](#38-march-3031--dynamic-line-item-types--bug-fixes)
+39. *(April 1–3)* [PDF Header Spacing, Page Loader, Quotation Stats + Cancelled Page](#39-april-13--pdf-fixes--quotation-stats)
+40. *(April 30)* [Cash-Request Retire Flow, Zero-VAT Override, AR Ledger, Bulk Historical JE + Backfill Command](#40-april-30--cash-request-retire-flow-zero-vat-ar-ledger-bulk-historical-je)
+41. *(May 1)* [Bulk Expense Entry — Multi-Row Form + CSV Import with Preview](#41-may-1--bulk-expense-entry)
+42. *(May 2)* [Day-End Close Snapshot System + Snapshot History Report](#42-may-2--day-end-close-snapshot-system)
+43. *(May 5–6)* [Expense COA Typeahead, Supplier Field, Production Data-Clean Migrations](#43-may-56--expense-coa-typeahead-supplier-field-data-clean-migrations)
+44. *(May 7)* [Per-Row Bank Account on Historical Sales & Bulk Expense Import](#44-may-7--per-row-bank-account-on-historical-sales--bulk-expense-import)
+45. *(May 11)* [Compact Admin Footer](#45-may-11--compact-admin-footer)
 
 ---
 
@@ -2450,3 +2471,240 @@ The "Record Payment" modal on the invoice show page widened from `max-w-md` to `
 ---
 
 *End of March 24–April 3 retrospective additions.*
+
+---
+
+---
+
+# April 30 – May 11, 2026 — Cash Requests, Bulk Expenses, Day-End Snapshots, COA Typeahead, Data-Clean Migrations, Footer
+
+---
+
+## 40. April 30 — Cash-Request Retire Flow, Zero-VAT Override, AR Ledger, Bulk Historical JE
+
+### 40.1 Cash-Request Retire Flow
+**Commit:** `72f8c44`
+
+Cash requests can now be **retired** (fully used / closed out) from the show page. A retired request is locked from further edits and appears with a distinct status badge. The retire action posts any remaining unspent balance back to the originating account.
+
+### 40.2 Zero-VAT Override on Cash Requests
+Certain cash requests may be for zero-rated purchases. A **"Zero-VAT"** checkbox on the create/edit form skips the 18% VAT calculation and records the full amount as the net expense.
+
+### 40.3 AR Ledger Running Balance
+The **Accounts Receivable ledger view** (`/admin/accounting/ar-ledger`) now shows a **running balance** column that accumulates debit/credit row by row — making it easy to reconcile the AR balance at any historical date.
+
+### 40.4 Bulk Historical JE Entry
+Admins can now bulk-enter multiple Journal Entry lines at once via a multi-row form. Useful for migrating opening balances or entering consolidated historical transactions. Each row specifies: date, description, debit account (COA), credit account (COA), and amount.
+
+### 40.5 `je:backfill-invoices` Artisan Command
+**Commit:** `59c3725`
+
+A new artisan command that scans all existing invoices and invoice payments that do not yet have a corresponding Journal Entry and creates the missing JEs retroactively.
+
+```bash
+php artisan je:backfill-invoices
+```
+
+- For each **paid invoice** without a revenue JE → posts `DR 1140 AR / CR 4100 Revenue`
+- For each **invoice payment** without a payment JE → posts `DR 1110 Bank / CR 1140 AR`
+- Skips records already linked to a JE (`journal_entry_id` is not null)
+- Outputs a summary count of created JEs
+
+**File:** `app/Console/Commands/BackfillInvoiceJournalEntries.php`
+
+---
+
+## 41. May 1 — Bulk Expense Entry
+
+**Commit:** `2d577ff`
+
+### Overview
+A new bulk expense entry screen allows finance staff to enter many expenses in one sitting — either via a **dynamic multi-row form** or by **CSV upload with preview**.
+
+### Routes
+```php
+Route::get('/accounting/expenses/bulk',            [ExpenseController::class, 'bulkCreate'])->name('accounting.expenses.bulk-create');
+Route::post('/accounting/expenses/bulk',           [ExpenseController::class, 'bulkStore'])->name('accounting.expenses.bulk-store');
+Route::get('/accounting/expenses/bulk/template',   [ExpenseController::class, 'bulkTemplate'])->name('accounting.expenses.bulk-template');
+Route::post('/accounting/expenses/bulk/preview',   [ExpenseController::class, 'bulkPreview'])->name('accounting.expenses.bulk-preview');
+Route::post('/accounting/expenses/bulk/confirm',   [ExpenseController::class, 'bulkConfirm'])->name('accounting.expenses.bulk-confirm');
+```
+
+### Multi-Row Form
+- Alpine.js-driven dynamic table — click **"Add Row"** to append a new expense line
+- Each row: date, description, category, amount, currency, payment method
+- Submit stores all rows in a single DB transaction
+
+### CSV Import Flow
+1. Download template (`bulk/template`) — pre-filled with correct column headers
+2. Upload filled CSV → **preview** step shows a parsed table with any validation errors highlighted in red
+3. Confirm preview → all valid rows stored; skipped rows reported
+
+### Controller Methods
+**`ExpenseController::bulkPreview()`** — parses the uploaded CSV using `League\Csv\Reader`, runs per-row validation, and returns the preview view.
+
+**`ExpenseController::bulkConfirm()`** — re-validates (CSRF + re-parse), wraps all inserts in `DB::transaction()`.
+
+---
+
+## 42. May 2 — Day-End Close Snapshot System
+
+**Commit:** `587b2ab`
+
+### Overview
+A **day-end close** feature that captures a point-in-time snapshot of all account balances at the close of business each day. Prevents retroactive balance tampering and provides an auditable financial trail.
+
+### Database
+**Migration:** `create_daily_closings_table`
+```php
+Schema::create('daily_closings', function (Blueprint $table) {
+    $table->id();
+    $table->date('closing_date')->unique();
+    $table->json('account_snapshots');   // array of {account_id, balance, currency}
+    $table->decimal('total_assets_tzs', 18, 2)->default(0);
+    $table->decimal('total_liabilities_tzs', 18, 2)->default(0);
+    $table->decimal('net_position_tzs', 18, 2)->default(0);
+    $table->foreignId('closed_by')->constrained('users');
+    $table->timestamps();
+});
+```
+
+**Model:** `app/Models/DailyClosing.php`
+
+### Controller
+**`DailyClosingController`** with:
+- `store()` — takes all active COA account balances at that moment and serialises them into `account_snapshots` JSON. Prevents duplicate closings for the same date.
+- `index()` — paginates snapshot history with summary cards
+- `show($date)` — full balance breakdown for a specific closing date
+
+### Snapshot History Report
+**View:** `resources/views/admin/reports/daily-closing-history.blade.php`
+
+Shows a table of all closings with:
+- Closing date
+- Total assets (TZS equivalent)
+- Total liabilities
+- Net position
+- Closed by (user name)
+- Link to full breakdown
+
+### Routes
+```php
+Route::get('/accounting/daily-closings',       [DailyClosingController::class, 'index'])->name('accounting.daily-closings.index');
+Route::post('/accounting/daily-closings',      [DailyClosingController::class, 'store'])->name('accounting.daily-closings.store');
+Route::get('/accounting/daily-closings/{id}',  [DailyClosingController::class, 'show'])->name('accounting.daily-closings.show');
+```
+
+---
+
+## 43. May 5–6 — Expense COA Typeahead, Supplier Field, Production Data-Clean Migrations
+
+### 43.1 COA Typeahead on Single Expense Create Form
+**Commits:** `5a50496`, `752af2c`
+
+The **"Category"** dropdown on the single expense create form was replaced with a live-search **Chart of Accounts typeahead**. This links expenses directly to a COA account code, enabling proper double-entry journal entries when expenses are posted.
+
+**UI:** Text input with Alpine.js `x-data` — typing ≥ 2 characters queries `/admin/accounting/coa/search?q=…` and renders a dropdown of matching accounts (code + name). Selecting an account populates a hidden `account_id` field.
+
+**Supplier/Vendor Field:** A free-text `supplier` field was added alongside the COA typeahead so each expense can record who was paid.
+
+### 43.2 COA Typeahead on Bulk Expense Entry
+**Commit:** `01f47e6`
+
+Same COA typeahead applied to each row of the bulk expense entry form. The `account_id` migration added a nullable `account_id` FK to the `expenses` table pointing to `accounts`.
+
+**`JournalEntryService` fallback:** If an expense has no `account_id` (legacy records), the service falls back to the old category-based COA lookup so existing entries continue to post correctly.
+
+### 43.3 Bank Statement PDF Export
+**Commit:** `01f47e6`
+
+A **"Export PDF"** button was added to the bank statement show page. Generates a clean A4 PDF listing all transactions (date, description, type, amount, running balance) using the existing DomPDF setup.
+
+**Route:**
+```php
+Route::get('/accounting/bank-statements/{statement}/pdf', [BankStatementController::class, 'pdf'])->name('accounting.bank-statements.pdf');
+```
+
+### 43.4 Bulk Import: COA account_code Column
+**Commit:** `96f45a2`
+
+The bulk expense CSV template and preview table now use `account_code` instead of `category`. The preview controller resolves the code to an `account_id` before inserting.
+
+### 43.5 Supplier/Vendor Column on Bulk Expense Entry & CSV
+**Commit:** `d4e1271`
+
+A `supplier` column was added to:
+- The bulk multi-row entry form (each row)
+- The CSV import template
+- The preview confirmation table
+
+### 43.6 Production Data-Clean Migrations
+**Commits:** `6c83663`, `1fc051a`, `626ce4b`, `753d63a`
+
+A set of **data-clean migrations** were created to sanitise production data before new constraints went live. These are one-time, idempotent migrations that safely handle missing tables:
+
+| Migration | Cleans |
+|---|---|
+| `2026_05_05_clean_expenses` | Nulls orphaned `expense_category_id`, sets missing `status = 'draft'` |
+| `2026_05_05_clean_cash_requests` | Fills missing `currency = 'TZS'`, nulls invalid `account_id` FKs |
+| `2026_05_05_clean_bank_statements` | Removes orphaned `account_id` references |
+| `2026_05_05_clean_account_transfers` | Nulls reversed transfers pointing to deleted JEs |
+| `2026_05_05_clean_invoice_payments` | Fills missing `currency`, removes payments linked to deleted invoices |
+| `2026_05_06_comprehensive_data_clean` | Replaces all above with a single combined migration; all deletes guarded with `Schema::hasTable()` |
+
+**Guard pattern used throughout:**
+```php
+if (Schema::hasTable('expenses')) {
+    DB::table('expenses')->whereNull('status')->update(['status' => 'draft']);
+}
+```
+
+---
+
+## 44. May 7 — Per-Row Bank Account on Historical Sales & Bulk Expense Import
+
+### 44.1 Historical Sales — Per-Row Bank Account
+**Commit:** `390685f`
+
+Both the **single historical sale form** and the **bulk historical sales import** now include a bank account selector per entry. Previously the bank account was a global setting; now each historical record can be credited to a specific account — essential for businesses with multiple bank accounts in different currencies.
+
+**Single form change:** Added `bank_account_id` select (populated from active accounts) to `bookings/record-historical.blade.php`.
+
+**Bulk import change:** Added `bank_account_id` column to the multi-row table and the CSV template. The preview step resolves the account name and displays it in the confirmation table.
+
+**`storeHistorical()` / `bulkConfirm()` changes:** The `bank_account_id` is now passed to `JournalEntryService::onHistoricalSale()` and used for the DR side of the JE.
+
+### 44.2 Bulk Expense Import — Per-Row Bank Account Dropdown
+**Commit:** `6339b95`
+
+The **bulk expense CSV import preview** table gained a `bank_account_id` dropdown per row. After upload, the preview screen renders each row with a select populated from active accounts — allowing the reviewer to assign or correct the bank account before confirming the import.
+
+---
+
+## 45. May 11 — Compact Admin Footer
+
+**Commit:** `b0fb786`
+
+### Overview
+A persistent footer strip was added to the admin layout (`resources/views/components/admin-layout.blade.php`). The footer is intentionally compact — a single horizontal band that does not add significant page height.
+
+### Design
+- **Background:** `bg-gray-900` (matches top navbar)
+- **Top accent:** 2px red gradient divider (`from-red-600 via-red-500 to-red-600`)
+- **Layout:** Three flex groups — Brand | Quick Links | Contact & Meta
+- **Print:** Hidden via the existing `@media print` rule
+
+### Content
+| Section | Content |
+|---|---|
+| Brand | Red lightning-bolt icon + "MILELE POWER LTD" + subtitle |
+| Quick Links | Inline pill buttons — Dashboard, Bookings, Clients, Invoices, Fleet (each guarded by `@permission`) |
+| Contact & Meta | Email · Operational status pulse · Copyright year · Logged-in user name |
+
+### Code Location
+**File:** `resources/views/components/admin-layout.blade.php`  
+Inserted between `</main>` and the closing `</div>` of the `min-h-screen flex flex-col` wrapper.
+
+---
+
+*End of April 30 – May 11, 2026 additions.*
