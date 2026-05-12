@@ -43,12 +43,21 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Supplier / Vendor</label>
-                    <select name="supplier_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                        <option value="">— None —</option>
-                        @foreach($suppliers as $s)
-                        <option value="{{ $s->id }}" @selected(old('supplier_id') == $s->id)>{{ $s->name }}</option>
-                        @endforeach
-                    </select>
+                    @php
+                        $jsSuppliers   = $suppliers->map(fn($s) => ['id' => (string)$s->id, 'name' => $s->name]);
+                        $oldSupplierId = old('supplier_id');
+                        $oldSupplierLbl = $oldSupplierId ? ($suppliers->firstWhere('id', $oldSupplierId)?->name ?? '') : '';
+                    @endphp
+                    <div class="relative" id="supplierWrap">
+                        <input type="hidden" name="supplier_id" id="supplierId" value="{{ $oldSupplierId }}">
+                        <input type="text" id="supplierSearch"
+                               value="{{ $oldSupplierLbl }}"
+                               placeholder="Search supplier… (optional)"
+                               autocomplete="off"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 pr-7">
+                        <button type="button" id="supplierClear"
+                                class="{{ $oldSupplierId ? '' : 'hidden' }} absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-sm">&times;</button>
+                    </div>
                     @error('supplier_id')<p class="text-xs text-red-500 mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -184,6 +193,57 @@ function initAccountTypeahead(wrap, defaultId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     initAccountTypeahead(document.getElementById('acctWrap'), '{{ $oldAccountId }}');
+
+    // Supplier typeahead
+    const SUPPLIERS = @json($jsSuppliers);
+    const suppDrop  = (() => {
+        const d = document.createElement('div');
+        d.style.cssText = 'display:none;position:fixed;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:.5rem;box-shadow:0 4px 12px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;min-width:200px;font-size:.875rem';
+        document.body.appendChild(d);
+        return d;
+    })();
+    const sWrap = document.getElementById('supplierWrap');
+    const sSrch = document.getElementById('supplierSearch');
+    const sClr  = document.getElementById('supplierClear');
+    const sId   = document.getElementById('supplierId');
+    let suppDropOpen = false;
+
+    function renderSuppDrop(q) {
+        const rows = q.length < 1
+            ? SUPPLIERS.slice(0, 40)
+            : SUPPLIERS.filter(s => s.name.toLowerCase().includes(q.toLowerCase())).slice(0, 40);
+        if (!rows.length) { suppDrop.innerHTML = '<div style="padding:10px 14px;color:#9ca3af">No suppliers found</div>'; return; }
+        suppDrop.innerHTML = rows.map(s =>
+            `<div class="supp-opt" data-id="${s.id}" data-name="${s.name.replace(/"/g,'&quot;')}"
+                  style="padding:8px 14px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                  onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">${s.name}</div>`
+        ).join('');
+    }
+    function openSuppDrop() {
+        const rect = sSrch.getBoundingClientRect();
+        suppDrop.style.left  = rect.left + window.scrollX + 'px';
+        suppDrop.style.top   = rect.bottom + window.scrollY + 4 + 'px';
+        suppDrop.style.width = rect.width + 'px';
+        renderSuppDrop(sSrch.value.trim());
+        suppDrop.style.display = 'block';
+        suppDropOpen = true;
+    }
+    function setSupplier(id, name) {
+        sId.value   = id;
+        sSrch.value = name;
+        sClr.classList.toggle('hidden', !id);
+        suppDrop.style.display = 'none';
+        suppDropOpen = false;
+    }
+    sSrch.addEventListener('focus', openSuppDrop);
+    sSrch.addEventListener('input', () => { renderSuppDrop(sSrch.value.trim()); suppDrop.style.display = 'block'; suppDropOpen = true; });
+    sSrch.addEventListener('blur', () => setTimeout(() => { suppDrop.style.display = 'none'; suppDropOpen = false; }, 160));
+    suppDrop.addEventListener('mousedown', e => {
+        const opt = e.target.closest('.supp-opt');
+        if (!opt) return;
+        setSupplier(opt.dataset.id, opt.dataset.name);
+    });
+    sClr.addEventListener('click', () => setSupplier('', ''));
 });
 </script>
 </x-admin-layout>

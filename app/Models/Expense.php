@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Models\Account;
 
@@ -16,6 +17,7 @@ class Expense extends Model
         'source_type', 'source_id', 'journal_entry_id',
         'status', 'created_by', 'approved_by', 'approved_at',
         'bank_reconciled_at', 'bank_reconciled_by',
+        'amount_reconciled',
     ];
 
     protected $casts = [
@@ -25,6 +27,7 @@ class Expense extends Model
         'expense_date'       => 'date',
         'approved_at'        => 'datetime',
         'bank_reconciled_at' => 'datetime',
+        'amount_reconciled'  => 'decimal:2',
     ];
 
     protected static function boot()
@@ -103,12 +106,31 @@ class Expense extends Model
     }
 
     /**
-     * The bank statement transaction this expense was reconciled to (if any).
+     * All bank statement transactions reconciled against this expense.
+     * An expense may be partially reconciled across multiple bank transactions
+     * (e.g. an advance payment followed by a final payment).
+     */
+    public function bankTransactions(): HasMany
+    {
+        return $this->hasMany(BankTransaction::class, 'reconciled_payment_id')
+                    ->where('reconciled_payment_type', static::class);
+    }
+
+    /**
+     * @deprecated  Use bankTransactions() (hasMany). Kept for backwards compatibility.
      */
     public function bankTransaction(): HasOne
     {
         return $this->hasOne(BankTransaction::class, 'reconciled_payment_id')
                     ->where('reconciled_payment_type', static::class);
+    }
+
+    /**
+     * True when the cumulative reconciled amount covers the full expense total.
+     */
+    public function isFullyReconciled(): bool
+    {
+        return (float) $this->amount_reconciled >= (float) $this->total_amount;
     }
 
     // ─── Accessors ───────────────────────────────────────────────────

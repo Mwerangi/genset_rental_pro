@@ -236,49 +236,88 @@
             @endif
 
             {{-- Bank Reconciliation --}}
-            @if($expense->bankTransaction)
-            @php $bt = $expense->bankTransaction; @endphp
-            <div class="bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm p-5">
-                <p class="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-4 flex items-center gap-1.5">
+            @php $bankTxns = $expense->bankTransactions->load('bankStatement'); @endphp
+            @if($bankTxns->isNotEmpty())
+            @php
+                $isFullyReconciled = (float) $expense->amount_reconciled >= (float) $expense->total_amount;
+                $borderClass = $isFullyReconciled ? 'bg-emerald-50 border-emerald-200' : 'bg-blue-50 border-blue-200';
+                $headerClass = $isFullyReconciled ? 'text-emerald-700' : 'text-blue-700';
+            @endphp
+            <div class="{{ $borderClass }} border rounded-xl shadow-sm p-5">
+                <p class="text-xs font-semibold {{ $headerClass }} uppercase tracking-wide mb-1 flex items-center gap-1.5">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Bank Statement Reconciliation
                 </p>
-                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Statement</dt>
-                        <dd>
-                            <a href="{{ route('admin.accounting.bank-statements.show', $bt->bankStatement) }}" class="text-blue-600 hover:underline text-xs font-medium">
-                                {{ $bt->bankStatement->reference ?: 'Statement #'.$bt->bankStatement->id }}
-                            </a>
-                        </dd>
+
+                {{-- Progress bar --}}
+                @php
+                    $pct = $expense->total_amount > 0
+                        ? min(100, round((float) $expense->amount_reconciled / (float) $expense->total_amount * 100))
+                        : 0;
+                @endphp
+                <div class="flex items-center gap-2 mb-4 mt-2">
+                    <div class="flex-1 bg-gray-200 rounded-full h-2">
+                        <div class="{{ $isFullyReconciled ? 'bg-emerald-500' : 'bg-blue-500' }} h-2 rounded-full transition-all"
+                             style="width: {{ $pct }}%"></div>
                     </div>
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Transaction Date</dt>
-                        <dd class="text-gray-900 font-medium">{{ $bt->transaction_date->format('d M Y') }}</dd>
+                    <span class="text-xs font-mono {{ $headerClass }} shrink-0">
+                        {{ number_format((float) $expense->amount_reconciled, 0) }}
+                        / {{ number_format((float) $expense->total_amount, 0) }}
+                        ({{ $pct }}%)
+                    </span>
+                </div>
+
+                {{-- One card per bank transaction --}}
+                @foreach($bankTxns as $loop_i => $bt)
+                <div class="border border-gray-200 rounded-lg p-3 mb-2 bg-white text-sm last:mb-0">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Payment {{ $loop_i + 1 }} of {{ $bankTxns->count() }}
+                        </span>
+                        <span class="font-mono font-bold text-gray-900 text-xs">
+                            {{ number_format((float) $bt->amount, 0) }}
+                        </span>
                     </div>
-                    @if($bt->reference)
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Bank Reference</dt>
-                        <dd class="font-mono text-xs text-gray-900">{{ $bt->reference }}</dd>
-                    </div>
-                    @endif
-                    @if($bt->description)
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Transaction Description</dt>
-                        <dd class="text-gray-700 text-xs">{{ $bt->description }}</dd>
-                    </div>
-                    @endif
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Confirmed At</dt>
-                        <dd class="text-emerald-700 font-medium text-xs">{{ $expense->bank_reconciled_at?->format('d M Y H:i') }}</dd>
-                    </div>
-                    @if($expense->bankReconciledBy)
-                    <div>
-                        <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Confirmed By</dt>
-                        <dd class="text-gray-900 text-xs">{{ $expense->bankReconciledBy->name }}</dd>
-                    </div>
-                    @endif
-                </dl>
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                        <div>
+                            <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Statement</dt>
+                            <dd>
+                                <a href="{{ route('admin.accounting.bank-statements.show', $bt->bankStatement) }}"
+                                   class="text-blue-600 hover:underline text-xs font-medium">
+                                    {{ $bt->bankStatement->reference ?: 'Statement #'.$bt->bankStatement->id }}
+                                </a>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Transaction Date</dt>
+                            <dd class="text-gray-900 font-medium">{{ $bt->transaction_date->format('d M Y') }}</dd>
+                        </div>
+                        @if($bt->reference)
+                        <div>
+                            <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Bank Reference</dt>
+                            <dd class="font-mono text-xs text-gray-900">{{ $bt->reference }}</dd>
+                        </div>
+                        @endif
+                        @if($bt->description)
+                        <div>
+                            <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Description</dt>
+                            <dd class="text-gray-700 text-xs">{{ $bt->description }}</dd>
+                        </div>
+                        @endif
+                        <div>
+                            <dt class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Reconciled At</dt>
+                            <dd class="text-gray-700 text-xs">{{ $bt->reconciled_at?->format('d M Y H:i') }}</dd>
+                        </div>
+                    </dl>
+                </div>
+                @endforeach
+
+                @if($isFullyReconciled && $expense->bank_reconciled_at)
+                <p class="text-xs text-emerald-600 mt-3">
+                    Fully confirmed on {{ $expense->bank_reconciled_at->format('d M Y H:i') }}
+                    @if($expense->bankReconciledBy) by {{ $expense->bankReconciledBy->name }}@endif.
+                </p>
+                @endif
             </div>
             @elseif($expense->status === 'posted')
             <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">

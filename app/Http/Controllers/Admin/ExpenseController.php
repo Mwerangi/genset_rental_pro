@@ -168,7 +168,7 @@ class ExpenseController extends Controller
             && $expense->created_by !== $user->id) {
             abort(403, 'You do not have permission to view this expense.');
         }
-        $expense->load(['category', 'bankAccount', 'journalEntry.lines.account', 'createdBy', 'approvedBy', 'bankTransaction.bankStatement', 'bankReconciledBy']);
+        $expense->load(['category', 'bankAccount', 'journalEntry.lines.account', 'createdBy', 'approvedBy', 'bankTransactions.bankStatement', 'bankReconciledBy']);
         return view('admin.accounting.expenses.show', compact('expense'));
     }
 
@@ -227,8 +227,10 @@ class ExpenseController extends Controller
 
         $categories   = ExpenseCategory::with('account')->where('is_active', true)->orderBy('name')->get();
         $bankAccounts = BankAccount::where('is_active', true)->orderBy('name')->get();
+        $accounts     = Account::where('type', 'expense')->where('is_active', true)->orderBy('code')->get(['id', 'code', 'name']);
+        $suppliers    = Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.accounting.expenses.edit', compact('expense', 'categories', 'bankAccounts'));
+        return view('admin.accounting.expenses.edit', compact('expense', 'categories', 'bankAccounts', 'accounts', 'suppliers'));
     }
 
     public function update(Request $request, Expense $expense)
@@ -244,7 +246,9 @@ class ExpenseController extends Controller
 
         $data = $request->validate([
             'expense_category_id' => 'required|exists:expense_categories,id',
+            'account_id'          => 'required|exists:accounts,id',
             'bank_account_id'     => 'required|exists:bank_accounts,id',
+            'supplier_id'         => 'nullable|exists:suppliers,id',
             'description'         => 'required|string|max:500',
             'amount'              => 'required|numeric|min:0.01',
             'is_zero_rated'       => 'nullable|boolean',

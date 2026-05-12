@@ -488,8 +488,10 @@ class BankStatementController extends Controller
                               ->whereNotNull('reconciled_payment_id')
                               ->whereHas('bankStatement', fn($q) => $q->where('bank_account_id', $bankAccountId))
                               ->pluck('reconciled_payment_id');
-        $usedExpenseIds   = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\Expense::class)
-                              ->whereNotNull('reconciled_payment_id')->pluck('reconciled_payment_id');
+        // Exclude expenses that are already FULLY reconciled (amount_reconciled >= total_amount).
+        // Partially-reconciled expenses remain eligible for a second (or more) reconciliation.
+        $usedExpenseIds   = \App\Models\Expense::whereColumn('amount_reconciled', '>=', 'total_amount')
+                              ->pluck('id');
 
         $results = [];
 
@@ -695,8 +697,13 @@ class BankStatementController extends Controller
     public function reconcileTransaction(Request $request, BankStatement $bankStatement, BankTransaction $transaction)
     {
         abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
-        abort_if($transaction->status === 'posted', 422, 'Already posted — cannot reconcile.');
-        abort_if($transaction->status === 'reconciled', 422, 'Already reconciled.');
+
+        if ($transaction->status === 'posted') {
+            return back()->with('error', 'This transaction has already been posted — it cannot be reconciled.');
+        }
+        if ($transaction->status === 'reconciled') {
+            return back()->with('error', 'This transaction is already reconciled.');
+        }
 
         $request->validate([
             'payment_type' => 'required|in:invoice_payment,supplier_payment,account_transfer,expense',
@@ -706,13 +713,25 @@ class BankStatementController extends Controller
         if ($request->payment_type === 'expense') {
             $expense = \App\Models\Expense::findOrFail($request->payment_id);
 
-            abort_if($expense->bank_account_id !== $bankStatement->bank_account_id, 422,
-                'The selected expense is not for the same bank account as this statement.');
+            if ($expense->bank_account_id !== $bankStatement->bank_account_id) {
+                return back()->with('error', 'The selected expense is not for the same bank account as this statement.');
+            }
 
-            $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\Expense::class)
-                ->where('reconciled_payment_id', $expense->id)
-                ->exists();
-            abort_if($alreadyUsed, 409, 'This expense is already reconciled to another bank transaction.');
+            if ($expense->isFullyReconciled()) {
+                return back()->with('error',
+                    "Expense {$expense->expense_number} is already fully reconciled — no further bank transactions can be linked to it.");
+            }
+
+            $wouldExceed = (float) $expense->amount_reconciled + (float) $transaction->amount
+                           > (float) $expense->total_amount + 0.01;
+            if ($wouldExceed) {
+                return back()->with('error', sprintf(
+                    'Cannot reconcile: this bank transaction (%s) would push the reconciled total above the expense amount of %s (already confirmed: %s).',
+                    number_format((float) $transaction->amount, 2),
+                    number_format((float) $expense->total_amount, 2),
+                    number_format((float) $expense->amount_reconciled, 2)
+                ));
+            }
 
             $transaction->update([
                 'status'                   => 'reconciled',
@@ -723,33 +742,39 @@ class BankStatementController extends Controller
                 'journal_entry_id'         => $expense->journal_entry_id ?? $transaction->journal_entry_id,
             ]);
 
-            // Mark the expense as bank-confirmed (paid)
+            $newAmountReconciled = (float) $expense->amount_reconciled + (float) $transaction->amount;
+            $isNowFull = $newAmountReconciled >= (float) $expense->total_amount;
+
             $expense->update([
-                'bank_reconciled_at' => now(),
-                'bank_reconciled_by' => auth()->id(),
+                'amount_reconciled'  => $newAmountReconciled,
+                'bank_reconciled_at' => $isNowFull ? now() : $expense->bank_reconciled_at,
+                'bank_reconciled_by' => $isNowFull ? auth()->id() : $expense->bank_reconciled_by,
             ]);
 
-            return back()->with('success',
-                "Transaction reconciled → linked to Expense {$expense->expense_number}. No duplicate journal entry was created.");
+            $reconciled = number_format($newAmountReconciled, 2);
+            $total      = number_format((float) $expense->total_amount, 2);
+            $msg = $isNowFull
+                ? "Transaction reconciled → Expense {$expense->expense_number} is now fully reconciled ({$reconciled}). No duplicate journal entry was created."
+                : "Transaction reconciled → Expense {$expense->expense_number} partially reconciled ({$reconciled} of {$total}). Remaining balance still awaiting bank confirmation.";
+
+            return back()->with('success', $msg);
         }
 
         if ($request->payment_type === 'account_transfer') {
             $transfer = \App\Models\AccountTransfer::findOrFail($request->payment_id);
 
-            // Guard: the transfer must involve this bank account
-            abort_if(
-                $transfer->from_bank_account_id !== $bankStatement->bank_account_id &&
-                $transfer->to_bank_account_id   !== $bankStatement->bank_account_id,
-                422, 'The selected transfer does not involve the bank account of this statement.'
-            );
+            if ($transfer->from_bank_account_id !== $bankStatement->bank_account_id &&
+                $transfer->to_bank_account_id   !== $bankStatement->bank_account_id) {
+                return back()->with('error', 'The selected transfer does not involve the bank account of this statement.');
+            }
 
-            // Guard: not already reconciled from the SAME bank account side.
-            // A transfer has two sides (from + to), each side can be reconciled once independently.
             $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\AccountTransfer::class)
                 ->where('reconciled_payment_id', $transfer->id)
                 ->whereHas('bankStatement', fn($q) => $q->where('bank_account_id', $bankStatement->bank_account_id))
                 ->exists();
-            abort_if($alreadyUsed, 409, 'This transfer has already been reconciled from this bank account\'s statement.');
+            if ($alreadyUsed) {
+                return back()->with('error', 'This transfer has already been reconciled from this bank account\'s statement.');
+            }
 
             $transaction->update([
                 'status'                   => 'reconciled',
@@ -770,15 +795,16 @@ class BankStatementController extends Controller
 
         $payment = $modelClass::findOrFail($request->payment_id);
 
-        // Guard: ensure payment is for the same bank account
-        abort_if($payment->bank_account_id !== $bankStatement->bank_account_id, 422,
-            'The selected payment is not for the same bank account as this statement.');
+        if ($payment->bank_account_id !== $bankStatement->bank_account_id) {
+            return back()->with('error', 'The selected payment is not for the same bank account as this statement.');
+        }
 
-        // Guard: ensure this payment isn't already reconciled to another transaction
         $alreadyUsed = \App\Models\BankTransaction::where('reconciled_payment_type', $modelClass)
             ->where('reconciled_payment_id', $payment->id)
             ->exists();
-        abort_if($alreadyUsed, 409, 'This payment is already reconciled to another bank transaction.');
+        if ($alreadyUsed) {
+            return back()->with('error', 'This payment is already reconciled to another bank transaction.');
+        }
 
         $transaction->update([
             'status'                   => 'reconciled',
@@ -786,7 +812,6 @@ class BankStatementController extends Controller
             'reconciled_payment_id'    => $payment->id,
             'reconciled_at'            => now(),
             'reconciled_by'            => auth()->id(),
-            // Link to the payment's JE for traceability — no new JE created
             'journal_entry_id'         => $payment->journal_entry_id ?? $transaction->journal_entry_id,
         ]);
 
@@ -802,13 +827,24 @@ class BankStatementController extends Controller
         abort_if($transaction->bank_statement_id !== $bankStatement->id, 404);
         abort_if($transaction->status !== 'reconciled', 422, 'Transaction is not reconciled.');
 
-        // If this was reconciled against an expense, clear the bank-confirmed flag on it
+        // If this was reconciled against an expense, subtract the amount and conditionally
+        // clear the bank-confirmed flag (only when no reconciliations remain).
         if ($transaction->reconciled_payment_type === \App\Models\Expense::class
             && $transaction->reconciled_payment_id) {
-            \App\Models\Expense::where('id', $transaction->reconciled_payment_id)->update([
-                'bank_reconciled_at' => null,
-                'bank_reconciled_by' => null,
-            ]);
+            $expense = \App\Models\Expense::find($transaction->reconciled_payment_id);
+            if ($expense) {
+                $newAmountReconciled = max(0, (float) $expense->amount_reconciled - (float) $transaction->amount);
+                $hasOtherLinks = \App\Models\BankTransaction::where('reconciled_payment_type', \App\Models\Expense::class)
+                    ->where('reconciled_payment_id', $expense->id)
+                    ->where('id', '!=', $transaction->id)
+                    ->where('status', 'reconciled')
+                    ->exists();
+                $expense->update([
+                    'amount_reconciled'  => $newAmountReconciled,
+                    'bank_reconciled_at' => $hasOtherLinks ? $expense->bank_reconciled_at : null,
+                    'bank_reconciled_by' => $hasOtherLinks ? $expense->bank_reconciled_by : null,
+                ]);
+            }
         }
 
         $transaction->update([
